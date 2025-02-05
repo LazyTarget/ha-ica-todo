@@ -89,8 +89,23 @@ ITEM_LIST: Final = "Rows"
 ITEM_NAME: Final = "ProductName"
 IS_CHECKED: Final = "IsStrikedOver"
 
-BASE_URL: Final = "https://handla.api.ica.se/api"
 
+class API:
+
+    class AppRegistration:
+        APP_REGISTRATION_ENDPOINT: Final = "register"
+        CLIENT_ID: Final = "ica-app-dcr-registration"
+        CLIENT_SECRET: Final = "uxLHTBvZ-Z2fV-SbrHl1E-tz7vB3jQFrwAdSLlbVMMu1rxDdvJU0s8KGu9d1wLS4"
+
+    class URLs:
+        """URLs and API Endpoints"""
+        BASE_URL: Final = "https://ims.icagruppen.se/"
+
+        OAUTH2_TOKEN_ENDPOINT: Final = "oauth/v2/token"
+        
+
+
+# Old ones...
 AUTH_ENDPOINT: Final = "login"
 MY_LISTS_ENDPOINT: Final = "user/offlineshoppinglists"
 MY_LIST_ENDPOINT: Final = "user/offlineshoppinglists/{}"

@@ -24,18 +24,37 @@ from .const import (
     ARTICLEGROUPS_ENDPOINT,
     RANDOM_RECIPES_ENDPOINT,
     MY_COMMON_ARTICLES_ENDPOINT,
+    API,
 )
 from .icatypes import IcaStore, IcaOffer, IcaShoppingList, IcaProductCategory, IcaRecipe
 
+import logging
+_LOGGER = logging.getLogger(__name__)
+
 
 def get_rest_url(endpoint: str):
-    return "/".join([BASE_URL, endpoint])
+    return "/".join([API.URLs.BASE_URL, endpoint])
+
+
+def get_token_for_app_registration():
+    url = get_rest_url(API.URLs.OAUTH2_TOKEN_ENDPOINT)
+    data = {
+        "client_id": API.AppRegistration.CLIENT_ID,
+        "client_secret": API.AppRegistration.CLIENT_SECRET,
+        "grant_type": "client_credentials",
+        "scope": "dcr",
+        "response_type": "token"
+    }
+    response = requests.post(url, data=data, timeout=15)
+    if response and response.status_code in [200]:
+        return response.json["access_token"]
+    return None
 
 
 def get_auth_key(user, psw):
     url = get_rest_url(AUTH_ENDPOINT)
     auth = (user, psw)
-    response = requests.get(url, auth=auth)
+    response = requests.get(url, auth=auth, timeout=15)
     if response:
         return response.headers[AUTH_TICKET]
     return None
