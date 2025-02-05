@@ -31,6 +31,9 @@ from .icatypes import IcaStore, IcaOffer, IcaShoppingList, IcaProductCategory, I
 import logging
 _LOGGER = logging.getLogger(__name__)
 
+from homeassistant.util.json import load_json
+from homeassistant.helpers.json import save_json
+
 
 def get_rest_url(endpoint: str):
     return "/".join([API.URLs.BASE_URL, endpoint])
@@ -51,6 +54,27 @@ def get_token_for_app_registration():
     return None
 
 
+def register_app(app_registration_api_access_token):
+    url = get_rest_url(API.AppRegistration.APP_REGISTRATION_ENDPOINT)
+    j = {
+        "software_id": "dcr-ica-app-template"
+    }
+    h = {
+        'Authorization': f"Bearer {app_registration_api_access_token}"
+    }
+    response = requests.post(url, json=j, headers=h, timeout=15)
+    if response and response.status_code in [200]:
+        #save_json(self.hass.config.path(API.AppRegistration.PERSISTENCE), response.json)
+        return response.json
+    return None
+
+
+def init_app():
+    app_registration_api_access_token = get_token_for_app_registration()
+    app = register_app(app_registration_api_access_token)
+    return app
+
+
 def get_auth_key(user, psw):
     url = get_rest_url(AUTH_ENDPOINT)
     auth = (user, psw)
@@ -63,6 +87,7 @@ def get_auth_key(user, psw):
 class IcaAPI:
     ### Class to retrieve and manipulate ICA Shopping lists ###
     def __init__(self, user, psw, session: requests.Session | None = None) -> None:
+        init_app()
         self._auth_key = get_auth_key(user, psw)
         self._session = session or requests.Session()
 
