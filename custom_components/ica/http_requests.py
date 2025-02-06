@@ -2,10 +2,11 @@ from __future__ import annotations
 from typing import Any, Dict
 from requests import Session
 import json
-from .const import AUTH_TICKET
+import logging
+_LOGGER = logging.getLogger(__name__)
 
 CONTENT_TYPE = ("Content-Type", "application/json; charset=utf-8")
-AUTHORIZATION = (AUTH_TICKET, "%s")
+AUTHORIZATION = ("Authorization", "Bearer %s")
 X_REQUEST_ID = ("X-Request-Id", "%s")
 
 
@@ -16,18 +17,16 @@ def create_headers(
 ) -> Dict[str, str]:
     headers: Dict[str, str] = {}
 
-    # if auth_key:
-    #     headers.update([(AUTHORIZATION[0], AUTHORIZATION[1] % auth_key)])
     if auth_key:
-        headers.update([("Authorization", "Bearer %s" % auth_key)])
+        headers.update([(AUTHORIZATION[0], AUTHORIZATION[1] % auth_key)])
+    #if auth_key:
+    #    headers.update([("Authorization", "Bearer %s" % auth_key)])
     if with_content:
         headers.update([CONTENT_TYPE])
     if request_id:
         headers.update([(X_REQUEST_ID[0], X_REQUEST_ID[1] % request_id)])
     return headers
 
-import logging
-_LOGGER = logging.getLogger(__name__)
 
 def get(
     session: Session,

@@ -65,7 +65,7 @@ class IcaAuthenticator:
                                 allow_redirects=allow_redirects)
         
         _LOGGER.info('[GET] %s Response Code: %s', url, response.status_code)
-        if "json" in response.headers.get("Content-Type") or response.status_code not in [200, 201]:
+        if "json" in response.headers.get("Content-Type", 'application/json') or response.status_code not in [200, 201]:
             _LOGGER.debug('[GET] %s Response Text: %s', url, response.text)
         # if self._session.cookies is not None:
         #     _LOGGER.debug('[GET] %s Saved Cookies: %s', url, json.dumps(self._session.cookies.get_dict(domain="ims.icagruppen.se")))
@@ -87,7 +87,8 @@ class IcaAuthenticator:
                                  allow_redirects=allow_redirects)
         
         _LOGGER.info('[POST] %s Response Code: %s', url, response.status_code)
-        _LOGGER.debug('[POST] %s Response Text: %s', url, response.text)
+        if "json" in response.headers.get("Content-Type", 'application/json') or response.status_code not in [200, 201]:
+            _LOGGER.debug('[POST] %s Response Text: %s', url, response.text)
         # if self._session.cookies is not None:
         #     _LOGGER.debug('[POST] %s Saved Cookies: %s', url, json.dumps(self._session.cookies.get_dict(domain="ims.icagruppen.se")))
             
