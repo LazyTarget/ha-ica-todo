@@ -96,11 +96,14 @@ class API:
         APP_REGISTRATION_ENDPOINT: Final = "register"
         CLIENT_ID: Final = "ica-app-dcr-registration"
         CLIENT_SECRET: Final = "uxLHTBvZ-Z2fV-SbrHl1E-tz7vB3jQFrwAdSLlbVMMu1rxDdvJU0s8KGu9d1wLS4"
+        
+        PERSISTENCE = ".ica_shopping_list__app-registration.json"
 
     class URLs:
         """URLs and API Endpoints"""
-        BASE_URL: Final = "https://ims.icagruppen.se/"
+        BASE_URL: Final = "https://ims.icagruppen.se"
 
+        OAUTH2_AUTHORIZE_ENDPOINT: Final = "oauth/v2/authorize"
         OAUTH2_TOKEN_ENDPOINT: Final = "oauth/v2/token"
         
 
