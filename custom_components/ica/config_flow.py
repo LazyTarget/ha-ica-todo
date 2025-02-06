@@ -37,24 +37,33 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """Handle the initial step."""
         if self._async_current_entries():
+            _LOGGER.fatal("Current config entries: %s", self._async_current_entries())
             return self.async_abort(reason="single_instance_allowed")
 
         errors: dict[str, str] = {}
         if user_input is not None:
             api = IcaAPIAsync(user_input[CONF_ICA_ID], user_input[CONF_ICA_PIN])
-            nRecipes = user_input[CONF_NUM_RECIPES]
-            try:
+            #nRecipes = user_input[CONF_NUM_RECIPES]
+            try:                
                 await api.get_shopping_lists()
+                
+                user = api.get_authenticated_user()
+                config_entry_data = {
+                    "user_input": user_input,
+                    "user": user,
+                    "access_token": user["access_token"],
+                }
             except HTTPError as err:
                 if err.response.status_code == HTTPStatus.UNAUTHORIZED:
                     errors["base"] = "invalid_credentials"
                 else:
                     errors["base"] = "cannot_connect"
+                _LOGGER.exception("HttpError %s", err, exc_info=True)
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             else:
-                return self.async_create_entry(title=DOMAIN, data=user_input)
+                return self.async_create_entry(title=DOMAIN, data=config_entry_data)
 
         return self.async_show_form(
             step_id="user",

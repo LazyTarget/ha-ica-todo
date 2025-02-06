@@ -162,18 +162,23 @@ _LOGGER = logging.getLogger(__name__)
 #     return None
 
 def get_rest_url(endpoint: str):
-    return "/".join([API.URLs.BASE_URL, endpoint])
+    # return "/".join([API.URLs.BASE_URL, endpoint])
+    return "/".join([API.URLs.QUERY_BASE, endpoint])
 
 class IcaAPI:
     """Class to retrieve and manipulate ICA Shopping lists"""
     
     def __init__(self, user, psw, session: requests.Session | None = None) -> None:
         authenticator = IcaAuthenticator(user, psw, session)
-        authenticator.get_access_token(user, psw)
-        raise ValueError("Stopping setup as the rest is not implemented")
+        authenticator.do_full_login(user, psw)
         
-        self._auth_key = get_auth_key(user, psw)
+        #self._auth_key = get_auth_key(user, psw)
+        self._user = authenticator._user
+        self._auth_key = authenticator._auth_key
         self._session = session or requests.Session()
+        
+    def get_authenticated_user(self):
+        return self._user
 
     def get_shopping_lists(self) -> list[IcaShoppingList]:
         url = get_rest_url(MY_LISTS_ENDPOINT)

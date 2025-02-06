@@ -36,6 +36,7 @@ _LOGGER = logging.getLogger(__name__)
 class IcaAuthenticator:
     """Class to handle authentications"""
     cookie_jar = None
+    _auth_key = None
     
     def __init__(self, user, psw, session: requests.Session | None = None) -> None:
         # registered_app = self.init_app()
@@ -50,45 +51,46 @@ class IcaAuthenticator:
         return "/".join([API.URLs.BASE_URL, endpoint])
 
     def invoke_get(self, url, params=None, data=None, headers=None, timeout=30, allow_redirects=True):
-        _LOGGER.debug('[GET] %s Request', url)
+        #_LOGGER.info('[GET] %s Request', url)
         if data is not None:
             _LOGGER.debug('[GET] %s Request Data: %s', url, data)
-        if self.cookie_jar is not None:
-            _LOGGER.warning('[GET] %s Cookies: %s', url, self.cookie_jar.keys)
+        # if self._session.cookies is not None:
+        #     _LOGGER.debug('[GET] %s Loaded Cookies: %s', url, json.dumps(self._session.cookies.get_dict(domain="ims.icagruppen.se")))
             
-        response = requests.get(url, 
+        response = self._session.get(url, 
                                 params=params, 
                                 data=data, 
                                 headers=headers,
                                 timeout=timeout, 
-                                cookies=self.cookie_jar,
                                 allow_redirects=allow_redirects)
         
-        _LOGGER.debug('[GET] %s Response Code: %s', url, response.status_code)
-        _LOGGER.debug('[GET] %s Response Text: %s', url, response.text)
-        if response.cookies is not None:
-            self.cookie_jar = response.cookies
+        _LOGGER.info('[GET] %s Response Code: %s', url, response.status_code)
+        if "json" in response.headers.get("Content-Type") or response.status_code not in [200, 201]:
+            _LOGGER.debug('[GET] %s Response Text: %s', url, response.text)
+        # if self._session.cookies is not None:
+        #     _LOGGER.debug('[GET] %s Saved Cookies: %s', url, json.dumps(self._session.cookies.get_dict(domain="ims.icagruppen.se")))
+            
         response.raise_for_status()
         return response
 
-    def invoke_post(self, url, params=None, data=None, json=None, headers=None, timeout=30, allow_redirects=True):
-        _LOGGER.debug('[POST] %s Request', url)
+    def invoke_post(self, url, params=None, data=None, json_data=None, headers=None, timeout=30, allow_redirects=True):
+        #_LOGGER.info('[POST] %s Request', url)
         if data is not None:
             _LOGGER.debug('[POST] %s Request Data: %s', url, data)
-        if json is not None:
-            _LOGGER.debug('[POST] %s Request Json: %s', url, json)
-        if self.cookie_jar is not None:
-            _LOGGER.warning('[POST] %s Cookies: %s', url, self.cookie_jar.keys)
+        if json_data is not None:
+            _LOGGER.debug('[POST] %s Request Json: %s', url, json_data)
+        # if self._session.cookies is not None:
+        #     _LOGGER.debug('[POST] %s Loaded Cookies: %s', url, json.dumps(self._session.cookies.get_dict(domain="ims.icagruppen.se")))
             
-        response = requests.post(url, params=params, data=data, json=json, 
-                                 headers=headers, timeout=timeout, 
-                                 cookies=self.cookie_jar, 
+        response = self._session.post(url, params=params, data=data, json=json_data,
+                                 headers=headers, timeout=timeout,
                                  allow_redirects=allow_redirects)
         
-        _LOGGER.debug('[POST] %s Response Code: %s', url, response.status_code)
+        _LOGGER.info('[POST] %s Response Code: %s', url, response.status_code)
         _LOGGER.debug('[POST] %s Response Text: %s', url, response.text)
-        if response.cookies is not None:
-            self.cookie_jar = response.cookies
+        # if self._session.cookies is not None:
+        #     _LOGGER.debug('[POST] %s Saved Cookies: %s', url, json.dumps(self._session.cookies.get_dict(domain="ims.icagruppen.se")))
+            
         response.raise_for_status()
         return response
 
@@ -115,7 +117,7 @@ class IcaAuthenticator:
         h = {
             'Authorization': f"Bearer {app_registration_api_access_token}"
         }
-        response = self.invoke_post(url, json=j, headers=h)
+        response = self.invoke_post(url, json_data=j, headers=h)
         if response and response.status_code in [200, 201]:
             return response.json()
         return None
@@ -146,7 +148,7 @@ class IcaAuthenticator:
             raise ValueError("Expected a Location redirect")
         
         state = re.search(r"&state=(\w*)", location)[1]
-        _LOGGER.warning("State: ", state)
+        _LOGGER.warning("State: %s", state)
         
         # Invokes /authn/authenticate
         response = self.invoke_get(location)
@@ -162,6 +164,9 @@ class IcaAuthenticator:
         }
         # Posts login form...
         response = self.invoke_post(url, data=d)
+        if response.status_code == 400:
+            raise RuntimeError("Got 404 on Login request, might be incorrect credentials?")
+        
         response.raise_for_status()
         
         api_state = re.search(r'<input type="hidden" name="state" value="(\w*)', response.text)[1]
@@ -174,8 +179,45 @@ class IcaAuthenticator:
         
         return token
     
-    def get_access_token(self, token):
+    def get_access_token(self, registered_app, state, token, code_verifier):
         url = self.get_rest_url(API.URLs.OAUTH2_AUTHORIZE_ENDPOINT)
+        p = {
+            "client_id": registered_app["client_id"],
+            "forceAuthN": "true",
+            "acr": "urn:se:curity:authentication:html-form:IcaCustomers",
+            # urn%3Ase%3Acurity%3Aauthentication%3Ahtml-form%3AIcaCustomers
+        }
+        d = {
+            "token": token,
+            "state": state,
+        }
+        # Authorize
+        response = self.invoke_post(url, params=p, data=d, allow_redirects=False)
+        response.raise_for_status()
+        
+        location = response.headers["Location"]
+        if location is None:
+            raise ValueError("Expected a Location redirect")
+        
+        code = re.search(r"&code=(\w*)", location)[1]
+        _LOGGER.warning("Code: %s", code)
+        
+        # Invokes /authn/authenticate
+        url = self.get_rest_url(API.URLs.OAUTH2_TOKEN_ENDPOINT)
+        d = {
+            "code": code,
+            "client_id": registered_app["client_id"],
+            "client_secret": registered_app["client_secret"],
+            "grant_type": "authorization_code",
+            "scope": registered_app["scope"],
+            "response_type": "token",
+            "code_verifier": code_verifier,
+            "redirect_uri": "icacurity://app",
+        }
+        response = self.invoke_post(url, data=d)
+        response.raise_for_status()
+        
+        return response.json()
         
 
     def generate_code_challenge(self):
@@ -202,8 +244,8 @@ class IcaAuthenticator:
         code_challenge, len(code_challenge)
         #('81R8C6QhI5He4enPDCr7KgRqP6fQZ37FNQAP5NkaOBg', 43)
         
-        _LOGGER.fatal("code_challenge: %s", code_challenge)
-        _LOGGER.fatal("code_verifier: %s", code_verifier)
+        _LOGGER.info("code_challenge: %s", code_challenge)
+        _LOGGER.info("code_verifier: %s", code_verifier)
         return (code_challenge, code_verifier)
 
     # def get_auth_key(self, user, psw):
@@ -226,11 +268,14 @@ class IcaAuthenticator:
         # Initiate OAuth login with Authorization-code with PKCE
         state = self.init_oauth(registered_app, code_challenge)
         
-        self.init_login(user, psw, state)
+        token = self.init_login(user, psw, state)
         
+        result = self.get_access_token(registered_app, state, token, code_verifier)
+        _LOGGER.fatal("Token: %s", result)
         
-        raise ValueError("Stopping setup as the rest is not implemented")
-
+        self._user = result
+        self._auth_key = result["access_token"]
+        return result
 
 
     def get_shopping_lists(self) -> list[IcaShoppingList]:

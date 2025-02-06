@@ -18,11 +18,16 @@ async def run_async(func):
 
 
 class IcaAPIAsync:
-    ### Class to retrieve and hold the data for a Shopping list from ICA ###
+    """Class to retrieve and hold the data for a Shopping list from ICA"""
     def __init__(self, uid, pin):
         self._uid = uid
         self._pin = pin
         self._api = None
+        
+    def get_authenticated_user(self):
+        if not self._api:
+            self._api = IcaAPI(self._uid, self._pin)
+        return self._api.get_authenticated_user()
 
     async def get_shopping_lists(self) -> list[IcaShoppingList]:
         if not self._api:

@@ -108,11 +108,14 @@ class API:
         
         LOGIN_ENDPOINT: Final = "authn/authenticate/IcaCustomers"
         
+        QUERY_BASE: Final = "https://apimgw-pub.ica.se"
+        
+        
 
 
 # Old ones...
 AUTH_ENDPOINT: Final = "login"
-MY_LISTS_ENDPOINT: Final = "user/offlineshoppinglists"
+MY_LISTS_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/shoppinglists" #"user/offlineshoppinglists"
 MY_LIST_ENDPOINT: Final = "user/offlineshoppinglists/{}"
 MY_LIST_SYNC_ENDPOINT: Final = "user/offlineshoppinglists/{}/sync"
 MY_CARDS_ENDPOINT: Final = "user/cardaccounts"

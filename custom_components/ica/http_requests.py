@@ -16,14 +16,18 @@ def create_headers(
 ) -> Dict[str, str]:
     headers: Dict[str, str] = {}
 
+    # if auth_key:
+    #     headers.update([(AUTHORIZATION[0], AUTHORIZATION[1] % auth_key)])
     if auth_key:
-        headers.update([(AUTHORIZATION[0], AUTHORIZATION[1] % auth_key)])
+        headers.update([("Authorization", "Bearer %s" % auth_key)])
     if with_content:
         headers.update([CONTENT_TYPE])
     if request_id:
         headers.update([(X_REQUEST_ID[0], X_REQUEST_ID[1] % request_id)])
     return headers
 
+import logging
+_LOGGER = logging.getLogger(__name__)
 
 def get(
     session: Session,
@@ -36,6 +40,7 @@ def get(
     )
 
     if response.status_code == 200:
+        _LOGGER.warning("HTTP: Resp: %s", json.dumps(response.json()))
         return response.json()
 
     response.raise_for_status()
