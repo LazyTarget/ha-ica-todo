@@ -106,6 +106,8 @@ class API:
         OAUTH2_AUTHORIZE_ENDPOINT: Final = "oauth/v2/authorize"
         OAUTH2_TOKEN_ENDPOINT: Final = "oauth/v2/token"
         
+        LOGIN_ENDPOINT: Final = "authn/authenticate/IcaCustomers"
+        
 
 
 # Old ones...

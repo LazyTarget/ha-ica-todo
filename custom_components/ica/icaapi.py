@@ -27,149 +27,149 @@ from .const import (
     API,
 )
 from .icatypes import IcaStore, IcaOffer, IcaShoppingList, IcaProductCategory, IcaRecipe
+from .authenticator import IcaAuthenticator
 
 import logging
 _LOGGER = logging.getLogger(__name__)
 
-from homeassistant.util.json import load_json
-from homeassistant.helpers.json import save_json
+# cookie_jar = {}
+
+# def get_rest_url(endpoint: str):
+#     return "/".join([API.URLs.BASE_URL, endpoint])
 
 
-cookie_jar = {}
+# def invoke_get(url, data=None, headers=None, cookies=None, timeout=30):
+#     _LOGGER.debug('[GET] %s Request', url)
+#     if data is not None:
+#         _LOGGER.debug('[GET] %s Request Data: %s', url, data)
+#     if cookies is not None:
+#         _LOGGER.warning("Cookies: %s", cookies)
+#     response = requests.get(url, data=data, headers=headers, timeout=timeout, cookies=cookies)
+#     _LOGGER.debug('[GET] %s Response Code: %s', url, response.status_code)
+#     _LOGGER.debug('[GET] %s Response Text: %s', url, response.text)
+#     if response.cookies is not None:
+#         cookies = response.cookies
+#     response.raise_for_status()
+#     return response
+
+
+# def invoke_post(url, data=None, json=None, headers=None, cookies=None, timeout=30):
+#     _LOGGER.debug('[POST] %s Request', url)
+#     if data is not None:
+#         _LOGGER.debug('[POST] %s Request Data: %s', url, data)
+#     if json is not None:
+#         _LOGGER.debug('[POST] %s Request Json: %s', url, json)
+#     if cookies is not None:
+#         _LOGGER.warning("Cookies: %s", cookies)
+#     response = requests.post(url, data=data, json=json, headers=headers, timeout=timeout, cookies=cookies)
+#     _LOGGER.debug('[POST] %s Response Code: %s', url, response.status_code)
+#     _LOGGER.debug('[POST] %s Response Text: %s', url, response.text)
+#     if response.cookies is not None:
+#         cookies = response.cookies
+#     response.raise_for_status()
+#     return response
+
+
+# def get_token_for_app_registration():
+#     url = get_rest_url(API.URLs.OAUTH2_TOKEN_ENDPOINT)
+#     d = {
+#         "client_id": API.AppRegistration.CLIENT_ID,
+#         "client_secret": API.AppRegistration.CLIENT_SECRET,
+#         "grant_type": "client_credentials",
+#         "scope": "dcr",
+#         "response_type": "token"
+#     }
+#     response = invoke_post(url, data=d)
+#     if response and response.status_code in [200, 201]:
+#         return response.json()["access_token"]
+#     response.raise_for_status()
+#     return None
+
+
+# def register_app(app_registration_api_access_token):
+#     url = get_rest_url(API.AppRegistration.APP_REGISTRATION_ENDPOINT)
+#     j = {
+#         "software_id": "dcr-ica-app-template"
+#     }
+#     h = {
+#         'Authorization': f"Bearer {app_registration_api_access_token}"
+#     }
+#     response = invoke_post(url, json=j, headers=h)
+#     if response and response.status_code in [200, 201]:
+#         return response.json()
+#     return None
+
+
+# def init_app():
+#     app_registration_api_access_token = get_token_for_app_registration()
+#     registered_app = register_app(app_registration_api_access_token)
+#     return registered_app
+
+
+# def init_oauth(registered_app, code_challenge):
+#     url = get_rest_url(API.URLs.OAUTH2_AUTHORIZE_ENDPOINT)
+#     d = {
+#         "client_id": registered_app["client_id"],
+#         "scope": registered_app["scope"],
+#         "redirect_uri": "icacurity://app",
+#         "response_type": "code",
+#         "code_challenge": code_challenge,
+#         "code_challenge_method": "S256",
+#         "prompt": "login",
+#         "acr": "urn:se:curity:authentication:html-form:IcaCustomers",
+#     }
+#     response = invoke_get(url, data=d)
+#     _LOGGER.info('Headers %s', response.headers.get("Location"))
+#     if response:
+#         return response.headers["Location"]
+#     return None
+
+
+# def generate_code_challenge():
+#     import base64
+#     import os
+#     code_verifier = base64.urlsafe_b64encode(os.urandom(40)).decode('utf-8')
+#     print(code_verifier)
+#     #KTZVMl6OrcoTIej5c9QUaQ5x2p95P46D5hd2yb7kuAIBCVM9j0P1lA==
+#     import re
+#     re.sub('[^a-zA-Z0-9]+', '', code_verifier)
+#     #'KTZVMl6OrcoTIej5c9QUaQ5x2p95P46D5hd2yb7kuAIBCVM9j0P1lA'
+#     code_verifier = re.sub('[^a-zA-Z0-9]+', '', code_verifier)
+#     code_verifier, len(code_verifier)
+#     #('KTZVMl6OrcoTIej5c9QUaQ5x2p95P46D5hd2yb7kuAIBCVM9j0P1lA', 54)
+#     import hashlib
+#     code_challenge = hashlib.sha256(code_verifier.encode('utf-8')).digest()
+#     print(code_challenge)
+#     #b'\xf3T|\x0b\xa4!#\x91\xde\xe1\xe9\xcf\x0c*\xfb*\x04j?\xa7\xd0g~\xc55\x00\x0f\xe4\xd9\x1a8\x18'
+#     code_challenge = base64.urlsafe_b64encode(code_challenge).decode('utf-8')
+#     print(code_challenge)
+#     #81R8C6QhI5He4enPDCr7KgRqP6fQZ37FNQAP5NkaOBg=
+#     code_challenge = code_challenge.replace('=', '')
+#     print(code_challenge)
+#     #81R8C6QhI5He4enPDCr7KgRqP6fQZ37FNQAP5NkaOBg
+#     code_challenge, len(code_challenge)
+#     #('81R8C6QhI5He4enPDCr7KgRqP6fQZ37FNQAP5NkaOBg', 43)
+#     return (code_challenge, code_verifier)
+
+
+
+# def get_auth_key(user, psw):
+#     url = get_rest_url(AUTH_ENDPOINT)
+#     auth = (user, psw)
+#     response = invoke_get(url, auth=auth, timeout=15)
+#     if response:
+#         return response.headers[AUTH_TICKET]
+#     return None
 
 def get_rest_url(endpoint: str):
     return "/".join([API.URLs.BASE_URL, endpoint])
 
-
-def invoke_get(url, data=None, headers=None, cookies=None, timeout=30):
-    _LOGGER.debug('[GET] %s Request', url)
-    if data is not None:
-        _LOGGER.debug('[GET] %s Request Data: %s', url, data)
-    if cookies is not None:
-        _LOGGER.warning("Cookies: %s", cookies)
-    response = requests.get(url, data=data, headers=headers, timeout=timeout, cookies=cookies)
-    _LOGGER.debug('[GET] %s Response Code: %s', url, response.status_code)
-    _LOGGER.debug('[GET] %s Response Text: %s', url, response.text)
-    if response.cookies is not None:
-        cookies = response.cookies
-    response.raise_for_status()
-    return response
-
-
-def invoke_post(url, data=None, json=None, headers=None, cookies=None, timeout=30):
-    _LOGGER.debug('[POST] %s Request', url)
-    if data is not None:
-        _LOGGER.debug('[POST] %s Request Data: %s', url, data)
-    if json is not None:
-        _LOGGER.debug('[POST] %s Request Json: %s', url, json)
-    if cookies is not None:
-        _LOGGER.warning("Cookies: %s", cookies)
-    response = requests.post(url, data=data, json=json, headers=headers, timeout=timeout, cookies=cookies)
-    _LOGGER.debug('[POST] %s Response Code: %s', url, response.status_code)
-    _LOGGER.debug('[POST] %s Response Text: %s', url, response.text)
-    if response.cookies is not None:
-        cookies = response.cookies
-    response.raise_for_status()
-    return response
-
-
-def get_token_for_app_registration():
-    url = get_rest_url(API.URLs.OAUTH2_TOKEN_ENDPOINT)
-    d = {
-        "client_id": API.AppRegistration.CLIENT_ID,
-        "client_secret": API.AppRegistration.CLIENT_SECRET,
-        "grant_type": "client_credentials",
-        "scope": "dcr",
-        "response_type": "token"
-    }
-    response = invoke_post(url, data=d)
-    if response and response.status_code in [200, 201]:
-        return response.json()["access_token"]
-    response.raise_for_status()
-    return None
-
-
-def register_app(app_registration_api_access_token):
-    url = get_rest_url(API.AppRegistration.APP_REGISTRATION_ENDPOINT)
-    j = {
-        "software_id": "dcr-ica-app-template"
-    }
-    h = {
-        'Authorization': f"Bearer {app_registration_api_access_token}"
-    }
-    response = invoke_post(url, json=j, headers=h)
-    if response and response.status_code in [200, 201]:
-        return response.json()
-    return None
-
-
-def init_app():
-    app_registration_api_access_token = get_token_for_app_registration()
-    registered_app = register_app(app_registration_api_access_token)
-    return registered_app
-
-
-def init_oauth(registered_app, code_challenge):
-    url = get_rest_url(API.URLs.OAUTH2_AUTHORIZE_ENDPOINT)
-    d = {
-        "client_id": registered_app["client_id"],
-        "scope": registered_app["scope"],
-        "redirect_uri": "icacurity://app",
-        "response_type": "code",
-        "code_challenge": code_challenge,
-        "code_challenge_method": "S256",
-        "prompt": "login",
-        "acr": "urn:se:curity:authentication:html-form:IcaCustomers",
-    }
-    response = invoke_get(url, data=d)
-    _LOGGER.info('Headers %s', response.headers.get("Location"))
-    if response:
-        return response.headers["Location"]
-    return None
-
-
-def generate_code_challenge():
-    import base64
-    import os
-    code_verifier = base64.urlsafe_b64encode(os.urandom(40)).decode('utf-8')
-    print(code_verifier)
-    #KTZVMl6OrcoTIej5c9QUaQ5x2p95P46D5hd2yb7kuAIBCVM9j0P1lA==
-    import re
-    re.sub('[^a-zA-Z0-9]+', '', code_verifier)
-    #'KTZVMl6OrcoTIej5c9QUaQ5x2p95P46D5hd2yb7kuAIBCVM9j0P1lA'
-    code_verifier = re.sub('[^a-zA-Z0-9]+', '', code_verifier)
-    code_verifier, len(code_verifier)
-    #('KTZVMl6OrcoTIej5c9QUaQ5x2p95P46D5hd2yb7kuAIBCVM9j0P1lA', 54)
-    import hashlib
-    code_challenge = hashlib.sha256(code_verifier.encode('utf-8')).digest()
-    print(code_challenge)
-    #b'\xf3T|\x0b\xa4!#\x91\xde\xe1\xe9\xcf\x0c*\xfb*\x04j?\xa7\xd0g~\xc55\x00\x0f\xe4\xd9\x1a8\x18'
-    code_challenge = base64.urlsafe_b64encode(code_challenge).decode('utf-8')
-    print(code_challenge)
-    #81R8C6QhI5He4enPDCr7KgRqP6fQZ37FNQAP5NkaOBg=
-    code_challenge = code_challenge.replace('=', '')
-    print(code_challenge)
-    #81R8C6QhI5He4enPDCr7KgRqP6fQZ37FNQAP5NkaOBg
-    code_challenge, len(code_challenge)
-    #('81R8C6QhI5He4enPDCr7KgRqP6fQZ37FNQAP5NkaOBg', 43)
-    return (code_challenge, code_verifier)
-
-
-def get_auth_key(user, psw):
-    url = get_rest_url(AUTH_ENDPOINT)
-    auth = (user, psw)
-    response = invoke_get(url, auth=auth, timeout=15)
-    if response:
-        return response.headers[AUTH_TICKET]
-    return None
-
-
 class IcaAPI:
-    ### Class to retrieve and manipulate ICA Shopping lists ###
+    """Class to retrieve and manipulate ICA Shopping lists"""
+    
     def __init__(self, user, psw, session: requests.Session | None = None) -> None:
-        registered_app = init_app()
-        (code_challenge, code_verifier) = generate_code_challenge()
-        init_oauth(registered_app, code_challenge)
+        authenticator = IcaAuthenticator(user, psw, session)
+        authenticator.get_access_token(user, psw)
         raise ValueError("Stopping setup as the rest is not implemented")
         
         self._auth_key = get_auth_key(user, psw)
