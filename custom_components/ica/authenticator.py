@@ -276,6 +276,7 @@ class IcaAuthenticator:
         
         self._user = result
         self._auth_key = result["access_token"]
+        _LOGGER.fatal("FULL LOGIN COMPLETE: %s", result)
         return result
 
 

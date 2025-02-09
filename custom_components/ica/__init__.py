@@ -26,9 +26,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     uid = entry.data[CONF_ICA_ID]
     pin = entry.data[CONF_ICA_PIN]
-    nRecipes = entry.data[CONF_NUM_RECIPES]
-    api = IcaAPIAsync(uid, pin)
-    coordinator = IcaCoordinator(hass, _LOGGER, SCAN_INTERVAL, api, nRecipes)
+    #nRecipes = entry.data[CONF_NUM_RECIPES]
+    _LOGGER.fatal("async_setup_entry. %s", entry.data)
+    user_token = entry.data["user"]
+    api = IcaAPIAsync(uid, pin, user_token)
+    coordinator = IcaCoordinator(hass, _LOGGER, SCAN_INTERVAL, api)
     await coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})

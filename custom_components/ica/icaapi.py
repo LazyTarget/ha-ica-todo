@@ -168,13 +168,15 @@ def get_rest_url(endpoint: str):
 class IcaAPI:
     """Class to retrieve and manipulate ICA Shopping lists"""
     
-    def __init__(self, user, psw, session: requests.Session | None = None) -> None:
-        authenticator = IcaAuthenticator(user, psw, session)
-        authenticator.do_full_login(user, psw)
+    def __init__(self, user, psw, user_token=None, session: requests.Session | None = None) -> None:
+        if user_token is None:
+            authenticator = IcaAuthenticator(user, psw, session)
+            authenticator.do_full_login(user, psw)
+            self._user = authenticator._user
+        else:
+            self._user = user_token
         
-        #self._auth_key = get_auth_key(user, psw)
-        self._user = authenticator._user
-        self._auth_key = authenticator._auth_key
+        self._auth_key = self._user["access_token"]
         self._session = session or requests.Session()
         
     def get_authenticated_user(self):

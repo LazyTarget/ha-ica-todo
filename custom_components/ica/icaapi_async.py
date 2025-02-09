@@ -19,24 +19,25 @@ async def run_async(func):
 
 class IcaAPIAsync:
     """Class to retrieve and hold the data for a Shopping list from ICA"""
-    def __init__(self, uid, pin):
+    def __init__(self, uid, pin, user_token=None):
         self._uid = uid
         self._pin = pin
         self._api = None
+        self._user = user_token
         
     def get_authenticated_user(self):
         if not self._api:
-            self._api = IcaAPI(self._uid, self._pin)
+            self._api = IcaAPI(self._uid, self._pin, self._user)
         return self._api.get_authenticated_user()
 
     async def get_shopping_lists(self) -> list[IcaShoppingList]:
         if not self._api:
-            self._api = await run_async(lambda: IcaAPI(self._uid, self._pin))
+            self._api = await run_async(lambda: IcaAPI(self._uid, self._pin, self._user))
         return await run_async(lambda: self._api.get_shopping_lists())
 
     async def get_shopping_list(self, list_id: str) -> IcaShoppingList:
         if not self._api:
-            self._api = await run_async(lambda: IcaAPI(self._uid, self._pin))
+            self._api = await run_async(lambda: IcaAPI(self._uid, self._pin, self._user))
         return await run_async(lambda: self._api.get_shopping_list(list_id))
 
     async def get_store(self, store_id) -> IcaStore:

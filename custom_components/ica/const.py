@@ -83,6 +83,10 @@ CONF_ICA_ID: Final = "personal_id"
 CONF_ICA_PIN: Final = "pin_code"
 CONF_SHOPPING_LISTS: Final = "shopping_lists"
 CONF_NUM_RECIPES: Final = "recipe_count"
+
+CONF_SELECTED_MENU_ACTION: Final = "menu_action"
+CONF_MENU_MANAGE_SHOPPING_LISTS: Final = "manage_tracked_shopping_lists"
+
 AUTH_TICKET: Final = "AuthenticationTicket"
 GET_LISTS: Final = "ShoppingLists"
 LIST_NAME: Final = "Title"

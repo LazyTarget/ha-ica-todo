@@ -7,12 +7,17 @@ from typing import Any
 from requests.exceptions import HTTPError
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntry, ConfigEntryBaseFlow, ConfigFlow
+from homeassistant import config_entries
+from homeassistant.config_entries import (
+    ConfigEntry,
+    OptionsFlow,
+)
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
 from .icaapi_async import IcaAPIAsync
-from .const import DOMAIN, CONF_ICA_ID, CONF_ICA_PIN, CONF_NUM_RECIPES, CONF_SHOPPING_LISTS
+from .const import DOMAIN, CONF_ICA_ID, CONF_ICA_PIN, CONF_NUM_RECIPES, CONF_SHOPPING_LISTS, CONF_SELECTED_MENU_ACTION, CONF_MENU_MANAGE_SHOPPING_LISTS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,8 +32,18 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     }
 )
 
+CONF_ACTIONS = {
+    CONF_MENU_MANAGE_SHOPPING_LISTS: "Tracked shopping lists"
+}
 
-class IcaConfigFlow(ConfigFlow, domain=DOMAIN):
+CONFIGURE_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_SELECTED_MENU_ACTION, default=CONF_MENU_MANAGE_SHOPPING_LISTS): vol.In(CONF_ACTIONS)
+    }
+)
+
+
+class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for ICA."""
 
     VERSION = 1
@@ -47,6 +62,7 @@ class IcaConfigFlow(ConfigFlow, domain=DOMAIN):
 
         _LOGGER.fatal("Current config entries: %s", self._async_current_entries())
         if self._async_current_entries():
+            _LOGGER.fatal("Current config_entry data: %s", self._async_current_entries()[0].data)
             return self.async_abort(reason="single_instance_allowed")
 
         errors: dict[str, str] = {}
@@ -65,11 +81,22 @@ class IcaConfigFlow(ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             else:
-                self.SHOPPING_LIST_SELECTOR_SCHEMA = self.build_shopping_list_selector_schema(self.shopping_lists)
-                return self.async_show_form(
-                    step_id="shoppingslists",
-                    data_shema=self.SHOPPING_LIST_SELECTOR_SCHEMA,
-                    errors=errors,
+                #self.SHOPPING_LIST_SELECTOR_SCHEMA = self.build_shopping_list_selector_schema(self.shopping_lists)
+                #return self.async_show_form(
+                #    step_id="shoppingslists",
+                #    data_shema=self.SHOPPING_LIST_SELECTOR_SCHEMA,
+                #    errors=errors,
+                #)
+                config_entry_data = {
+                    CONF_ICA_ID: user_input[CONF_ICA_ID] or self.initial_input[CONF_ICA_ID],
+                    CONF_ICA_PIN: user_input[CONF_ICA_PIN] or self.initial_input[CONF_ICA_PIN],
+                    "user": self.user_token,
+                    "access_token": self.user_token["access_token"],
+                    #CONF_SHOPPING_LISTS: user_input[CONF_SHOPPING_LISTS]
+                }
+                return self.async_create_entry(
+                    title=DOMAIN,
+                    data=config_entry_data,
                 )
 
         return self.async_show_form(
@@ -78,11 +105,118 @@ class IcaConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    def build_shopping_list_selector_schema(self, data):
-        lists = data["shoppingLists"]
-        _LOGGER.fatal("Lists: %s", lists)
-        _LOGGER.fatal("List[0]: %s", lists[0])
-        _LOGGER.fatal("List[0][title]: %s", lists[0]["title"])
+    # async def async_step_shoppinglists(
+    #     self, user_input: dict[str, Any] | None = None
+    # ) -> FlowResult:
+    #     """Handle the ShoppingLists-step."""
+    #     _LOGGER.warning("ShoppingLists-step!")
+
+    #     if user_input is not None:
+    #         _LOGGER.warning("User input: %s", user_input)
+
+    #         config_entry_data = {
+    #             CONF_ICA_ID: user_input[CONF_ICA_ID] or self.initial_input[CONF_ICA_ID],
+    #             CONF_ICA_PIN: user_input[CONF_ICA_PIN] or self.initial_input[CONF_ICA_PIN],
+    #             "user": self.user_token,
+    #             "access_token": self.user_token["access_token"],
+    #             CONF_SHOPPING_LISTS: user_input.get(CONF_SHOPPING_LISTS, 'defualt')
+    #         }
+    #         return self.async_create_entry(title=DOMAIN,
+    #                                        data=config_entry_data)
+
+    #     return self.async_show_form(
+    #         step_id="shoppinglists",
+    #         data_schema=self.SHOPPING_LIST_SELECTOR_SCHEMA,
+    #     )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: ConfigEntry,
+    ) -> OptionsFlow:
+        """Create the options flow."""
+        return IcaOptionsFlowHandler(config_entry)
+
+
+class IcaOptionsFlowHandler(OptionsFlow):
+    """Handle an options flow for ICA."""
+
+    initial_input = None
+    user_token = None
+    shopping_lists = None
+
+    SHOPPING_LIST_SELECTOR_SCHEMA = None
+
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        """Initialize Ica options flow"""
+        self.config_entry = config_entry
+        super().__init__()
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle the initial step."""
+        _LOGGER.warning("Handle form 'init'")
+        _LOGGER.fatal("CE: %s", self.config_entry)
+        if user_input is not None:
+            if user_input.get(CONF_SELECTED_MENU_ACTION, '') == CONF_MENU_MANAGE_SHOPPING_LISTS:
+                return await self.async_step_manage_shopping_lists()
+
+        _LOGGER.warning("Showing form 'init'")
+        return self.async_show_form(
+            step_id="init",
+            data_schema=CONFIGURE_SCHEMA,
+        )
+
+    async def async_step_manage_shopping_lists(self, user_input=None):
+        _LOGGER.warning("Handle form 'manage_shopping_lists'")
+        _LOGGER.fatal("manage lists: %s", user_input)
+
+        if self.SHOPPING_LIST_SELECTOR_SCHEMA is None:
+            user_token = self.config_entry.data["user"]
+            _LOGGER.fatal("manage tkn: %s", user_token)
+            api = IcaAPIAsync(
+                user_input.get(CONF_ICA_ID, ''), 
+                user_input.get(CONF_ICA_PIN, ''),
+                user_token=self.config_entry.data["user"])
+
+            if not self.shopping_lists:
+                data = await api.get_shopping_lists()
+                _LOGGER.warning("fetched sl: %s", data)
+                self.shopping_lists = data["shoppingLists"]
+            self.SHOPPING_LIST_SELECTOR_SCHEMA = self.build_shopping_list_selector_schema(self.shopping_lists)
+        
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            selection = user_input.get(CONF_SHOPPING_LISTS, False)
+            if selection:
+                _LOGGER.fatal("posted: False")
+            elif selection is None:
+                _LOGGER.fatal("posted: None")
+            elif selection:
+                _LOGGER.fatal("posted valid %s", selection)
+
+                config_entry_data = {
+                    CONF_ICA_ID: user_input[CONF_ICA_ID] or self.initial_input[CONF_ICA_ID],
+                    CONF_ICA_PIN: user_input[CONF_ICA_PIN] or self.initial_input[CONF_ICA_PIN],
+                    "user": self.user_token,
+                    "access_token": self.user_token["access_token"],
+                    CONF_SHOPPING_LISTS: user_input[CONF_SHOPPING_LISTS]
+                }
+                return self.async_create_entry(title=DOMAIN,
+                                               data=config_entry_data)
+            else:
+                _LOGGER.fatal("posted other: %s", selection)
+
+        return self.async_show_form(
+            step_id="manage_shopping_lists",
+            data_schema=self.SHOPPING_LIST_SELECTOR_SCHEMA,
+            errors=errors,
+        )
+
+    def build_shopping_list_selector_schema(self, lists):
+        _LOGGER.error("List[0]: %s", lists[0])
+        _LOGGER.error("List[0][title]: %s", lists[0]["title"])
         schema = vol.Schema(
             {
                 vol.Required(CONF_SHOPPING_LISTS, description="the shopping lists to track"): selector.SelectSelector(
@@ -99,29 +233,29 @@ class IcaConfigFlow(ConfigFlow, domain=DOMAIN):
                 ),
             }
         )
-        _LOGGER.fatal("SCh: %s", schema)
+        _LOGGER.fatal("SCHEMA: %s", schema)
         return schema
 
-    async def async_step_shoppinglists(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Handle the ShoppingLists-step."""
-        _LOGGER.warning("ShoppingLists-step!")
+    # async def async_step_shoppinglists(
+    #     self, user_input: dict[str, Any] | None = None
+    # ) -> FlowResult:
+    #     """Handle the ShoppingLists-step."""
+    #     _LOGGER.warning("ShoppingLists-step!")
 
-        if user_input is not None:
-            _LOGGER.warning("User input: %s", user_input)
+    #     if user_input is not None:
+    #         _LOGGER.warning("User input: %s", user_input)
 
-            config_entry_data = {
-                CONF_ICA_ID: user_input[CONF_ICA_ID] or self.initial_input[CONF_ICA_ID],
-                CONF_ICA_PIN: user_input[CONF_ICA_PIN] or self.initial_input[CONF_ICA_PIN],
-                "user": self.user_token,
-                "access_token": self.user_token["access_token"],
-                CONF_SHOPPING_LISTS: user_input[CONF_SHOPPING_LISTS]
-            }
-            return self.async_create_entry(title=DOMAIN,
-                                           data=config_entry_data)
+    #         config_entry_data = {
+    #             CONF_ICA_ID: user_input[CONF_ICA_ID] or self.initial_input[CONF_ICA_ID],
+    #             CONF_ICA_PIN: user_input[CONF_ICA_PIN] or self.initial_input[CONF_ICA_PIN],
+    #             "user": self.user_token,
+    #             "access_token": self.user_token["access_token"],
+    #             CONF_SHOPPING_LISTS: user_input[CONF_SHOPPING_LISTS]
+    #         }
+    #         return self.async_create_entry(title=DOMAIN,
+    #                                        data=config_entry_data)
 
-        return self.async_show_form(
-            step_id="shoppinglists",
-            data_schema=self.SHOPPING_LIST_SELECTOR_SCHEMA,
-        )
+    #     return self.async_show_form(
+    #         step_id="shoppinglists",
+    #         data_schema=self.SHOPPING_LIST_SELECTOR_SCHEMA,
+    #     )

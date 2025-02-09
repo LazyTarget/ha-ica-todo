@@ -25,7 +25,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         logger: logging.Logger,
         update_interval: timedelta,
         api: IcaAPIAsync,
-        nRecipes: int,
+        nRecipes: int = 5,
     ) -> None:
         """Initialize the ICA coordinator."""
         super().__init__(hass, logger, name="ICA", update_interval=update_interval)
