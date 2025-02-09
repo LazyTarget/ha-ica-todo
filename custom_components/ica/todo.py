@@ -34,7 +34,7 @@ async def async_setup_entry(
         IcaShoppingListEntity(
             coordinator, entry.entry_id, shopping_list["offlineId"], shopping_list["title"]
         )
-        for shopping_list in shopping_lists if shopping_list["offlineId"] in entry.data.get(CONF_SHOPPING_LISTS, ['53E8CB19-58F9-4CDD-94AB-36725B4D5B5A'])
+        for shopping_list in shopping_lists if shopping_list["offlineId"] in entry.data.get(CONF_SHOPPING_LISTS, ['53E8CB19-58F9-4CDD-94AB-36725B4D5B5A', '36BBC95F-D1EC-47BA-A027-4917A46F5E05'])
     )
 
 
@@ -78,7 +78,8 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         self._project_id = shopping_list_id
         self._attr_unique_id = f"{config_entry_id}-{shopping_list_id}"
         self._attr_name = shopping_list_name
-        self._attr_icon = "icon.png"
+        #self._attr_icon = "icon.png"
+        self._attr_icon = "mdi:cart"
         _LOGGER.warning("formatted root data: %s", coordinator._icaShoppingLists)
         _LOGGER.warning("formatted project list: %s", coordinator.get_shopping_list(self._project_id))
 
@@ -95,7 +96,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                     status=TodoItemStatus.COMPLETED
                     if task["isStrikedOver"]
                     else TodoItemStatus.NEEDS_ACTION,
-                    description="Beskrivningen...",
+                    #description="Beskrivningen...",
                 )
             )
         _LOGGER.fatal("ITEMS: %s", items)
