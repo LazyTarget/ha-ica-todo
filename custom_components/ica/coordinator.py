@@ -15,6 +15,8 @@ from .icatypes import (
     IcaShoppingList,
 )
 
+import logging
+_LOGGER = logging.getLogger(__name__)
 
 class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     """Coordinator for updating task data from ICA."""
@@ -39,7 +41,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
     def get_shopping_list(self, list_id) -> IcaShoppingList:
         # await self.async_get_shopping_lists()
-        for x in filter(lambda x: x["Id"] == list_id, self._icaShoppingLists):
+        for x in filter(lambda x: x["offlineId"] == list_id, self._icaShoppingLists):
             return x
         return None
 
@@ -66,8 +68,8 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         try:
             self._icaShoppingLists = await self.async_get_shopping_lists()
             self._icaOffers = await self.async_get_offers()
-            if self._nRecipes:
-                self._icaRecipes = await self.async_get_recipes(self._nRecipes)
+            #if self._nRecipes:
+            #    self._icaRecipes = await self.async_get_recipes(self._nRecipes)
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
@@ -75,12 +77,11 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         """Return ICA shopping lists fetched at most once."""
         if self._icaShoppingLists is None:
             x = await self.api.get_shopping_lists()
-            if "ShoppingLists" in x:
-                y = x["ShoppingLists"]
+            if "shoppingLists" in x:
+                y = x["shoppingLists"]
                 self._icaShoppingLists = [
-                    await self.api.get_shopping_list(z["OfflineId"]) for z in y
+                    await self.api.get_shopping_list(z["offlineId"]) for z in y
                 ]
-
         return self._icaShoppingLists
 
     async def async_get_product_categories(self) -> list[IcaProductCategory]:
@@ -97,13 +98,15 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
     async def async_get_offers(self) -> list[IcaOffer]:
         """Return ICA offers at favorite stores fetched at most once."""
+        return []
+
         stores = await self.async_get_stores()
         if self._icaOffers is None:
-            self._icaOffers = await self.api.get_offers([s["Id"] for s in stores])
+            self._icaOffers = await self.api.get_offers([s["id"] for s in stores])
         return self._icaOffers
 
     async def async_get_recipes(self, nRecipes: int) -> list[IcaRecipe]:
         """Return ICA recipes."""
-        if self._icaRecipes is None:
+        if self._icaRecipes is None and self._nRecipes:
             self._icaRecipes = await self.api.get_random_recipes(nRecipes)
         return self._icaRecipes

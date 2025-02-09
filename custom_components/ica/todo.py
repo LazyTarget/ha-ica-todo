@@ -16,22 +16,25 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
+from .const import (DOMAIN, CONF_SHOPPING_LISTS)
 from .coordinator import IcaCoordinator
 from .icatypes import IcaShoppingList
 
+import logging
+_LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up the ICA shopping list platform config entry."""
+    _LOGGER.warning("Data cfg: %s", entry.data)
     coordinator: IcaCoordinator = hass.data[DOMAIN][entry.entry_id]
     shopping_lists: list[IcaShoppingList] = await coordinator.async_get_shopping_lists()
     async_add_entities(
         IcaShoppingListEntity(
-            coordinator, entry.entry_id, shopping_list["Id"], shopping_list["Title"]
+            coordinator, entry.entry_id, shopping_list["offlineId"], shopping_list["title"]
         )
-        for shopping_list in shopping_lists
+        for shopping_list in shopping_lists if shopping_list["offlineId"] in entry.data.get(CONF_SHOPPING_LISTS, ['53E8CB19-58F9-4CDD-94AB-36725B4D5B5A'])
     )
 
 
@@ -76,23 +79,26 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         self._attr_unique_id = f"{config_entry_id}-{shopping_list_id}"
         self._attr_name = shopping_list_name
         self._attr_icon = "icon.png"
+        _LOGGER.warning("formatted root data: %s", coordinator._icaShoppingLists)
+        _LOGGER.warning("formatted project list: %s", coordinator.get_shopping_list(self._project_id))
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         shopping_list = self.coordinator.get_shopping_list(self._project_id)
         items = []
-        for task in shopping_list["Rows"]:
+        for task in shopping_list["rows"]:
             items.append(
                 TodoItem(
-                    summary=task["ProductName"],
-                    uid=task["OfflineId"],
+                    summary=task["productName"],
+                    uid=task["offlineId"],
                     status=TodoItemStatus.COMPLETED
-                    if task["IsStrikedOver"]
+                    if task["isStrikedOver"]
                     else TodoItemStatus.NEEDS_ACTION,
                     description="Beskrivningen...",
                 )
             )
+        _LOGGER.fatal("ITEMS: %s", items)
         self._attr_todo_items = items
         super()._handle_coordinator_update()
 
@@ -104,16 +110,16 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         shopping_list = self.coordinator.get_shopping_list(self._project_id)
 
         stuff = {
-            "ProductName": item.summary,
-            "SourceId": -1,
-            "IsStrikedOver": False,
-            "ArticleGroupId": articleGroup,
+            "productName": item.summary,
+            "sourceId": -1,
+            "isStrikedOver": False,
+            "articleGroupId": articleGroup,
         }
-        if "CreatedRows" not in shopping_list:
-            shopping_list["CreatedRows"] = []
-        shopping_list["CreatedRows"].append(stuff)
+        if "createdRows" not in shopping_list:
+            shopping_list["createdRows"] = []
+        shopping_list["createdRows"].append(stuff)
 
-        shopping_list["LatestChange"] = (
+        shopping_list["latestChange"] = (
             datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
         )
         await self.coordinator.api.sync_shopping_list(shopping_list)
@@ -123,14 +129,14 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         """Update a To-do item."""
         shopping_list = self.coordinator.get_shopping_list(self._project_id)
 
-        if "ChangedRows" not in shopping_list:
-            shopping_list["ChangedRows"] = []
+        if "changedRows" not in shopping_list:
+            shopping_list["changedRows"] = []
 
-        shopping_list["ChangedRows"].append(
+        shopping_list["changedRows"].append(
             {
-                "OfflineId": item.uid,
-                "IsStrikedOver": item.status == TodoItemStatus.COMPLETED,
-                "SourceId": -1,
+                "offlineId": item.uid,
+                "isStrikedOver": item.status == TodoItemStatus.COMPLETED,
+                "sourceId": -1,
             }
         )
         # if item.status is not None:
@@ -149,11 +155,11 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         # )
         shopping_list = self.coordinator.get_shopping_list(self._project_id)
 
-        if "DeletedRows" not in shopping_list:
-            shopping_list["DeletedRows"] = []
+        if "deletedRows" not in shopping_list:
+            shopping_list["deletedRows"] = []
 
         # shopping_list["DeletedRows"].extend(list(deleted_ids))
-        shopping_list["DeletedRows"].extend(uids)
+        shopping_list["deletedRows"].extend(uids)
 
         await self.coordinator.api.sync_shopping_list(shopping_list)
         await self.coordinator.async_refresh()

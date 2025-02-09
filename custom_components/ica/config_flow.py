@@ -176,7 +176,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
             user_token = self.config_entry.data["user"]
             _LOGGER.fatal("manage tkn: %s", user_token)
             api = IcaAPIAsync(
-                user_input.get(CONF_ICA_ID, ''), 
+                user_input.get(CONF_ICA_ID, ''),
                 user_input.get(CONF_ICA_PIN, ''),
                 user_token=self.config_entry.data["user"])
 
@@ -185,7 +185,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
                 _LOGGER.warning("fetched sl: %s", data)
                 self.shopping_lists = data["shoppingLists"]
             self.SHOPPING_LIST_SELECTOR_SCHEMA = self.build_shopping_list_selector_schema(self.shopping_lists)
-        
+
         errors: dict[str, str] = {}
         if user_input is not None:
             selection = user_input.get(CONF_SHOPPING_LISTS, False)
@@ -224,7 +224,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
                         options=[
                             selector.SelectOptionDict(
                                 label=list["title"],
-                                value=list["id"]
+                                value=list["offlineId"]
                             )
                             for list in lists
                         ],
