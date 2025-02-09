@@ -207,12 +207,24 @@ class IcaAPI:
         )
 
     def get_offers(self, store_ids: list[int]) -> list[IcaOffer]:
-        url = str.format(
-            get_rest_url(OFFERS_ENDPOINT), ",".join(map(lambda x: str(x), store_ids))
-        )
-        return get(self._session, url, self._auth_key)
+        return []
+        
+        #url = str.format(
+        #    get_rest_url(OFFERS_ENDPOINT), ",".join(map(lambda x: str(x), store_ids))
+        #)
+        #return get(self._session, url, self._auth_key)
+        
+        url = get_rest_url(OFFERS_ENDPOINT)
+        j = {
+            "store_ids": store_ids
+        }
+        offers = post(self._session, url, self._auth_key, json_data=j)
+        _LOGGER.fatal("Found offers: %s", offers)
+        return offers
 
     def get_random_recipes(self, nRecipes: int = 5) -> list[IcaRecipe]:
+        if nRecipes < 1:
+            return []
         url = str.format(get_rest_url(RANDOM_RECIPES_ENDPOINT), nRecipes)
         return get(self._session, url, self._auth_key)
 

@@ -51,6 +51,7 @@ def post(
     url: str,
     auth_key: str | None = None,
     data: Dict[str, Any] | None = None,
+    json_data: str | None = None
 ):
     request_id = data.pop("request_id", None) if data else None
 
@@ -62,6 +63,7 @@ def post(
         url,
         headers=headers,
         data=json.dumps(data) if data else None,
+        json=json_data,
     )
 
     if response.status_code == 200:
