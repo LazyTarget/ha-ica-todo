@@ -77,6 +77,8 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 self.shopping_lists = await api.get_shopping_lists()
                 self.user_token = api.get_authenticated_user()
+                #self.decoded_id = jwt.decode(self.user_token["id_token"], options={"verify_signature": False})
+                #self.user_token["name"] = f"{self.decoded_id["given_name"]} {self.decoded_id["family_name"]}"
             except HTTPError as err:
                 if err.response.status_code == HTTPStatus.UNAUTHORIZED:
                     errors["base"] = "invalid_credentials"
@@ -163,15 +165,15 @@ class IcaOptionsFlowHandler(OptionsFlow):
     ) -> FlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
-        user_token = self.config_entry.data["user"]
-        _LOGGER.info("Options flow - User token: %s", user_token)
+        self.user_token = self.config_entry.data["user"]
+        _LOGGER.info("Options flow - User token: %s", self.user_token)
         _LOGGER.info("Options flow - Config_entry data: %s", self.config_entry.data)
         
         if self.SHOPPING_LIST_SELECTOR_SCHEMA is None:
             api = IcaAPIAsync(
                 uid=self.config_entry.data[CONF_ICA_ID],
                 pin=self.config_entry.data[CONF_ICA_PIN],
-                user_token=self.config_entry.data["user"])
+                user_token=self.user_token)
             if not self.shopping_lists:
                 data = await api.get_shopping_lists()
                 self.shopping_lists = data["shoppingLists"]
@@ -184,15 +186,31 @@ class IcaOptionsFlowHandler(OptionsFlow):
                 _LOGGER.fatal("posted valid %s", selection)
 
                 config_entry_data = self.config_entry.data.copy()
-                config_entry_data = {
-                    # CONF_ICA_ID: user_input[CONF_ICA_ID] or self.initial_input[CONF_ICA_ID],
-                    # CONF_ICA_PIN: user_input[CONF_ICA_PIN] or self.initial_input[CONF_ICA_PIN],
-                    # "user": self.user_token,
-                    # "access_token": self.user_token["access_token"],
-                    CONF_SHOPPING_LISTS: selection,
-                }
-                return self.async_create_entry(title=CONFIG_ENTRY_NAME,
-                                               data=config_entry_data)
+                config_entry_data[CONF_SHOPPING_LISTS] = selection
+                #     # CONF_ICA_ID: user_input[CONF_ICA_ID] or self.initial_input[CONF_ICA_ID],
+                #     # CONF_ICA_PIN: user_input[CONF_ICA_PIN] or self.initial_input[CONF_ICA_PIN],
+                #     # "user": self.user_token,
+                #     # "access_token": self.user_token["access_token"],
+                #     CONF_SHOPPING_LISTS: selection,
+                # }
+                
+                # #return self.async_create_entry(title=CONFIG_ENTRY_NAME % self.user_token["person_name"],
+                # #                               data=config_entry_data)
+                # #return self.async_create_entry(title="", data={})
+                
+                r = self.hass.config_entries.async_update_entry(
+                    self.config_entry,
+                    data=config_entry_data,
+                )
+                if r:
+                    self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
+                return self.async_abort(reason="Integration was reloaded")
+                
+                # # Only works for ConfigFlows
+                # return self.async_update_reload_and_abort(
+                #     self.config_entry,
+                #     data=config_entry_data
+                # )
             else:
                 _LOGGER.fatal("Posted other: %s", selection)
 
@@ -203,9 +221,10 @@ class IcaOptionsFlowHandler(OptionsFlow):
         )
 
     def build_shopping_list_selector_schema(self, lists):
+        current_lists_value = self.config_entry.data.get(CONF_SHOPPING_LISTS, [])
         schema = vol.Schema(
             {
-                vol.Required(CONF_SHOPPING_LISTS, description="the shopping lists to track"): selector.SelectSelector(
+                vol.Required(CONF_SHOPPING_LISTS, description="The shopping lists to track", default=current_lists_value): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=[
                             selector.SelectOptionDict(
