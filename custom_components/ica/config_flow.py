@@ -14,6 +14,7 @@ from homeassistant.config_entries import (
     OptionsFlow,
 )
 from homeassistant.core import callback
+from homeassistant.const import (CONF_SCAN_INTERVAL)
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
@@ -27,15 +28,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_ICA_ID, description="user id (personal ID number)"): str,
         vol.Required(CONF_ICA_PIN, description="pin code"): str,
-        vol.Required(
-            CONF_NUM_RECIPES, default=5, description="# random recipes to retrieve"
-        ): int,
-    }
-)
-
-CONFIGURE_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_JSON_DATA_IN_DESC, description="Whether to write extra information as JSON in the description field"): bool
+        vol.Required(CONF_SCAN_INTERVAL, default=300): int,
     }
 )
 
@@ -94,6 +87,7 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 config_entry_data = {
                     CONF_ICA_ID: user_input[CONF_ICA_ID] or self.initial_input[CONF_ICA_ID],
                     CONF_ICA_PIN: user_input[CONF_ICA_PIN] or self.initial_input[CONF_ICA_PIN],
+                    CONF_SCAN_INTERVAL: user_input[CONF_SCAN_INTERVAL] or self.initial_input[CONF_SCAN_INTERVAL],
                     "user": self.user_token,
                     "access_token": self.user_token["access_token"],
                     #CONF_SHOPPING_LISTS: user_input[CONF_SHOPPING_LISTS]
@@ -177,6 +171,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
 
         config_entry_data = self.config_entry.data.copy()
         if user_input is not None:
+            config_entry_data[CONF_SCAN_INTERVAL] = user_input.get(CONF_SCAN_INTERVAL, 300)
             config_entry_data[CONF_JSON_DATA_IN_DESC] = user_input.get(CONF_JSON_DATA_IN_DESC, False)
 
             selection = user_input.get(CONF_SHOPPING_LISTS, [])
@@ -194,13 +189,13 @@ class IcaOptionsFlowHandler(OptionsFlow):
                 # #                               data=config_entry_data)
                 # #return self.async_create_entry(title="", data={})
 
-                r = self.hass.config_entries.async_update_entry(
-                    self.config_entry,
-                    data=config_entry_data,
-                )
-                if r:
-                    self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
-                return self.async_abort(reason="Integration was reloaded")
+                # r = self.hass.config_entries.async_update_entry(
+                #     self.config_entry,
+                #     data=config_entry_data,
+                # )
+                # if r:
+                #     self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
+                # return self.async_abort(reason="Integration was reloaded")
 
                 # # Only works for ConfigFlows
                 # return self.async_update_reload_and_abort(
@@ -209,9 +204,19 @@ class IcaOptionsFlowHandler(OptionsFlow):
                 # )
             else:
                 _LOGGER.fatal("Posted other: %s", selection)
+                
+            r = self.hass.config_entries.async_update_entry(
+                self.config_entry,
+                data=config_entry_data,
+            )
+            if r:
+                self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
+            return self.async_abort(reason="Integration was reloaded")
 
         schema = vol.Schema(
             {
+                vol.Required(CONF_SCAN_INTERVAL, 
+                             default=config_entry_data.get(CONF_SCAN_INTERVAL, 300)): int,
                 vol.Required(CONF_JSON_DATA_IN_DESC,
                              default=config_entry_data.get(CONF_JSON_DATA_IN_DESC, False),
                              description="Whether to write extra information as JSON in the description field"): bool
