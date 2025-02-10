@@ -1,12 +1,12 @@
 {
     "domain": "ica",
-    "name": "ica",
-    "codeowners": ["@dennisgranasen"],
+    "name": "ICA",
+    "codeowners": ["@dennisgranasen", "@lazytarget"],
     "config_flow": true,
-    "documentation": "https://github.com/dennisgranasen/ha-ica-todo",
+    "documentation": "https://github.com/lazytarget/ha-ica-todo",
     "iot_class": "cloud_polling",
     "loggers": ["ica"],
     "requirements": [],
-    "version": "0.0.1"
+    "version": "0.1.0"
   }
 
