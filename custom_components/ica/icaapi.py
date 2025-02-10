@@ -197,13 +197,13 @@ class IcaAPI:
     def get_favorite_stores(self) -> list[IcaStore]:
         url = get_rest_url(MY_STORES_ENDPOINT)
         fav_stores = get(self._session, url, self._auth_key)
-        return [self.get_store(store_id) for store_id in fav_stores["FavoriteStores"]]
+        return [self.get_store(store_id) for store_id in fav_stores["favoriteStores"]]
 
     def get_favorite_products(self):
         url = get_rest_url(MY_COMMON_ARTICLES_ENDPOINT)
         fav_products = get(self._session, url, self._auth_key)
         return (
-            fav_products["CommonArticles"] if "CommonArticles" in fav_products else None
+            fav_products["commonArticles"] if "commonArticles" in fav_products else None
         )
 
     def get_offers(self, store_ids: list[int]) -> list[IcaOffer]:
@@ -240,28 +240,28 @@ class IcaAPI:
     ) -> IcaShoppingList:
         url = get_rest_url(MY_LISTS_ENDPOINT)
         data = {
-            "OfflineId": str(offline_id),
-            "Title": title,
-            "CommentText": comment,
-            "SortingStore": 1 if storeSorting else 0,
-            "Rows": [],
-            "LatestChange": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+            "offlineId": str(offline_id),
+            "title": title,
+            "commentText": comment,
+            "sortingStore": 1 if storeSorting else 0,
+            "rows": [],
+            "latestChange": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
         }
         response = post(self._session, url, self._auth_key, data)
         # list_id = response["id"]
         return self.get_shopping_list(offline_id)
 
     def sync_shopping_list(self, data: IcaShoppingList):
-        url = str.format(get_rest_url(MY_LIST_SYNC_ENDPOINT), data["OfflineId"])
-        # new_rows = [x for x in data["Rows"] if "SourceId" in x and x["SourceId"] == -1]
-        # data = {"ChangedRows": new_rows}
+        url = str.format(get_rest_url(MY_LIST_SYNC_ENDPOINT), data["offlineId"])
+        # new_rows = [x for x in data["rows"] if "sourceId" in x and x["sourceId"] == -1]
+        # data = {"changedRows": new_rows}
 
-        if "DeletedRows" in data:
-            sync_data = {"DeletedRows": data["DeletedRows"]}
-        elif "ChangedRows" in data:
-            sync_data = {"ChangedRows": data["ChangedRows"]}
-        elif "CreatedRows" in data:
-            sync_data = {"CreatedRows": data["CreatedRows"]}
+        if "deletedRows" in data:
+            sync_data = {"deletedRows": data["deletedRows"]}
+        elif "changedRows" in data:
+            sync_data = {"changedRows": data["changedRows"]}
+        elif "createdRows" in data:
+            sync_data = {"createdRows": data["createdRows"]}
         else:
             sync_data = data
 
