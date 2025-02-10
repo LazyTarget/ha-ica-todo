@@ -28,7 +28,6 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up the ICA shopping list platform config entry."""
-    _LOGGER.warning("Todo setup :: Data: %s", entry.data)
     coordinator: IcaCoordinator = hass.data[DOMAIN][entry.entry_id]
     shopping_lists: list[IcaShoppingList] = await coordinator.async_get_shopping_lists()
     async_add_entities(
@@ -106,7 +105,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                         if self._config_entry.data.get(CONF_JSON_DATA_IN_DESC, False) else None,
                     )
                 )
-        _LOGGER.info("%s ITEMS: %s", self._project_name, items)
+        _LOGGER.debug("%s ITEMS: %s", self._project_name, items)
         self._attr_todo_items = items
         super()._handle_coordinator_update()
 

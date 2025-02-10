@@ -1,11 +1,7 @@
 import requests
-import json
 import jwt
 import re
-from datetime import datetime
-from .http_requests import get, post, delete
 from .const import API
-from .icatypes import IcaStore, IcaOffer, IcaShoppingList, IcaProductCategory, IcaRecipe
 
 import logging
 _LOGGER = logging.getLogger(__name__)
@@ -17,11 +13,6 @@ class IcaAuthenticator:
     _auth_key = None
 
     def __init__(self, user, psw, session: requests.Session | None = None) -> None:
-        # registered_app = self.init_app()
-        # (code_challenge, code_verifier) = self.generate_code_challenge()
-        # self.init_oauth(registered_app, code_challenge)
-        # raise ValueError("Stopping setup as the rest is not implemented")
-
         # self._auth_key = get_auth_key(user, psw)
         self._session = session or requests.Session()
 
@@ -29,46 +20,40 @@ class IcaAuthenticator:
         return "/".join([API.URLs.BASE_URL, endpoint])
 
     def invoke_get(self, url, params=None, data=None, headers=None, timeout=30, allow_redirects=True):
-        #_LOGGER.info('[GET] %s Request', url)
         if data is not None:
             _LOGGER.debug('[GET] %s Request Data: %s', url, data)
-        # if self._session.cookies is not None:
-        #     _LOGGER.debug('[GET] %s Loaded Cookies: %s', url, json.dumps(self._session.cookies.get_dict(domain="ims.icagruppen.se")))
 
-        response = self._session.get(url, 
-                                params=params, 
-                                data=data, 
-                                headers=headers,
-                                timeout=timeout, 
-                                allow_redirects=allow_redirects)
+        response = self._session.get(url,
+                                     params=params,
+                                     data=data,
+                                     headers=headers,
+                                     timeout=timeout,
+                                     allow_redirects=allow_redirects)
 
-        _LOGGER.info('[GET] %s Response Code: %s', url, response.status_code)
-        if "json" in response.headers.get("Content-Type", 'application/json') or response.status_code not in [200, 201]:
-            _LOGGER.debug('[GET] %s Response Text: %s', url, response.text)
-        # if self._session.cookies is not None:
-        #     _LOGGER.debug('[GET] %s Saved Cookies: %s', url, json.dumps(self._session.cookies.get_dict(domain="ims.icagruppen.se")))
+        s = response.status_code not in [200, 201, 302, 303]
+        if not s:
+            _LOGGER.warning('[GET] %s Response Code: %s', url, response.status_code)
+            if "json" in response.headers.get("Content-Type", 'application/json') or response.status_code not in [200, 201]:
+                _LOGGER.debug('[GET] %s Response Text: %s', url, response.text)
 
         response.raise_for_status()
         return response
 
     def invoke_post(self, url, params=None, data=None, json_data=None, headers=None, timeout=30, allow_redirects=True):
-        #_LOGGER.info('[POST] %s Request', url)
         if data is not None:
             _LOGGER.debug('[POST] %s Request Data: %s', url, data)
         if json_data is not None:
             _LOGGER.debug('[POST] %s Request Json: %s', url, json_data)
-        # if self._session.cookies is not None:
-        #     _LOGGER.debug('[POST] %s Loaded Cookies: %s', url, json.dumps(self._session.cookies.get_dict(domain="ims.icagruppen.se")))
 
         response = self._session.post(url, params=params, data=data, json=json_data,
-                                 headers=headers, timeout=timeout,
-                                 allow_redirects=allow_redirects)
+                                      headers=headers, timeout=timeout,
+                                      allow_redirects=allow_redirects)
 
-        _LOGGER.info('[POST] %s Response Code: %s', url, response.status_code)
-        if "json" in response.headers.get("Content-Type", 'application/json') or response.status_code not in [200, 201]:
-            _LOGGER.debug('[POST] %s Response Text: %s', url, response.text)
-        # if self._session.cookies is not None:
-        #     _LOGGER.debug('[POST] %s Saved Cookies: %s', url, json.dumps(self._session.cookies.get_dict(domain="ims.icagruppen.se")))
+        s = response.status_code not in [200, 201, 302, 303]
+        if not s:
+            _LOGGER.warning('[POST] %s Response Code: %s', url, response.status_code)
+            if "json" in response.headers.get("Content-Type", 'application/json') or response.status_code not in [200, 201]:
+                _LOGGER.debug('[POST] %s Response Text: %s', url, response.text)
 
         response.raise_for_status()
         return response
@@ -127,7 +112,7 @@ class IcaAuthenticator:
             raise ValueError("Expected a Location redirect")
 
         state = re.search(r"&state=(\w*)", location)[1]
-        _LOGGER.info("State (Client): %s", state)
+        _LOGGER.debug("State (Client): %s", state)
 
         # Invokes /authn/authenticate
         response = self.invoke_get(location)
@@ -154,7 +139,7 @@ class IcaAuthenticator:
         if api_state != state:
             _LOGGER.warning("States are different! Client: %s, Server: %s", state, api_state)
         else:
-            _LOGGER.info("State (Server): %s", api_state)
+            _LOGGER.debug("State (Server): %s", api_state)
 
         return token
 
@@ -179,7 +164,7 @@ class IcaAuthenticator:
             raise ValueError("Expected a Location redirect")
 
         code = re.search(r"&code=(\w*)", location)[1]
-        _LOGGER.info("Code: %s", code)
+        _LOGGER.debug("Code: %s", code)
 
         # Invokes /authn/authenticate
         url = self.get_rest_url(API.URLs.OAUTH2_TOKEN_ENDPOINT)
@@ -219,8 +204,8 @@ class IcaAuthenticator:
         code_challenge, len(code_challenge)
         # ('81R8C6QhI5He4enPDCr7KgRqP6fQZ37FNQAP5NkaOBg', 43)
 
-        _LOGGER.info("code_challenge: %s", code_challenge)
-        _LOGGER.info("code_verifier: %s", code_verifier)
+        _LOGGER.debug("code_challenge: %s", code_challenge)
+        _LOGGER.debug("code_verifier: %s", code_verifier)
         return (code_challenge, code_verifier)
 
     def do_full_login(self, user, psw):
@@ -238,9 +223,8 @@ class IcaAuthenticator:
         token = self.init_login(user, psw, state)
 
         result = self.get_access_token(registered_app, state, token, code_verifier)
-        _LOGGER.fatal("Token: %s", result)
+        _LOGGER.debug("Full login completed :: Token: %s", result)
 
         self._user = result
         self._auth_key = result["access_token"]
-        _LOGGER.fatal("FULL LOGIN COMPLETE: %s", result)
         return result

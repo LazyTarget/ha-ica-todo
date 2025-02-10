@@ -1,4 +1,3 @@
-import requests
 import asyncio
 
 from .icaapi import IcaAPI
@@ -7,7 +6,6 @@ from .icatypes import (
     IcaStore,
     IcaOffer,
     IcaProductCategory,
-    IcaShoppingListEntry,
     IcaRecipe,
 )
 

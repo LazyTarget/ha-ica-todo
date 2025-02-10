@@ -50,9 +50,7 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the initial step."""
         self.initial_input = user_input
 
-        _LOGGER.fatal("Current config entries: %s", self._async_current_entries())
         if self._async_current_entries():
-            _LOGGER.fatal("Current config_entry data: %s", self._async_current_entries()[0].data)
             return self.async_abort(reason="single_instance_allowed")        
 
         errors: dict[str, str] = {}
@@ -78,12 +76,6 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             else:
-                #self.SHOPPING_LIST_SELECTOR_SCHEMA = self.build_shopping_list_selector_schema(self.shopping_lists)
-                #return self.async_show_form(
-                #    step_id="shoppingslists",
-                #    data_shema=self.SHOPPING_LIST_SELECTOR_SCHEMA,
-                #    errors=errors,
-                #)
                 config_entry_data = {
                     CONF_ICA_ID: user_input[CONF_ICA_ID] or self.initial_input[CONF_ICA_ID],
                     CONF_ICA_PIN: user_input[CONF_ICA_PIN] or self.initial_input[CONF_ICA_PIN],
@@ -102,30 +94,6 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
         )
-
-    # async def async_step_shoppinglists(
-    #     self, user_input: dict[str, Any] | None = None
-    # ) -> FlowResult:
-    #     """Handle the ShoppingLists-step."""
-    #     _LOGGER.warning("ShoppingLists-step!")
-
-    #     if user_input is not None:
-    #         _LOGGER.warning("User input: %s", user_input)
-
-    #         config_entry_data = {
-    #             CONF_ICA_ID: user_input[CONF_ICA_ID] or self.initial_input[CONF_ICA_ID],
-    #             CONF_ICA_PIN: user_input[CONF_ICA_PIN] or self.initial_input[CONF_ICA_PIN],
-    #             "user": self.user_token,
-    #             "access_token": self.user_token["access_token"],
-    #             CONF_SHOPPING_LISTS: user_input.get(CONF_SHOPPING_LISTS, 'defualt')
-    #         }
-    #         return self.async_create_entry(title=DOMAIN,
-    #                                        data=config_entry_data)
-
-    #     return self.async_show_form(
-    #         step_id="shoppinglists",
-    #         data_schema=self.SHOPPING_LIST_SELECTOR_SCHEMA,
-    #     )
 
     @staticmethod
     @callback
@@ -156,8 +124,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
         """Handle the initial step."""
         errors: dict[str, str] = {}
         self.user_token = self.config_entry.data["user"]
-        _LOGGER.info("Options flow - User token: %s", self.user_token)
-        _LOGGER.info("Options flow - Config_entry data: %s", self.config_entry.data)
+        _LOGGER.debug("Options flow - data: %s", self.config_entry.data)
 
         if self.SHOPPING_LIST_SELECTOR_SCHEMA is None:
             api = IcaAPIAsync(
@@ -177,7 +144,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
             selection = user_input.get(CONF_SHOPPING_LISTS, [])
             if selection:
                 config_entry_data[CONF_SHOPPING_LISTS] = selection
-                _LOGGER.fatal("new config entry data %s", config_entry_data)
+                _LOGGER.info("Options flow - new data %s", config_entry_data)
                 #     # CONF_ICA_ID: user_input[CONF_ICA_ID] or self.initial_input[CONF_ICA_ID],
                 #     # CONF_ICA_PIN: user_input[CONF_ICA_PIN] or self.initial_input[CONF_ICA_PIN],
                 #     # "user": self.user_token,
@@ -203,8 +170,8 @@ class IcaOptionsFlowHandler(OptionsFlow):
                 #     data=config_entry_data
                 # )
             else:
-                _LOGGER.fatal("Posted other: %s", selection)
-                
+                errors[CONF_SHOPPING_LISTS] = "Invalid value submitted: %s" % selection
+
             r = self.hass.config_entries.async_update_entry(
                 self.config_entry,
                 data=config_entry_data,

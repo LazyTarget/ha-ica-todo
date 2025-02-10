@@ -80,7 +80,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     async def async_get_shopping_lists(self) -> list[IcaShoppingList]:
         """Return ICA shopping lists fetched at most once."""
         if self._icaShoppingLists is None:
-            _LOGGER.fatal("LISTS to eval: %s", self._config_entry.data.get(CONF_SHOPPING_LISTS, []))
             x = await self.api.get_shopping_lists()
             if "shoppingLists" in x:
                 y = x["shoppingLists"]

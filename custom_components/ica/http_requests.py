@@ -19,8 +19,6 @@ def create_headers(
 
     if auth_key:
         headers.update([(AUTHORIZATION[0], AUTHORIZATION[1] % auth_key)])
-    #if auth_key:
-    #    headers.update([("Authorization", "Bearer %s" % auth_key)])
     if with_content:
         headers.update([CONTENT_TYPE])
     if request_id:
@@ -39,7 +37,7 @@ def get(
     )
 
     if response.status_code == 200:
-        _LOGGER.warning("HTTP: Resp: %s", json.dumps(response.json()))
+        _LOGGER.debug("HTTP [GET] Resp: %s", json.dumps(response.json()))
         return response.json()
 
     response.raise_for_status()
@@ -67,6 +65,7 @@ def post(
     )
 
     if response.status_code == 200:
+        _LOGGER.debug("HTTP [POST] Resp: %s", json.dumps(response.json()))
         return response.json()
 
     response.raise_for_status()

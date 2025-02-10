@@ -104,8 +104,6 @@ class API:
         APP_REGISTRATION_ENDPOINT: Final = "register"
         CLIENT_ID: Final = "ica-app-dcr-registration"
         CLIENT_SECRET: Final = "uxLHTBvZ-Z2fV-SbrHl1E-tz7vB3jQFrwAdSLlbVMMu1rxDdvJU0s8KGu9d1wLS4"
-        
-        PERSISTENCE = ".ica_shopping_list__app-registration.json"
 
     class URLs:
         """URLs and API Endpoints"""
@@ -113,16 +111,12 @@ class API:
 
         OAUTH2_AUTHORIZE_ENDPOINT: Final = "oauth/v2/authorize"
         OAUTH2_TOKEN_ENDPOINT: Final = "oauth/v2/token"
-        
+
         LOGIN_ENDPOINT: Final = "authn/authenticate/IcaCustomers"
-        
+
         QUERY_BASE: Final = "https://apimgw-pub.ica.se"
-        
-        
 
 
-# Old ones...
-AUTH_ENDPOINT: Final = "login"
 MY_LISTS_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/shoppinglists" #"user/offlineshoppinglists"
 MY_LIST_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/shoppinglists/{}"
 MY_LIST_SYNC_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/shoppinglists/{}/sync"

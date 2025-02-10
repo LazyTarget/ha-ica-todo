@@ -22,11 +22,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     uid = entry.data[CONF_ICA_ID]
     pin = entry.data[CONF_ICA_PIN]
     update_interval = datetime.timedelta(minutes=entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))
-    #_LOGGER.fatal("async_setup_entry. %s", entry.data)
     user_token = entry.data["user"]
     api = IcaAPIAsync(uid, pin, user_token)
     coordinator = IcaCoordinator(hass, entry, _LOGGER, update_interval, api)
-    _LOGGER.info("Setup entry - data: %s", entry.data)
     await coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})
