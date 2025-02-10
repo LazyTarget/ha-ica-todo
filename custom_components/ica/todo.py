@@ -82,24 +82,29 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         self._attr_name = shopping_list_name
         #self._attr_icon = "icon.png"
         self._attr_icon = "mdi:cart"
+        
+    @property
+    def name(self):
+        return f"ICA {self._attr_name}"
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        shopping_list = self.coordinator.get_shopping_list(self._project_id)
-        self._project_name = shopping_list["title"]
         items = []
-        for task in shopping_list["rows"]:
-            items.append(
-                TodoItem(
-                    summary=task["productName"],
-                    uid=task["offlineId"],
-                    status=TodoItemStatus.COMPLETED
-                    if task["isStrikedOver"]
-                    else TodoItemStatus.NEEDS_ACTION,
-                    description=self.generate_item_description(task),
+        shopping_list = self.coordinator.get_shopping_list(self._project_id)
+        if shopping_list:
+            self._project_name = shopping_list["title"]
+            for task in shopping_list["rows"]:
+                items.append(
+                    TodoItem(
+                        summary=task["productName"],
+                        uid=task["offlineId"],
+                        status=TodoItemStatus.COMPLETED
+                        if task["isStrikedOver"]
+                        else TodoItemStatus.NEEDS_ACTION,
+                        description=self.generate_item_description(task),
+                    )
                 )
-            )
         _LOGGER.info("%s ITEMS: %s", self._project_name, items)
         self._attr_todo_items = items
         super()._handle_coordinator_update()
