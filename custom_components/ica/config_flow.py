@@ -19,7 +19,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
 from .icaapi_async import IcaAPIAsync
-from .const import DOMAIN, CONFIG_ENTRY_NAME, CONF_ICA_ID, CONF_ICA_PIN, CONF_NUM_RECIPES, CONF_SHOPPING_LISTS, CONF_JSON_DATA_IN_DESC
+from .const import DOMAIN, CONFIG_ENTRY_NAME, CONF_ICA_ID, CONF_ICA_PIN, CONF_NUM_RECIPES, CONF_SHOPPING_LISTS, CONF_JSON_DATA_IN_DESC, DEFAULT_SCAN_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_ICA_ID, description="user id (personal ID number)"): str,
         vol.Required(CONF_ICA_PIN, description="pin code"): str,
-        vol.Required(CONF_SCAN_INTERVAL, default=300): int,
+        vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
     }
 )
 
@@ -171,7 +171,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
 
         config_entry_data = self.config_entry.data.copy()
         if user_input is not None:
-            config_entry_data[CONF_SCAN_INTERVAL] = user_input.get(CONF_SCAN_INTERVAL, 300)
+            config_entry_data[CONF_SCAN_INTERVAL] = user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
             config_entry_data[CONF_JSON_DATA_IN_DESC] = user_input.get(CONF_JSON_DATA_IN_DESC, False)
 
             selection = user_input.get(CONF_SHOPPING_LISTS, [])
@@ -216,7 +216,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
         schema = vol.Schema(
             {
                 vol.Required(CONF_SCAN_INTERVAL, 
-                             default=config_entry_data.get(CONF_SCAN_INTERVAL, 300)): int,
+                             default=config_entry_data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)): int,
                 vol.Required(CONF_JSON_DATA_IN_DESC,
                              default=config_entry_data.get(CONF_JSON_DATA_IN_DESC, False),
                              description="Whether to write extra information as JSON in the description field"): bool

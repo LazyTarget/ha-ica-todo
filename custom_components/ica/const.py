@@ -88,6 +88,8 @@ CONF_NUM_RECIPES: Final = "recipe_count"
 CONF_JSON_DATA_IN_DESC: Final = "json_data_in_desc"
 CONF_MENU_MANAGE_SHOPPING_LISTS: Final = "manage_tracked_shopping_lists"
 
+DEFAULT_SCAN_INTERVAL: Final = 5
+
 AUTH_TICKET: Final = "AuthenticationTicket"
 GET_LISTS: Final = "ShoppingLists"
 LIST_NAME: Final = "Title"
