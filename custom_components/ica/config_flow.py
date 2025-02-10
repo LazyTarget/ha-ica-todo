@@ -179,7 +179,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
 
         schema = self.SHOPPING_LIST_SELECTOR_SCHEMA
         if user_input is not None:
-            selection = user_input.get(CONF_SHOPPING_LISTS)
+            selection = user_input.get(CONF_SHOPPING_LISTS, [])
             if selection:
                 _LOGGER.fatal("posted valid %s", selection)
 

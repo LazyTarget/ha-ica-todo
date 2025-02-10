@@ -35,8 +35,9 @@ async def async_setup_entry(
         IcaShoppingListEntity(
             coordinator, entry.entry_id, shopping_list["offlineId"], shopping_list["title"]
         )
-        for shopping_list in shopping_lists if shopping_list["offlineId"] in entry.data.get(CONF_SHOPPING_LISTS, ['53E8CB19-58F9-4CDD-94AB-36725B4D5B5A', '36BBC95F-D1EC-47BA-A027-4917A46F5E05'])
+        for shopping_list in shopping_lists
     )
+    #for shopping_list in shopping_lists if shopping_list["offlineId"] in entry.data.get(CONF_SHOPPING_LISTS, ['53E8CB19-58F9-4CDD-94AB-36725B4D5B5A', '36BBC95F-D1EC-47BA-A027-4917A46F5E05'])
 
 
 def _task_api_data(item: TodoItem) -> dict[str, Any]:

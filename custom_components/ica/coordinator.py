@@ -3,6 +3,7 @@ from datetime import timedelta
 import logging
 
 from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .icaapi_async import IcaAPIAsync
@@ -14,6 +15,7 @@ from .icatypes import (
     IcaOffer,
     IcaShoppingList,
 )
+from .const import (CONF_SHOPPING_LISTS)
 
 import logging
 _LOGGER = logging.getLogger(__name__)
@@ -24,6 +26,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     def __init__(
         self,
         hass: HomeAssistant,
+        config_entry: ConfigEntry,
         logger: logging.Logger,
         update_interval: timedelta,
         api: IcaAPIAsync,
@@ -31,6 +34,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     ) -> None:
         """Initialize the ICA coordinator."""
         super().__init__(hass, logger, name="ICA", update_interval=update_interval)
+        self._config_entry = config_entry
         self.api = api
         self._nRecipes: int = nRecipes
         self._stores: list[IcaStore] | None = None
@@ -76,12 +80,21 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     async def async_get_shopping_lists(self) -> list[IcaShoppingList]:
         """Return ICA shopping lists fetched at most once."""
         if self._icaShoppingLists is None:
+            _LOGGER.fatal("LISTS to eval: %s", self._config_entry.data.get(CONF_SHOPPING_LISTS, []))
             x = await self.api.get_shopping_lists()
             if "shoppingLists" in x:
                 y = x["shoppingLists"]
                 self._icaShoppingLists = [
-                    await self.api.get_shopping_list(z["offlineId"]) for z in y
+                    await self.api.get_shopping_list(z["offlineId"]) 
+                    for z in y if z["offlineId"] in self._config_entry.data.get(CONF_SHOPPING_LISTS, [])
                 ]
+        
+        # async_add_entities(
+        #     IcaShoppingListEntity(
+        #         coordinator, entry.entry_id, shopping_list["offlineId"], shopping_list["title"]
+        #     )
+        #     for shopping_list in shopping_lists if shopping_list["offlineId"] in entry.data.get(CONF_SHOPPING_LISTS, ['53E8CB19-58F9-4CDD-94AB-36725B4D5B5A', '36BBC95F-D1EC-47BA-A027-4917A46F5E05'])
+        # )    
         return self._icaShoppingLists
 
     async def async_get_product_categories(self) -> list[IcaProductCategory]:
