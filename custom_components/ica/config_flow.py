@@ -101,7 +101,7 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     #CONF_SHOPPING_LISTS: user_input[CONF_SHOPPING_LISTS]
                 }
                 return self.async_create_entry(
-                    title=CONFIG_ENTRY_NAME,
+                    title=CONFIG_ENTRY_NAME % self.user_token["person_name"],
                     data=config_entry_data,
                 )
 

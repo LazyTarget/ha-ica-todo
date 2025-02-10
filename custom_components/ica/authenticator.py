@@ -1,5 +1,6 @@
 import requests
 import json
+import jwt
 import re
 from datetime import datetime
 from .http_requests import get, post, delete
@@ -194,7 +195,12 @@ class IcaAuthenticator:
         }
         response = self.invoke_post(url, data=d)
         response.raise_for_status()
-        return response.json()
+        tkn = response.json()
+        
+        # Parse and append the Person Name
+        decoded = jwt.decode(tkn["id_token"], options={"verify_signature": False})
+        tkn["person_name"] = f"{decoded["given_name"]} {decoded["family_name"]}"
+        return tkn
 
     def generate_code_challenge(self):
         import base64
