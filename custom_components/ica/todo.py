@@ -17,7 +17,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import (DOMAIN, CONF_SHOPPING_LISTS)
+from .const import (DOMAIN, CONF_JSON_DATA_IN_DESC)
 from .coordinator import IcaCoordinator
 from .icatypes import IcaShoppingList
 
@@ -33,11 +33,10 @@ async def async_setup_entry(
     shopping_lists: list[IcaShoppingList] = await coordinator.async_get_shopping_lists()
     async_add_entities(
         IcaShoppingListEntity(
-            coordinator, entry.entry_id, shopping_list["offlineId"], shopping_list["title"]
+            coordinator, entry, shopping_list["offlineId"], shopping_list["title"]
         )
         for shopping_list in shopping_lists
     )
-    #for shopping_list in shopping_lists if shopping_list["offlineId"] in entry.data.get(CONF_SHOPPING_LISTS, ['53E8CB19-58F9-4CDD-94AB-36725B4D5B5A', '36BBC95F-D1EC-47BA-A027-4917A46F5E05'])
 
 
 def _task_api_data(item: TodoItem) -> dict[str, Any]:
@@ -65,20 +64,21 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         TodoListEntityFeature.CREATE_TODO_ITEM
         | TodoListEntityFeature.UPDATE_TODO_ITEM
         | TodoListEntityFeature.DELETE_TODO_ITEM
-        | TodoListEntityFeature.MOVE_TODO_ITEM
+        #| TodoListEntityFeature.MOVE_TODO_ITEM     # todo: implement
     )
 
     def __init__(
         self,
         coordinator: IcaCoordinator,
-        config_entry_id: str,
+        config_entry: ConfigEntry,
         shopping_list_id: str,
         shopping_list_name: str,
     ) -> None:
         """Initialize IcaShoppingListEntity."""
         super().__init__(coordinator=coordinator)
+        self._config_entry = config_entry
         self._project_id = shopping_list_id
-        self._attr_unique_id = f"{config_entry_id}-{shopping_list_id}"
+        self._attr_unique_id = f"{config_entry.entry_id}-{shopping_list_id}"
         self._attr_name = shopping_list_name
         #self._attr_icon = "icon.png"
         self._attr_icon = "mdi:cart"
@@ -102,7 +102,8 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                         status=TodoItemStatus.COMPLETED
                         if task["isStrikedOver"]
                         else TodoItemStatus.NEEDS_ACTION,
-                        description=self.generate_item_description(task),
+                        description=self.generate_item_description(task)
+                        if self._config_entry.data.get(CONF_JSON_DATA_IN_DESC, False) else None,
                     )
                 )
         _LOGGER.info("%s ITEMS: %s", self._project_name, items)

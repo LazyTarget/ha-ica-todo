@@ -18,7 +18,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
 from .icaapi_async import IcaAPIAsync
-from .const import DOMAIN, CONFIG_ENTRY_NAME, CONF_ICA_ID, CONF_ICA_PIN, CONF_NUM_RECIPES, CONF_SHOPPING_LISTS, CONF_SELECTED_MENU_ACTION, CONF_MENU_MANAGE_SHOPPING_LISTS
+from .const import DOMAIN, CONFIG_ENTRY_NAME, CONF_ICA_ID, CONF_ICA_PIN, CONF_NUM_RECIPES, CONF_SHOPPING_LISTS, CONF_JSON_DATA_IN_DESC
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,15 +33,11 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     }
 )
 
-# CONF_ACTIONS = {
-#     CONF_MENU_MANAGE_SHOPPING_LISTS: "Tracked shopping lists"
-# }
-
-# CONFIGURE_SCHEMA = vol.Schema(
-#     {
-#         vol.Required(CONF_SELECTED_MENU_ACTION, default=CONF_MENU_MANAGE_SHOPPING_LISTS): vol.In(CONF_ACTIONS)
-#     }
-# )
+CONFIGURE_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_JSON_DATA_IN_DESC, description="Whether to write extra information as JSON in the description field"): bool
+    }
+)
 
 
 class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -168,7 +164,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
         self.user_token = self.config_entry.data["user"]
         _LOGGER.info("Options flow - User token: %s", self.user_token)
         _LOGGER.info("Options flow - Config_entry data: %s", self.config_entry.data)
-        
+
         if self.SHOPPING_LIST_SELECTOR_SCHEMA is None:
             api = IcaAPIAsync(
                 uid=self.config_entry.data[CONF_ICA_ID],
@@ -179,25 +175,25 @@ class IcaOptionsFlowHandler(OptionsFlow):
                 self.shopping_lists = data["shoppingLists"]
             self.SHOPPING_LIST_SELECTOR_SCHEMA = self.build_shopping_list_selector_schema(self.shopping_lists)
 
-        schema = self.SHOPPING_LIST_SELECTOR_SCHEMA
+        config_entry_data = self.config_entry.data.copy()
         if user_input is not None:
+            config_entry_data[CONF_JSON_DATA_IN_DESC] = user_input.get(CONF_JSON_DATA_IN_DESC, False)
+
             selection = user_input.get(CONF_SHOPPING_LISTS, [])
             if selection:
-                _LOGGER.fatal("posted valid %s", selection)
-
-                config_entry_data = self.config_entry.data.copy()
                 config_entry_data[CONF_SHOPPING_LISTS] = selection
+                _LOGGER.fatal("new config entry data %s", config_entry_data)
                 #     # CONF_ICA_ID: user_input[CONF_ICA_ID] or self.initial_input[CONF_ICA_ID],
                 #     # CONF_ICA_PIN: user_input[CONF_ICA_PIN] or self.initial_input[CONF_ICA_PIN],
                 #     # "user": self.user_token,
                 #     # "access_token": self.user_token["access_token"],
                 #     CONF_SHOPPING_LISTS: selection,
                 # }
-                
+
                 # #return self.async_create_entry(title=CONFIG_ENTRY_NAME % self.user_token["person_name"],
                 # #                               data=config_entry_data)
                 # #return self.async_create_entry(title="", data={})
-                
+
                 r = self.hass.config_entries.async_update_entry(
                     self.config_entry,
                     data=config_entry_data,
@@ -205,7 +201,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
                 if r:
                     self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
                 return self.async_abort(reason="Integration was reloaded")
-                
+
                 # # Only works for ConfigFlows
                 # return self.async_update_reload_and_abort(
                 #     self.config_entry,
@@ -213,6 +209,14 @@ class IcaOptionsFlowHandler(OptionsFlow):
                 # )
             else:
                 _LOGGER.fatal("Posted other: %s", selection)
+
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_JSON_DATA_IN_DESC,
+                             default=config_entry_data.get(CONF_JSON_DATA_IN_DESC, False),
+                             description="Whether to write extra information as JSON in the description field"): bool
+            }
+        ).extend(self.SHOPPING_LIST_SELECTOR_SCHEMA)
 
         return self.async_show_form(
             step_id="init",
@@ -222,21 +226,19 @@ class IcaOptionsFlowHandler(OptionsFlow):
 
     def build_shopping_list_selector_schema(self, lists):
         current_lists_value = self.config_entry.data.get(CONF_SHOPPING_LISTS, [])
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_SHOPPING_LISTS, description="The shopping lists to track", default=current_lists_value): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=[
-                            selector.SelectOptionDict(
-                                label=list["title"],
-                                value=list["offlineId"]
-                            )
-                            for list in lists
-                        ],
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                        multiple=True
-                    )
-                ),
-            }
-        )
+        schema = {
+            vol.Required(CONF_SHOPPING_LISTS, description="The shopping lists to track", default=current_lists_value): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(
+                            label=list["title"],
+                            value=list["offlineId"]
+                        )
+                        for list in lists
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                    multiple=True
+                )
+            ),
+        }
         return schema

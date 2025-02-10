@@ -85,7 +85,7 @@ CONF_ICA_PIN: Final = "pin_code"
 CONF_SHOPPING_LISTS: Final = "shopping_lists"
 CONF_NUM_RECIPES: Final = "recipe_count"
 
-CONF_SELECTED_MENU_ACTION: Final = "menu_action"
+CONF_JSON_DATA_IN_DESC: Final = "json_data_in_desc"
 CONF_MENU_MANAGE_SHOPPING_LISTS: Final = "manage_tracked_shopping_lists"
 
 AUTH_TICKET: Final = "AuthenticationTicket"
