@@ -126,7 +126,7 @@ class IcaAuthenticator:
             raise ValueError("Expected a Location redirect")
 
         state = re.search(r"&state=(\w*)", location)[1]
-        _LOGGER.warning("State: %s", state)
+        _LOGGER.info("State (Client): %s", state)
 
         # Invokes /authn/authenticate
         response = self.invoke_get(location)
@@ -153,7 +153,7 @@ class IcaAuthenticator:
         if api_state != state:
             _LOGGER.warning("States are different! Client: %s, Server: %s", state, api_state)
         else:
-            _LOGGER.info("Server state: %s", api_state)
+            _LOGGER.info("State (Server): %s", api_state)
 
         return token
 
@@ -178,7 +178,7 @@ class IcaAuthenticator:
             raise ValueError("Expected a Location redirect")
 
         code = re.search(r"&code=(\w*)", location)[1]
-        _LOGGER.warning("Code: %s", code)
+        _LOGGER.info("Code: %s", code)
 
         # Invokes /authn/authenticate
         url = self.get_rest_url(API.URLs.OAUTH2_TOKEN_ENDPOINT)

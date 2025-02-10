@@ -28,7 +28,7 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up the ICA shopping list platform config entry."""
-    _LOGGER.warning("Data cfg: %s", entry.data)
+    _LOGGER.warning("Todo setup :: Data: %s", entry.data)
     coordinator: IcaCoordinator = hass.data[DOMAIN][entry.entry_id]
     shopping_lists: list[IcaShoppingList] = await coordinator.async_get_shopping_lists()
     async_add_entities(

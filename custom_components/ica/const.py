@@ -79,6 +79,7 @@ SERVICE_NEW_TASK: Final = "new_task"
 """Constants for ICA shopping list"""
 
 DOMAIN: Final = "ica"
+CONFIG_ENTRY_NAME: Final = "ICA"
 CONF_ICA_ID: Final = "personal_id"
 CONF_ICA_PIN: Final = "pin_code"
 CONF_SHOPPING_LISTS: Final = "shopping_lists"

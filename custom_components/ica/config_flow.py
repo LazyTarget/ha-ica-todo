@@ -18,7 +18,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
 from .icaapi_async import IcaAPIAsync
-from .const import DOMAIN, CONF_ICA_ID, CONF_ICA_PIN, CONF_NUM_RECIPES, CONF_SHOPPING_LISTS, CONF_SELECTED_MENU_ACTION, CONF_MENU_MANAGE_SHOPPING_LISTS
+from .const import DOMAIN, CONFIG_ENTRY_NAME, CONF_ICA_ID, CONF_ICA_PIN, CONF_NUM_RECIPES, CONF_SHOPPING_LISTS, CONF_SELECTED_MENU_ACTION, CONF_MENU_MANAGE_SHOPPING_LISTS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -96,7 +96,7 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     #CONF_SHOPPING_LISTS: user_input[CONF_SHOPPING_LISTS]
                 }
                 return self.async_create_entry(
-                    title=DOMAIN,
+                    title=CONFIG_ENTRY_NAME,
                     data=config_entry_data,
                 )
 
@@ -186,7 +186,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
                     # "access_token": self.user_token["access_token"],
                     CONF_SHOPPING_LISTS: selection,
                 }
-                return self.async_create_entry(title=DOMAIN,
+                return self.async_create_entry(title=CONFIG_ENTRY_NAME,
                                                data=config_entry_data)
             else:
                 _LOGGER.fatal("Posted other: %s", selection)
