@@ -2,6 +2,7 @@
 
 import asyncio
 import datetime
+import json
 from typing import Any, cast
 
 from homeassistant.components.todo import (
@@ -80,13 +81,12 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         self._attr_name = shopping_list_name
         #self._attr_icon = "icon.png"
         self._attr_icon = "mdi:cart"
-        _LOGGER.warning("formatted root data: %s", coordinator._icaShoppingLists)
-        _LOGGER.warning("formatted project list: %s", coordinator.get_shopping_list(self._project_id))
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         shopping_list = self.coordinator.get_shopping_list(self._project_id)
+        self._project_name = shopping_list["title"]
         items = []
         for task in shopping_list["rows"]:
             items.append(
@@ -96,12 +96,43 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                     status=TodoItemStatus.COMPLETED
                     if task["isStrikedOver"]
                     else TodoItemStatus.NEEDS_ACTION,
-                    #description="Beskrivningen...",
+                    description=self.generate_item_description(task),
                 )
             )
-        _LOGGER.fatal("ITEMS: %s", items)
+        _LOGGER.info("%s ITEMS: %s", self._project_name, items)
         self._attr_todo_items = items
         super()._handle_coordinator_update()
+
+    def generate_item_description(self, item: TodoItem):
+        if not item:
+            return None
+        result = {}
+
+        if item.get("quantity", None):
+            result["quantity"] = item.get("quantity")
+
+        if item.get("unit", None):
+            result["unit"] = item.get("unit")
+
+        if item.get("articleGroupId", None):
+            result["articleGroupId"] = item.get("articleGroupId")
+
+        if item.get("offerId", None):
+            result["offerId"] = item.get("offerId")
+
+        if item.get("sourceId", None):
+            result["sourceId"] = item.get("sourceId")
+
+        if item.get("productEan", None):
+            result["productEan"] = item.get("productEan")
+
+        if item.get("recepies", None):
+            result["recepies"] = item.get("recepies")
+
+        if not result.keys():
+            return None
+        result = json.dumps(result)
+        return result
 
     async def async_create_todo_item(self, item: TodoItem) -> None:
         """Create a To-do item."""
