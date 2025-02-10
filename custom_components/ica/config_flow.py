@@ -64,10 +64,15 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         _LOGGER.fatal("Current config entries: %s", self._async_current_entries())
         if self._async_current_entries():
             _LOGGER.fatal("Current config_entry data: %s", self._async_current_entries()[0].data)
-            return self.async_abort(reason="single_instance_allowed")
+            return self.async_abort(reason="single_instance_allowed")        
 
         errors: dict[str, str] = {}
         if user_input is not None:
+            # Assign unique id based on Account ID
+            await self.async_set_unique_id(f"{DOMAIN}__{user_input[CONF_ICA_ID]}")
+            # Abort flow if a config entry with same Accound ID exists (prevent duplicate requests...)
+            self._abort_if_unique_id_configured()
+
             api = IcaAPIAsync(user_input[CONF_ICA_ID], user_input[CONF_ICA_PIN])
             try:
                 self.shopping_lists = await api.get_shopping_lists()
