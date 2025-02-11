@@ -115,7 +115,6 @@ class IcaOptionsFlowHandler(OptionsFlow):
 
     def __init__(self, config_entry: ConfigEntry) -> None:
         """Initialize Ica options flow"""
-        self.config_entry = config_entry
         super().__init__()
 
     async def async_step_init(
