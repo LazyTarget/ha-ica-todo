@@ -65,10 +65,10 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         return articleGroups.get(str.lower(productName), 12)
 
     def parse_summary(self, summary):
-        r = re.search(r"(\d*) ([a-zA-ZåäöÅÄÖ]*) (.*)?$", summary)
-        quantity = r[1]
-        unit = r[2]
-        productName = r[3] or summary
+        r = re.search(r"^(?P<min_quantity>\d-)?(?P<quantity>[0-9,.]*)? ?(?P<unit>st|förp|kg|hg|g|l|dl|cl|ml|msk|tsk|krm)? ?(?P<name>.+)$", summary)
+        quantity = r['quantity']
+        unit = r['unit']
+        productName = r['name'] or summary
         articleGroupId = self.get_article_group(productName)
 
         ti = {

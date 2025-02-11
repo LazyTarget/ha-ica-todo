@@ -6,5 +6,5 @@ ICA integration for Home assistant
 
 - [x] Shopping list picker for which lists to track
 - [ ] Implement config flows step for Reauth / refresh tokens
-- [ ] Regex pattern matching for specifying Quantity and Unit
+- [x] Regex pattern matching for specifying Quantity and Unit
 - [ ] Get offers service, to use for automations (notifications, automatic add to list)
