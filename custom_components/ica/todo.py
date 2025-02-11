@@ -144,18 +144,14 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         """Create a To-do item."""
         if item.status != TodoItemStatus.NEEDS_ACTION:
             raise ValueError("Only active tasks may be created.")
-        articleGroup = self.coordinator.get_article_group(item.summary)
         shopping_list = self.coordinator.get_shopping_list(self._project_id)
 
-        stuff = {
-            "productName": item.summary,
-            "sourceId": -1,
-            "isStrikedOver": False,
-            "articleGroupId": articleGroup,
-        }
+        ti = self.coordinator.parse_summary(item.summary)
+        ti["sourceId"] = -1
+        ti["isStrikedOver"] = False
         if "createdRows" not in shopping_list:
             shopping_list["createdRows"] = []
-        shopping_list["createdRows"].append(stuff)
+        shopping_list["createdRows"].append(ti)
 
         shopping_list["latestChange"] = (
             datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",

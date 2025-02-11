@@ -1,5 +1,6 @@
 """DataUpdateCoordinator for the Todoist component."""
 from datetime import timedelta
+import re
 import logging
 
 from homeassistant.core import HomeAssistant
@@ -61,8 +62,29 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             "toapapper": 11,
             "blöjor": 11,
         }
-
         return articleGroups.get(str.lower(productName), 12)
+
+    def parse_summary(self, summary):
+        r = re.search(r"(\d*) ([a-zA-ZåäöÅÄÖ]*) (.*)?$", summary)
+        quantity = r[1]
+        unit = r[2]
+        productName = r[3] or summary
+        articleGroupId = self.get_article_group(productName)
+
+        ti = {
+            "summary": summary,
+            "productName": productName
+        }
+        if unit:
+            ti["unit"] = unit
+        if quantity:
+            ti["quantity"] = quantity
+        if unit:
+            ti["unit"] = unit
+        if articleGroupId:
+            ti["articleGroupId"] = articleGroupId
+        _LOGGER.info("Parsed ti: %s", ti)
+        return ti
 
     async def _async_update_data(self) -> None:  # list[IcaShoppingListEntry]:
         """Fetch shopping lists from the ICA API."""
