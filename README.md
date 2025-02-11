@@ -7,4 +7,6 @@ ICA integration for Home assistant
 - [x] Shopping list picker for which lists to track
 - [ ] Implement config flows step for Reauth / refresh tokens
 - [x] Regex pattern matching for specifying Quantity and Unit
-- [ ] Get offers service, to use for automations (notifications, automatic add to list)
+- [x] Assign due date based on current offer for items synced from ICA
+- [ ] Get current offers in favorite stores. If any "productEan" matches one of my favorite products "baseitems", then automatically add it, with a due date
+- [ ] Implement services and events to use for automations (notifications, etc.)

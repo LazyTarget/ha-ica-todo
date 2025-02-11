@@ -83,8 +83,28 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             ti["unit"] = unit
         if articleGroupId:
             ti["articleGroupId"] = articleGroupId
-        _LOGGER.info("Parsed ti: %s", ti)
+
+        if ti.get('quantity', None) and ti.get('unit', None):
+            ti['summary'] = f"{ti['quantity']} {ti['unit']} {productName}"
+        elif ti.get('quantity', None):
+            ti['summary'] = f"{ti['quantity']} {productName}"
+
+        _LOGGER.info("Parsed info from '%s' to %s", summary, ti)
         return ti
+
+    def get_offer_info(self, offerId):
+        if not self._icaOffers:
+            _LOGGER.warning("No offers where loaded!")
+            return None
+
+        all_store_offers = self._icaOffers
+        for store_id in all_store_offers:
+            store = all_store_offers[store_id]
+            matches = [o for o in store["offers"] if o["id"] == offerId]
+            if matches:
+                _LOGGER.fatal("Matched offer: %s", matches)
+                return matches[0]
+        return None
 
     async def _async_update_data(self) -> None:  # list[IcaShoppingListEntry]:
         """Fetch shopping lists from the ICA API."""
@@ -109,7 +129,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                     await self.api.get_shopping_list(z["offlineId"]) 
                     for z in y if z["offlineId"] in self._config_entry.data.get(CONF_SHOPPING_LISTS, [])
                 ]
-        
+
         # async_add_entities(
         #     IcaShoppingListEntity(
         #         coordinator, entry.entry_id, shopping_list["offlineId"], shopping_list["title"]
@@ -130,11 +150,11 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             self._stores = await self.api.get_favorite_stores()
         return self._stores
 
-    async def async_get_offers(self) -> list[IcaOffer]:
+    async def async_get_offers(self):
         """Return ICA offers at favorite stores fetched at most once."""
-        return []
-
         stores = await self.async_get_stores()
+
+        # todo: Cache offers, but invalidate cache once in a while...
         if self._icaOffers is None:
             self._icaOffers = await self.api.get_offers([s["id"] for s in stores])
         return self._icaOffers

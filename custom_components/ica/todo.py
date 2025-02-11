@@ -63,7 +63,8 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         TodoListEntityFeature.CREATE_TODO_ITEM
         | TodoListEntityFeature.UPDATE_TODO_ITEM
         | TodoListEntityFeature.DELETE_TODO_ITEM
-        #| TodoListEntityFeature.MOVE_TODO_ITEM     # todo: implement
+        | TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
+        | TodoListEntityFeature.SET_DUE_DATETIME_ON_ITEM
     )
 
     def __init__(
@@ -74,6 +75,18 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         shopping_list_name: str,
     ) -> None:
         """Initialize IcaShoppingListEntity."""
+        if config_entry.data.get(CONF_JSON_DATA_IN_DESC, False):
+            self._attr_supported_features = (
+                TodoListEntityFeature.CREATE_TODO_ITEM
+                | TodoListEntityFeature.UPDATE_TODO_ITEM
+                | TodoListEntityFeature.DELETE_TODO_ITEM
+                | TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
+                | TodoListEntityFeature.SET_DUE_DATETIME_ON_ITEM
+
+                # adds Description
+                | TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM
+            )
+
         super().__init__(coordinator=coordinator)
         self._config_entry = config_entry
         self._project_id = shopping_list_id
@@ -81,7 +94,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         self._attr_name = shopping_list_name
         #self._attr_icon = "icon.png"
         self._attr_icon = "mdi:cart"
-        
+
     @property
     def name(self):
         return f"ICA {self._attr_name}"
@@ -94,6 +107,12 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         if shopping_list:
             self._project_name = shopping_list["title"]
             for task in shopping_list["rows"]:
+                if task.get("offerId", None):
+                    offer = self.coordinator.get_offer_info(task["offerId"])
+                    task["offer"] = offer
+                    task["due"] = offer["validTo"]
+                due = datetime.datetime.fromisoformat(task["due"]) if task.get("due", None) else None
+
                 items.append(
                     TodoItem(
                         summary=task["productName"],
@@ -103,6 +122,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                         else TodoItemStatus.NEEDS_ACTION,
                         description=self.generate_item_description(task)
                         if self._config_entry.data.get(CONF_JSON_DATA_IN_DESC, False) else None,
+                        due=due,
                     )
                 )
         _LOGGER.debug("%s ITEMS: %s", self._project_name, items)
@@ -125,6 +145,9 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
 
         if item.get("offerId", None):
             result["offerId"] = item.get("offerId")
+
+        if item.get("due", None):
+            result["due"] = item.get("due")
 
         if item.get("sourceId", None):
             result["sourceId"] = item.get("sourceId")
