@@ -63,6 +63,11 @@ class IcaAPIAsync:
             self._api = await run_async(lambda: IcaAPI(self._uid, self._pin))
         return await run_async(lambda: self._api.get_offers(store_ids))
 
+    async def get_current_bonus(self):
+        if not self._api:
+            self._api = await run_async(lambda: IcaAPI(self._uid, self._pin))
+        return await run_async(lambda: self._api.get_current_bonus())
+
     async def get_random_recipes(self, nRecipes: int = 5) -> list[IcaRecipe]:
         if not self._api:
             self._api = await run_async(lambda: IcaAPI(self._uid, self._pin))

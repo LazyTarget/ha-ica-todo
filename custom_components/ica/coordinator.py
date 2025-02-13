@@ -42,6 +42,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._stores: list[IcaStore] | None = None
         self._productCategories: list[IcaProductCategory] | None = None
         self._icaOffers: list[IcaOffer] | None = None
+        self._icaCurrentBonus: list | None = None
         self._icaShoppingLists: list[IcaShoppingList] | None = None
         self._icaRecipes: list[IcaRecipe] | None = None
 
@@ -108,13 +109,15 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         return None
 
     async def _async_update_data(self) -> None:  # list[IcaShoppingListEntry]:
-        """Fetch shopping lists from the ICA API."""
+        """Fetch data from the ICA API."""
         self._icaShoppingLists = None
         self._icaRecipes = None
         self._icaOffers = None
+        self._icaCurrentBonus = None
         try:
             self._icaShoppingLists = await self.async_get_shopping_lists()
             self._icaOffers = await self.async_get_offers()
+            self._icaCurrentBonus = await self.async_get_current_bonus()
             #if self._nRecipes:
             #    self._icaRecipes = await self.async_get_recipes(self._nRecipes)
         except Exception as err:
@@ -163,6 +166,17 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 "data": self._icaOffers
             })
         return self._icaOffers
+
+    async def async_get_current_bonus(self):
+        # todo: Cache offers, but invalidate cache once in a while...
+        if self._icaCurrentBonus is None:
+            self._icaCurrentBonus = await self.api.get_current_bonus()
+            self._hass.bus.async_fire(f"{DOMAIN}_event", {
+                "type": "current_bonus_loaded",
+                "uid": self._config_entry.data[CONF_ICA_ID],
+                "data": self._icaCurrentBonus
+            })
+        return self._icaCurrentBonus
 
     async def async_get_recipes(self, nRecipes: int) -> list[IcaRecipe]:
         """Return ICA recipes."""

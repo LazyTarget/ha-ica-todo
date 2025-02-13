@@ -87,6 +87,10 @@ class IcaAPI:
         _LOGGER.info("Fetched offers for stores: %s", store_ids)
         return all_store_offers
 
+    def get_current_bonus(self):
+        url = get_rest_url(MY_BONUS_ENDPOINT)
+        return get(self._session, url, self._auth_key)
+
     def get_random_recipes(self, nRecipes: int = 5) -> list[IcaRecipe]:
         if nRecipes < 1:
             return []
