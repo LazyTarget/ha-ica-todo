@@ -16,7 +16,7 @@ from .icatypes import (
     IcaOffer,
     IcaShoppingList,
 )
-from .const import (CONF_SHOPPING_LISTS)
+from .const import DOMAIN, CONF_ICA_ID, CONF_SHOPPING_LISTS
 
 import logging
 _LOGGER = logging.getLogger(__name__)
@@ -37,6 +37,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         super().__init__(hass, logger, name="ICA", update_interval=update_interval)
         self._config_entry = config_entry
         self.api = api
+        self._hass = hass
         self._nRecipes: int = nRecipes
         self._stores: list[IcaStore] | None = None
         self._productCategories: list[IcaProductCategory] | None = None
@@ -102,7 +103,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             store = all_store_offers[store_id]
             matches = [o for o in store["offers"] if o["id"] == offerId]
             if matches:
-                _LOGGER.fatal("Matched offer: %s", matches)
+                _LOGGER.info("Matched offer: %s", matches)
                 return matches[0]
         return None
 
@@ -130,12 +131,11 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                     for z in y if z["offlineId"] in self._config_entry.data.get(CONF_SHOPPING_LISTS, [])
                 ]
 
-        # async_add_entities(
-        #     IcaShoppingListEntity(
-        #         coordinator, entry.entry_id, shopping_list["offlineId"], shopping_list["title"]
-        #     )
-        #     for shopping_list in shopping_lists if shopping_list["offlineId"] in entry.data.get(CONF_SHOPPING_LISTS, ['53E8CB19-58F9-4CDD-94AB-36725B4D5B5A', '36BBC95F-D1EC-47BA-A027-4917A46F5E05'])
-        # )    
+        self._hass.bus.async_fire(f"{DOMAIN}_event", {
+            "type": "shopping_lists_loaded",
+            "uid": self._config_entry.data[CONF_ICA_ID],
+            "data": self._icaShoppingLists
+        })
         return self._icaShoppingLists
 
     async def async_get_product_categories(self) -> list[IcaProductCategory]:
@@ -157,6 +157,11 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         # todo: Cache offers, but invalidate cache once in a while...
         if self._icaOffers is None:
             self._icaOffers = await self.api.get_offers([s["id"] for s in stores])
+            self._hass.bus.async_fire(f"{DOMAIN}_event", {
+                "type": "offers_loaded",
+                "uid": self._config_entry.data[CONF_ICA_ID],
+                "data": self._icaOffers
+            })
         return self._icaOffers
 
     async def async_get_recipes(self, nRecipes: int) -> list[IcaRecipe]:
