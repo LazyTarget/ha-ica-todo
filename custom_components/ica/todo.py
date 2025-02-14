@@ -53,20 +53,37 @@ def async_register_services(
 ) -> None:
     """Register services."""
 
+    # if not hass.services.has_service(DOMAIN, IcaServices.GET_RECIPE):
+    #     async def handle_get_recipe(entity: TodoListEntity, call: ServiceCall) -> None:
+    #         """Call will query ICA api after a specific Recipe"""
+    #         recipe_id = call.data["recipe_id"]
+    #         recipe = await coordinator.async_get_recipe(recipe_id)
+    #         return recipe
+
+    #     platform = entity_platform.async_get_current_platform()
+    #     platform.async_register_entity_service(
+    #         IcaServices.GET_RECIPE,
+    #         {
+    #             vol.Required("recipe_id"): cv.string
+    #         },
+    #         handle_get_recipe,
+    #         supports_response=SupportsResponse.ONLY)
+
+    # Non-entity based Services
     if not hass.services.has_service(DOMAIN, IcaServices.GET_RECIPE):
-        async def handle_get_recipe(entity: TodoListEntity, call: ServiceCall) -> None:
+        async def handle_get_recipe(call: ServiceCall) -> None:
             """Call will query ICA api after a specific Recipe"""
             recipe_id = call.data["recipe_id"]
             recipe = await coordinator.async_get_recipe(recipe_id)
             return recipe
 
-        platform = entity_platform.async_get_current_platform()
-        platform.async_register_entity_service(
+        hass.services.async_register(
+            DOMAIN,
             IcaServices.GET_RECIPE,
-            {
-                vol.Required("recipe_id"): cv.string
-            },
             handle_get_recipe,
+            schema=vol.Schema({
+                vol.Required("recipe_id"): cv.string
+            }),
             supports_response=SupportsResponse.ONLY)
 
 

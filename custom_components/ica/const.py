@@ -102,6 +102,9 @@ IS_CHECKED: Final = "IsStrikedOver"
 class IcaServices(StrEnum):
     """Services for the ICA integration"""
     GET_RECIPE = "get_recipe"
+    # GET_STORE_DISCOUNTS = "get_store_discounts"
+    # GET_FAVORITE_ARTICLES = "get_favorite_articles"
+    # LOOKUP_BARCODE = "lookup_barcode"
 
 
 class API:
