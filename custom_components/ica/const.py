@@ -103,7 +103,7 @@ class IcaServices(StrEnum):
     """Services for the ICA integration"""
     GET_RECIPE = "get_recipe"
     # GET_STORE_DISCOUNTS = "get_store_discounts"
-    # GET_FAVORITE_ARTICLES = "get_favorite_articles"
+    GET_BASEITEMS = "get_baseitems"
     # LOOKUP_BARCODE = "lookup_barcode"
 
 
@@ -124,6 +124,9 @@ class API:
         LOGIN_ENDPOINT: Final = "authn/authenticate/IcaCustomers"
 
         QUERY_BASE: Final = "https://apimgw-pub.ica.se"
+
+        # ShoppingListService
+        MY_BASEITEMS_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/baseitems"
 
 
 MY_LISTS_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/shoppinglists" #"user/offlineshoppinglists"

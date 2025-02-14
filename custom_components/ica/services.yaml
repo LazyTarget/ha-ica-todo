@@ -12,3 +12,11 @@ get_recipe:
       required: true
       selector:
         text:
+get_baseitems:
+  fields:
+    integration:
+      name: "ICA Account"
+      required: true
+      selector:
+        config_entry:
+          integration: ica

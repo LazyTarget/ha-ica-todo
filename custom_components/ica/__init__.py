@@ -3,18 +3,23 @@
 import datetime
 import logging
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigType
 from homeassistant.const import (Platform, CONF_SCAN_INTERVAL)
 from homeassistant.core import HomeAssistant
 
 from .icaapi_async import IcaAPIAsync
 from .coordinator import IcaCoordinator
+from .services import setup_global_services
 from .const import DOMAIN, CONF_ICA_PIN, CONF_ICA_ID, DEFAULT_SCAN_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.TODO]
 
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    setup_global_services(hass)
+    return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up ICA from a config entry."""
@@ -29,6 +34,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
+    entry.coordinator = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

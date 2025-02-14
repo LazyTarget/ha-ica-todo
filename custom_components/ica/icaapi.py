@@ -37,7 +37,7 @@ def get_rest_url(endpoint: str):
 
 class IcaAPI:
     """Class to retrieve and manipulate ICA Shopping lists"""
-    
+
     def __init__(self, user, psw, user_token=None, session: requests.Session | None = None) -> None:
         if user_token is None:
             authenticator = IcaAuthenticator(user, psw, session)
@@ -45,10 +45,10 @@ class IcaAPI:
             self._user = authenticator._user
         else:
             self._user = user_token
-        
+
         self._auth_key = self._user["access_token"]
         self._session = session or requests.Session()
-        
+
     def get_authenticated_user(self):
         return self._user
 
@@ -58,6 +58,10 @@ class IcaAPI:
 
     def get_shopping_list(self, list_id: str) -> IcaShoppingList:
         url = str.format(get_rest_url(MY_LIST_ENDPOINT), list_id)
+        return get(self._session, url, self._auth_key)
+
+    def get_baseitems(self):
+        url = get_rest_url(API.URLs.MY_BASEITEMS_ENDPOINT)
         return get(self._session, url, self._auth_key)
 
     def get_store(self, store_id) -> IcaStore:

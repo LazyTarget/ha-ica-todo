@@ -115,10 +115,12 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._icaRecipes = None
         self._icaOffers = None
         self._icaCurrentBonus = None
+        self._icaBaseItems = None
         try:
             self._icaShoppingLists = await self.async_get_shopping_lists()
             self._icaOffers = await self.async_get_offers()
             self._icaCurrentBonus = await self.async_get_current_bonus()
+            self._icaBaseItems = await self.async_get_baseitems()
             #if self._nRecipes:
             #    self._icaRecipes = await self.async_get_recipes(self._nRecipes)
         except Exception as err:
@@ -141,6 +143,12 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             "data": self._icaShoppingLists
         })
         return self._icaShoppingLists
+
+    async def async_get_baseitems(self):
+        """Return ICA favorite items (baseitems) fetched at most once."""
+        if self._icaBaseItems is None:
+            self._icaBaseItems = await self.api.get_baseitems()
+        return self._icaBaseItems
 
     async def async_get_product_categories(self) -> list[IcaProductCategory]:
         """Return ICA product categories fetched at most once."""

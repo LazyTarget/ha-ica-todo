@@ -69,22 +69,22 @@ def async_register_services(
     #         handle_get_recipe,
     #         supports_response=SupportsResponse.ONLY)
 
-    # Non-entity based Services
-    if not hass.services.has_service(DOMAIN, IcaServices.GET_RECIPE):
-        async def handle_get_recipe(call: ServiceCall) -> None:
-            """Call will query ICA api after a specific Recipe"""
-            recipe_id = call.data["recipe_id"]
-            recipe = await coordinator.async_get_recipe(recipe_id)
-            return recipe
+    # # Non-entity based Services
+    # if not hass.services.has_service(DOMAIN, IcaServices.GET_RECIPE):
+    #     async def handle_get_recipe(call: ServiceCall) -> None:
+    #         """Call will query ICA api after a specific Recipe"""
+    #         recipe_id = call.data["recipe_id"]
+    #         recipe = await coordinator.async_get_recipe(recipe_id)
+    #         return recipe
 
-        hass.services.async_register(
-            DOMAIN,
-            IcaServices.GET_RECIPE,
-            handle_get_recipe,
-            schema=vol.Schema({
-                vol.Required("recipe_id"): cv.string
-            }),
-            supports_response=SupportsResponse.ONLY)
+    #     hass.services.async_register(
+    #         DOMAIN,
+    #         IcaServices.GET_RECIPE,
+    #         handle_get_recipe,
+    #         schema=vol.Schema({
+    #             vol.Required("recipe_id"): cv.string
+    #         }),
+    #         supports_response=SupportsResponse.ONLY)
 
 
 def _task_api_data(item: TodoItem) -> dict[str, Any]:

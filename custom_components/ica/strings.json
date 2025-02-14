@@ -28,6 +28,9 @@
       }
     },
     "services": {
+      "get_baseitems": {
+        "name": "Get favorite items"
+      },
       "new_task": {
         "name": "New task",
         "description": "Creates a new task and add it to a project.",
