@@ -1,5 +1,6 @@
 """Constants for the ICA component."""
 from typing import Final
+from enum import StrEnum
 
 CONF_EXTRA_PROJECTS: Final = "custom_projects"
 CONF_PROJECT_DUE_DATE: Final = "due_date_days"
@@ -98,6 +99,11 @@ ITEM_NAME: Final = "ProductName"
 IS_CHECKED: Final = "IsStrikedOver"
 
 
+class IcaServices(StrEnum):
+    """Services for the ICA integration"""
+    GET_RECIPE = "get_recipe"
+
+
 class API:
 
     class AppRegistration:
@@ -130,5 +136,5 @@ STORE_SEARCH_ENDPOINT: Final = "stores/search?Filters&Phrase={}"
 STORE_OFFERS_ENDPOINT: Final = "sverige/digx/mobile/offerservice/v1/offersdiscounts/{}"
 OFFERS_ENDPOINT: Final = "offers?Stores={}"
 ARTICLEGROUPS_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/articles/articlegroups?lastsyncdate={}"
-RECIPE_ENDPOINT: Final = "recipe"
+RECIPE_ENDPOINT: Final = "sverige/digx/mobile/recipeservice/v1/recipes/{}?api-version=2.0"
 RANDOM_RECIPES_ENDPOINT: Final = "sverige/digx/mobile/recipeservice/v1/recipes/random?numberofrecipes={}"

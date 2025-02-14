@@ -4,6 +4,7 @@ import asyncio
 import datetime
 import json
 from typing import Any, cast
+import voluptuous as vol
 
 from homeassistant.components.todo import (
     TodoItem,
@@ -12,17 +13,25 @@ from homeassistant.components.todo import (
     TodoListEntityFeature,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import Event, HomeAssistant, ServiceCall, callback, SupportsResponse
+import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers import entity_platform
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import (DOMAIN, CONF_JSON_DATA_IN_DESC)
+from .const import DOMAIN, CONF_JSON_DATA_IN_DESC, IcaServices
 from .coordinator import IcaCoordinator
 from .icatypes import IcaShoppingList
 
 import logging
 _LOGGER = logging.getLogger(__name__)
+
+# #GET_RECIPE_SERVICE_SCHEMA = vol.Schema(
+# GET_RECIPE_SERVICE_SCHEMA = cv._make_entity_service_schema(
+    
+# )
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
@@ -36,6 +45,29 @@ async def async_setup_entry(
         )
         for shopping_list in shopping_lists
     )
+    async_register_services(hass, coordinator)
+
+
+def async_register_services(
+    hass: HomeAssistant, coordinator: IcaCoordinator
+) -> None:
+    """Register services."""
+
+    if not hass.services.has_service(DOMAIN, IcaServices.GET_RECIPE):
+        async def handle_get_recipe(entity: TodoListEntity, call: ServiceCall) -> None:
+            """Call will query ICA api after a specific Recipe"""
+            recipe_id = call.data["recipe_id"]
+            recipe = await coordinator.async_get_recipe(recipe_id)
+            return recipe
+
+        platform = entity_platform.async_get_current_platform()
+        platform.async_register_entity_service(
+            IcaServices.GET_RECIPE,
+            {
+                vol.Required("recipe_id"): cv.string
+            },
+            handle_get_recipe,
+            supports_response=SupportsResponse.ONLY)
 
 
 def _task_api_data(item: TodoItem) -> dict[str, Any]:

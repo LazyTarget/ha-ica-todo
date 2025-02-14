@@ -35,6 +35,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     ) -> None:
         """Initialize the ICA coordinator."""
         super().__init__(hass, logger, name="ICA", update_interval=update_interval)
+        self.SCAN_INTERVAL = update_interval
         self._config_entry = config_entry
         self.api = api
         self._hass = hass
@@ -177,6 +178,10 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 "data": self._icaCurrentBonus
             })
         return self._icaCurrentBonus
+
+    async def async_get_recipe(self, recipe_id: int) -> IcaRecipe:
+        """Return a specific ICA recipe."""
+        return await self.api.get_recipe(recipe_id)
 
     async def async_get_recipes(self, nRecipes: int) -> list[IcaRecipe]:
         """Return ICA recipes."""

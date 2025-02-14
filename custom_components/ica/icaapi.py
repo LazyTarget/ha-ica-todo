@@ -90,6 +90,10 @@ class IcaAPI:
     def get_current_bonus(self):
         url = get_rest_url(MY_BONUS_ENDPOINT)
         return get(self._session, url, self._auth_key)
+    
+    def get_recipe(self, recipe_id: int) -> IcaRecipe:
+        url = str.format(get_rest_url(RECIPE_ENDPOINT), recipe_id)
+        return get(self._session, url, self._auth_key)
 
     def get_random_recipes(self, nRecipes: int = 5) -> list[IcaRecipe]:
         if nRecipes < 1:

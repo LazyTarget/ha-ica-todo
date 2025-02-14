@@ -1,0 +1,12 @@
+get_recipe:
+  target:
+    entity:
+      integration: ica
+      domain: todo
+  fields:
+    recipe_id:
+      example: "725608"
+      default: '725608'
+      required: true
+      selector:
+        text:
