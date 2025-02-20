@@ -51,6 +51,12 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._icaCurrentBonus: list | None = None
         self._icaShoppingLists: list[IcaShoppingList] | None = None
         self._icaRecipes: list[IcaRecipe] | None = None
+        
+        STORAGE_PATH = ".storage/ica.{key}.json"
+        key = slugify(f"{self._config_entry.data[CONF_ICA_ID]}.baseitems")
+        # path = Path(self._hass.config.path(STORAGE_PATH.format(key=entry.data[CONF_STORAGE_KEY])))
+        path = Path(self._hass.config.path(STORAGE_PATH.format(key=key)))
+        self._icaBaseItemsStore = LocalFile(self._hass, path)
 
     def get_shopping_list(self, list_id) -> IcaShoppingList:
         # await self.async_get_shopping_lists()
@@ -152,23 +158,13 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     async def async_get_baseitems(self):
         """Return ICA favorite items (baseitems) fetched at most once."""
         if not self._icaBaseItems:
-            STORAGE_PATH = ".storage/ica.{key}.json"
-            key = slugify(f"{self._config_entry.data[CONF_ICA_ID]}.baseitems")
-            # path = Path(self._hass.config.path(STORAGE_PATH.format(key=entry.data[CONF_STORAGE_KEY])))
-            path = Path(self._hass.config.path(STORAGE_PATH.format(key=key)))
-            store = LocalFile(self._hass, path)
-            try:
-                content = await store.async_load()
-                if content:
-                    self._icaBaseItems = json.loads(content)
-                    _LOGGER.info("Loaded baseitems: %s", self._icaBaseItems)
-            except OSError as err:
-                _LOGGER.warning("Failed to load cache file %s: %s", path, err)
-                # raise ConfigEntryNotReady("Failed to load file {path}: {err}") from err
+            self._icaBaseItems = await self._icaBaseItemsStore.async_load_json()
+            _LOGGER.info("Loaded baseitems from file: %s", self._icaBaseItems)
 
         if not self._icaBaseItems:
             self._icaBaseItems = await self.api.get_baseitems()
-            _LOGGER.info("Fetched baseitems: %s", self._icaBaseItems)
+            _LOGGER.info("Fetched baseitems from API: %s", self._icaBaseItems)
+            await self._icaBaseItemsStore.async_store_json(self._icaBaseItems)
 
         _LOGGER.info("Returned baseitems: %s", self._icaBaseItems)
         return self._icaBaseItems
