@@ -48,7 +48,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._stores: list[IcaStore] | None = None
         self._productCategories: list[IcaProductCategory] | None = None
         self._icaBaseItems: list | None = None
-        self._icaCurrentBonus: list | None = None
         self._icaShoppingLists: list[IcaShoppingList] | None = None
         self._icaRecipes: list[IcaRecipe] | None = None
 
@@ -59,6 +58,9 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         )
         self._ica_baseitems = CacheEntry(
             hass, f"{config_entry_key}.baseitems", partial(self.api.get_baseitems)
+        )
+        self._ica_current_bonus = CacheEntry(
+            hass, f"{config_entry_key}.current_bonus", partial(self._get_current_bonus)
         )
         self._ica_favorite_stores = CacheEntry(
             hass,
@@ -73,7 +75,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._ica_favorite_stores_offers = CacheEntry(
             hass,
             f"{config_entry_key}.favorite_stores_offers",
-            partial(self.async_get_offers),
+            partial(self._get_offers),
         )
 
     async def _get_shopping_lists(self) -> list[IcaShoppingList]:
@@ -158,10 +160,11 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 return matches[0]
         return None
 
-    async def _async_update_data(self, refresh=False) -> None:  # list[IcaShoppingListEntry]:
+    async def _async_update_data(
+        self, refresh=False
+    ) -> None:  # list[IcaShoppingListEntry]:
         """Fetch data from the ICA API."""
         self._icaRecipes = None
-        self._icaCurrentBonus = None
         try:
             # Get common ICA data first
             await self._ica_articles.get_value(invalidate_cache=refresh)
@@ -172,7 +175,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             await self._ica_favorite_stores_offers.get_value(invalidate_cache=refresh)
 
             self._icaShoppingLists = await self.async_get_shopping_lists(refresh=True)
-            self._icaCurrentBonus = await self.async_get_current_bonus()
+            await self._ica_current_bonus.get_value(invalidate_cache=refresh)
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
@@ -210,7 +213,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         """Return ICA favorite stores."""
         return await self._ica_favorite_stores.get_value()
 
-    async def async_get_offers(self):
+    async def _get_offers(self):
         """Return ICA offers at favorite stores."""
         # Get dependency
         stores = await self.async_get_stores()
@@ -229,26 +232,27 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         )
         return offers_per_store
 
-    async def async_get_current_bonus(self):
-        # todo: Cache offers, but invalidate cache once in a while...
-        if self._icaCurrentBonus is None:
-            self._icaCurrentBonus = await self.api.get_current_bonus()
-            self._hass.bus.async_fire(
-                f"{DOMAIN}_event",
-                {
-                    "type": "current_bonus_loaded",
-                    "uid": self._config_entry.data[CONF_ICA_ID],
-                    "data": self._icaCurrentBonus,
-                },
-            )
-        return self._icaCurrentBonus
+    async def _get_current_bonus(self):
+        """Returns ICA bonus information"""
+        current_bonus = await self.api.get_current_bonus()
+
+        # Fire event
+        self._hass.bus.async_fire(
+            f"{DOMAIN}_event",
+            {
+                "type": "current_bonus_loaded",
+                "uid": self._config_entry.data[CONF_ICA_ID],
+                "data": current_bonus,
+            },
+        )
+        return current_bonus
 
     async def async_get_recipe(self, recipe_id: int) -> IcaRecipe:
         """Return a specific ICA recipe."""
         return await self.api.get_recipe(recipe_id)
 
-    async def async_get_recipes(self, nRecipes: int) -> list[IcaRecipe]:
-        """Return ICA recipes."""
-        if self._icaRecipes is None and self._nRecipes:
-            self._icaRecipes = await self.api.get_random_recipes(nRecipes)
-        return self._icaRecipes
+    # async def async_get_recipes(self, nRecipes: int) -> list[IcaRecipe]:
+    #     """Return ICA recipes."""
+    #     if self._icaRecipes is None and self._nRecipes:
+    #         self._icaRecipes = await self.api.get_random_recipes(nRecipes)
+    #     return self._icaRecipes
