@@ -2,10 +2,13 @@
 from datetime import timedelta
 import re
 import logging
+import json
+from pathlib import Path
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import slugify
 
 from .icaapi_async import IcaAPIAsync
 from .icatypes import (
@@ -16,10 +19,11 @@ from .icatypes import (
     IcaOffer,
     IcaShoppingList,
 )
+from .cache_store import LocalFile
 from .const import DOMAIN, CONF_ICA_ID, CONF_SHOPPING_LISTS
 
-import logging
 _LOGGER = logging.getLogger(__name__)
+
 
 class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     """Coordinator for updating task data from ICA."""
@@ -43,6 +47,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._stores: list[IcaStore] | None = None
         self._productCategories: list[IcaProductCategory] | None = None
         self._icaOffers: list[IcaOffer] | None = None
+        self._icaBaseItems: list | None = None
         self._icaCurrentBonus: list | None = None
         self._icaShoppingLists: list[IcaShoppingList] | None = None
         self._icaRecipes: list[IcaRecipe] | None = None
@@ -146,8 +151,26 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
     async def async_get_baseitems(self):
         """Return ICA favorite items (baseitems) fetched at most once."""
-        if self._icaBaseItems is None:
+        if not self._icaBaseItems:
+            STORAGE_PATH = ".storage/ica.{key}.json"
+            key = slugify(f"{self._config_entry.data[CONF_ICA_ID]}.baseitems")
+            # path = Path(self._hass.config.path(STORAGE_PATH.format(key=entry.data[CONF_STORAGE_KEY])))
+            path = Path(self._hass.config.path(STORAGE_PATH.format(key=key)))
+            store = LocalFile(self._hass, path)
+            try:
+                content = await store.async_load()
+                if content:
+                    self._icaBaseItems = json.loads(content)
+                    _LOGGER.info("Loaded baseitems: %s", self._icaBaseItems)
+            except OSError as err:
+                _LOGGER.warning("Failed to load cache file %s: %s", path, err)
+                # raise ConfigEntryNotReady("Failed to load file {path}: {err}") from err
+
+        if not self._icaBaseItems:
             self._icaBaseItems = await self.api.get_baseitems()
+            _LOGGER.info("Fetched baseitems: %s", self._icaBaseItems)
+
+        _LOGGER.info("Returned baseitems: %s", self._icaBaseItems)
         return self._icaBaseItems
 
     async def async_get_product_categories(self) -> list[IcaProductCategory]:
