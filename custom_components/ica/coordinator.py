@@ -158,19 +158,19 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 return matches[0]
         return None
 
-    async def _async_update_data(self) -> None:  # list[IcaShoppingListEntry]:
+    async def _async_update_data(self, refresh=False) -> None:  # list[IcaShoppingListEntry]:
         """Fetch data from the ICA API."""
         self._icaRecipes = None
         self._icaCurrentBonus = None
-        try:            
+        try:
             # Get common ICA data first
-            await self._ica_articles.get_value()
-            await self._ica_baseitems.get_value()
-            
+            await self._ica_articles.get_value(invalidate_cache=refresh)
+            await self._ica_baseitems.get_value(invalidate_cache=refresh)
+
             # Get user specific data
-            await self._ica_favorite_stores.get_value()
-            await self._ica_favorite_stores_offers.get_value()
-            
+            await self._ica_favorite_stores.get_value(invalidate_cache=refresh)
+            await self._ica_favorite_stores_offers.get_value(invalidate_cache=refresh)
+
             self._icaShoppingLists = await self.async_get_shopping_lists(refresh=True)
             self._icaCurrentBonus = await self.async_get_current_bonus()
         except Exception as err:

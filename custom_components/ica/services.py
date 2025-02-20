@@ -21,8 +21,34 @@ GET_BASEITEMS_SCHEMA = vol.Schema(
 
 
 def setup_global_services(hass: HomeAssistant) -> None:
-    if not hass.services.has_service(DOMAIN, IcaServices.GET_BASEITEMS):
+    if not hass.services.has_service(DOMAIN, IcaServices.REFRESH_ALL):
+        async def handle_refresh_all(call: ServiceCall) -> None:
+            """Call will force the coordinator to refresh all data"""
+            c = 0
+            for config_entry in hass.config_entries.async_entries(DOMAIN):
+                if config_entry.state != ConfigEntryState.LOADED:
+                    raise HomeAssistantError(
+                        translation_domain=DOMAIN,
+                        translation_key="not_loaded",
+                        translation_placeholders={"target": config_entry.title},
+                    )
+                coordinator: IcaCoordinator = (
+                    config_entry.coordinator or hass.data[DOMAIN][config_entry.entry_id]
+                )
+                await coordinator._async_update_data(refresh=True)
+                coordinator.async_update_listeners()
+                c += 1
+            return {"updated_integrations": c}
 
+        hass.services.async_register(
+            DOMAIN,
+            IcaServices.REFRESH_ALL,
+            handle_refresh_all,
+            schema=vol.Schema({}),
+            supports_response=SupportsResponse.OPTIONAL,
+        )
+
+    if not hass.services.has_service(DOMAIN, IcaServices.GET_BASEITEMS):
         async def handle_get_baseitems(call: ServiceCall) -> None:
             """Call will query ICA api after the user's favorite items"""
             config_entry: ConfigEntry | None
@@ -56,7 +82,6 @@ def setup_global_services(hass: HomeAssistant) -> None:
 
     # Non-entity based Services
     if not hass.services.has_service(DOMAIN, IcaServices.GET_RECIPE):
-
         async def handle_get_recipe(call: ServiceCall) -> None:
             """Call will query ICA api after a specific Recipe"""
             config_entry: ConfigEntry = hass.config_entries.async_entries(DOMAIN)[0]
