@@ -54,13 +54,31 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._icaRecipes: list[IcaRecipe] | None = None
 
         config_entry_key = self._config_entry.data[CONF_ICA_ID]
+
         self._ica_baseitems = CacheEntry(
             self._hass, f"{config_entry_key}.baseitems", partial(self.api.get_baseitems)
         )
 
+        self._ica_shopping_lists = CacheEntry(
+            self._hass, f"{config_entry_key}.shopping_lists", partial(self._get_shopping_lists)
+        )
+
+    async def _get_shopping_lists(self) -> list[IcaShoppingList]:
+        api_data = await self.api.get_shopping_lists()
+        if "shoppingLists" in api_data:
+            y = api_data["shoppingLists"]
+            selected_lists = [
+                await self.api.get_shopping_list(z["offlineId"])
+                for z in y
+                if z["offlineId"]
+                in self._config_entry.data.get(CONF_SHOPPING_LISTS, [])
+            ]
+            return selected_lists
+        return None
+
     def get_shopping_list(self, list_id) -> IcaShoppingList:
-        # await self.async_get_shopping_lists()
-        for x in filter(lambda x: x["offlineId"] == list_id, self._icaShoppingLists):
+        selected_lists = self._ica_shopping_lists.current_value() or []
+        for x in filter(lambda x: x["offlineId"] == list_id, selected_lists):
             return x
         return None
 
@@ -122,7 +140,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
     async def _async_update_data(self) -> None:  # list[IcaShoppingListEntry]:
         """Fetch data from the ICA API."""
-        self._icaShoppingLists = None
         self._icaRecipes = None
         self._icaOffers = None
         self._icaCurrentBonus = None
@@ -130,32 +147,23 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             self._icaShoppingLists = await self.async_get_shopping_lists()
             self._icaOffers = await self.async_get_offers()
             self._icaCurrentBonus = await self.async_get_current_bonus()
-            await self._ica_baseitems.refresh()
+            await self._ica_baseitems.get_value()
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
     async def async_get_shopping_lists(self) -> list[IcaShoppingList]:
         """Return ICA shopping lists fetched at most once."""
-        if self._icaShoppingLists is None:
-            x = await self.api.get_shopping_lists()
-            if "shoppingLists" in x:
-                y = x["shoppingLists"]
-                self._icaShoppingLists = [
-                    await self.api.get_shopping_list(z["offlineId"])
-                    for z in y
-                    if z["offlineId"]
-                    in self._config_entry.data.get(CONF_SHOPPING_LISTS, [])
-                ]
+        selected_lists = await self._ica_shopping_lists.get_value()
 
         self._hass.bus.async_fire(
             f"{DOMAIN}_event",
             {
                 "type": "shopping_lists_loaded",
                 "uid": self._config_entry.data[CONF_ICA_ID],
-                "data": self._icaShoppingLists,
+                "data": selected_lists,
             },
         )
-        return self._icaShoppingLists
+        return selected_lists
 
     async def async_get_baseitems(self):
         """Return ICA favorite items (baseitems) fetched at most once."""

@@ -34,6 +34,11 @@ class CacheEntry:
         if persistToFile:
             self._file = LocalFile(self._hass, self._path)
 
+    def current_value(self) -> object:
+        """Gets the current value from state. Without checking file or API.
+        This can be used where async/await is not possible"""
+        return self._value
+
     async def get_value(self, invalidate_cache: bool = False) -> object:
         """Gets value from state, file or API"""
         if (invalidate_cache or not self._value) and self._file:
