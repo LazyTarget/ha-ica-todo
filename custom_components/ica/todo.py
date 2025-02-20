@@ -159,7 +159,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                 if task.get("offerId", None):
                     offer = self.coordinator.get_offer_info(task["offerId"])
                     task["offer"] = offer
-                    task["due"] = offer["validTo"]
+                    task["due"] = offer.get("validTo", None) if offer else None
                 due = datetime.datetime.fromisoformat(task["due"]) if task.get("due", None) else None
 
                 items.append(
