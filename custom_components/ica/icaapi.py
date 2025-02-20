@@ -68,6 +68,13 @@ class IcaAPI:
         url = get_rest_url(API.URLs.MY_BASEITEMS_ENDPOINT)
         return get(self._session, url, self._auth_key)
 
+    def get_articles(self):
+        url = get_rest_url(API.URLs.ARTICLES_ENDPOINT)
+        data = get(self._session, url, self._auth_key)
+        return (
+            data["articles"] if data and "articles" in data else None
+        )
+
     def get_store(self, store_id) -> IcaStore:
         url = str.format(get_rest_url(STORE_ENDPOINT), store_id)
         return get(self._session, url, self._auth_key)

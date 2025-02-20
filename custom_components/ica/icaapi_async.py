@@ -50,6 +50,13 @@ class IcaAPIAsync:
             )
         return await run_async(lambda: self._api.get_baseitems())
 
+    async def get_articles(self):
+        if not self._api:
+            self._api = await run_async(
+                lambda: IcaAPI(self._uid, self._pin, self._user)
+            )
+        return await run_async(lambda: self._api.get_articles())
+
     async def get_store(self, store_id) -> IcaStore:
         if not self._api:
             self._api = await run_async(lambda: IcaAPI(self._uid, self._pin))

@@ -18,9 +18,10 @@ NOTE: Currently under development and might be unstable!
 - [ ] Implement services and events to use for automations (notifications, etc.)
 - [ ] Translate strings [se, en]
 - [ ] Implement config flows step for Reauth / refresh tokens
+- [ ] Update config entry with token, if doing full auth
 
 **Shopping lists**
-- [ ] Categorize added items into the correct article group!
+- [x] Categorize added items into the correct article group!
 - [ ] Time limited offers to be automatically added (if exists under favorites)
 - [ ] Checking off items should sync between store-lists (including time limited offers)
 - [ ] Adding items to Trello checklist should create them in the "Master"-list

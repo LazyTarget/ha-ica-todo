@@ -127,6 +127,7 @@ class API:
 
         # ShoppingListService
         MY_BASEITEMS_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/baseitems"
+        ARTICLES_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/articles"
 
 
 MY_LISTS_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/shoppinglists" #"user/offlineshoppinglists"

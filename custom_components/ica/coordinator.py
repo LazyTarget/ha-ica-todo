@@ -20,7 +20,7 @@ from .icatypes import (
     IcaOffer,
     IcaShoppingList,
 )
-from .caching import LocalFile, CacheEntry
+from .caching import CacheEntry
 from .const import DOMAIN, CONF_ICA_ID, CONF_SHOPPING_LISTS
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,12 +55,16 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
         config_entry_key = self._config_entry.data[CONF_ICA_ID]
 
-        self._ica_baseitems = CacheEntry(
-            self._hass, f"{config_entry_key}.baseitems", partial(self.api.get_baseitems)
+        self._ica_articles = CacheEntry(
+            hass, "articles", partial(self.api.get_articles)
         )
-
+        self._ica_baseitems = CacheEntry(
+            hass, f"{config_entry_key}.baseitems", partial(self.api.get_baseitems)
+        )
         self._ica_shopping_lists = CacheEntry(
-            self._hass, f"{config_entry_key}.shopping_lists", partial(self._get_shopping_lists)
+            hass,
+            f"{config_entry_key}.shopping_lists",
+            partial(self._get_shopping_lists),
         )
 
     async def _get_shopping_lists(self) -> list[IcaShoppingList]:
@@ -82,23 +86,32 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             return x
         return None
 
-    def get_article_group(self, productName) -> int:
-        # await self.async_get_product_categories()
-        # for x in filter(lambda x: x["Id"] == list_id, self._icaShoppingLists):
-        #    return x
-        articleGroups = {
-            "välling": 9,
-            "kaffe": 9,
-            "maskindiskmedel": 11,
-            "hushållspapper": 11,
-            "toapapper": 11,
-            "blöjor": 11,
-        }
-        return articleGroups.get(str.lower(productName), 12)
+    def get_article_group(self, product_name) -> int:
+        articles = self._ica_articles.current_value() or []
+        if not articles:
+            return 12  # Unspecified
+
+        product_name = product_name.casefold()
+        for x in filter(
+            lambda x: x.get("name", "").casefold() == product_name, articles
+        ):
+            return x.get("parentId") or 12
+        return 12  # Unspecified
+
+        # articleGroups = {
+        #     "välling": 9,
+        #     "kaffe": 9,
+        #     "maskindiskmedel": 11,
+        #     "hushållspapper": 11,
+        #     "toapapper": 11,
+        #     "blöjor": 11,
+        # }
+        # return articleGroups.get(str.lower(productName), 12)
 
     def parse_summary(self, summary):
         r = re.search(
-            r"^(?P<min_quantity>\d-)?(?P<quantity>[0-9,.]*)? ?(?P<unit>st|förp|kg|hg|g|l|dl|cl|ml|msk|tsk|krm)? ?(?P<name>.+)$",
+            # r"^(?P<min_quantity>\d-)?(?P<quantity>[0-9,.]*)? ?(?P<unit>st|förp|kg|hg|g|l|dl|cl|ml|msk|tsk|krm)? ?(?P<name>.+)$",       v2
+            r"^(?P<a>((?P<min_quantity>\d-)?(?P<quantity>[0-9,.]*)? )|(?P<b>))(?P<unit>st|förp|kg|hg|g|l|dl|cl|ml|msk|tsk|krm)? ?(?P<name>.+)$",
             summary,
         )
         quantity = r["quantity"]
@@ -126,7 +139,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
     def get_offer_info(self, offerId):
         if not self._icaOffers:
-            _LOGGER.warning("No offers where loaded!")
             return None
 
         all_store_offers = self._icaOffers
@@ -144,16 +156,19 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._icaOffers = None
         self._icaCurrentBonus = None
         try:
-            self._icaShoppingLists = await self.async_get_shopping_lists()
+            self._icaShoppingLists = await self.async_get_shopping_lists(refresh=True)
             self._icaOffers = await self.async_get_offers()
             self._icaCurrentBonus = await self.async_get_current_bonus()
             await self._ica_baseitems.get_value()
+            await self._ica_articles.get_value()
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
-    async def async_get_shopping_lists(self) -> list[IcaShoppingList]:
+    async def async_get_shopping_lists(self, refresh=False) -> list[IcaShoppingList]:
         """Return ICA shopping lists fetched at most once."""
-        selected_lists = await self._ica_shopping_lists.get_value()
+        selected_lists = await self._ica_shopping_lists.get_value(
+            invalidate_cache=refresh
+        )
 
         self._hass.bus.async_fire(
             f"{DOMAIN}_event",
@@ -168,6 +183,10 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     async def async_get_baseitems(self):
         """Return ICA favorite items (baseitems) fetched at most once."""
         return await self._ica_baseitems.get_value()
+
+    async def async_get_articles(self):
+        """Return pre-canned articles to add to shopping list (with article group)."""
+        return await self._ica_articles.get_value()
 
     async def async_get_product_categories(self) -> list[IcaProductCategory]:
         """Return ICA product categories fetched at most once."""
