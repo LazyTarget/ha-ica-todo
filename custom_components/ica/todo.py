@@ -13,7 +13,13 @@ from homeassistant.components.todo import (
     TodoListEntityFeature,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import Event, HomeAssistant, ServiceCall, callback, SupportsResponse
+from homeassistant.core import (
+    Event,
+    HomeAssistant,
+    ServiceCall,
+    callback,
+    SupportsResponse,
+)
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -26,12 +32,14 @@ from .coordinator import IcaCoordinator
 from .icatypes import IcaShoppingList
 
 import logging
+
 _LOGGER = logging.getLogger(__name__)
 
 # #GET_RECIPE_SERVICE_SCHEMA = vol.Schema(
 # GET_RECIPE_SERVICE_SCHEMA = cv._make_entity_service_schema(
-    
+
 # )
+
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
@@ -48,9 +56,7 @@ async def async_setup_entry(
     async_register_services(hass, coordinator)
 
 
-def async_register_services(
-    hass: HomeAssistant, coordinator: IcaCoordinator
-) -> None:
+def async_register_services(hass: HomeAssistant, coordinator: IcaCoordinator) -> None:
     """Register services."""
 
     # if not hass.services.has_service(DOMAIN, IcaServices.GET_RECIPE):
@@ -131,7 +137,6 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                 | TodoListEntityFeature.DELETE_TODO_ITEM
                 | TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
                 | TodoListEntityFeature.SET_DUE_DATETIME_ON_ITEM
-
                 # adds Description
                 | TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM
             )
@@ -141,7 +146,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         self._project_id = shopping_list_id
         self._attr_unique_id = f"{config_entry.entry_id}-{shopping_list_id}"
         self._attr_name = shopping_list_name
-        #self._attr_icon = "icon.png"
+        # self._attr_icon = "icon.png"
         self._attr_icon = "mdi:cart"
 
     @property
@@ -160,7 +165,11 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                     offer = self.coordinator.get_offer_info(task["offerId"])
                     task["offer"] = offer
                     task["due"] = offer.get("validTo", None) if offer else None
-                due = datetime.datetime.fromisoformat(task["due"]) if task.get("due", None) else None
+                due = (
+                    datetime.datetime.fromisoformat(task["due"])
+                    if task.get("due", None)
+                    else None
+                )
 
                 items.append(
                     TodoItem(
@@ -170,7 +179,8 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                         if task["isStrikedOver"]
                         else TodoItemStatus.NEEDS_ACTION,
                         description=self.generate_item_description(task)
-                        if self._config_entry.data.get(CONF_JSON_DATA_IN_DESC, False) else None,
+                        if self._config_entry.data.get(CONF_JSON_DATA_IN_DESC, False)
+                        else None,
                         due=due,
                     )
                 )

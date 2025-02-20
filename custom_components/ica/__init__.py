@@ -4,7 +4,7 @@ import datetime
 import logging
 
 from homeassistant.config_entries import ConfigEntry, ConfigType
-from homeassistant.const import (Platform, CONF_SCAN_INTERVAL)
+from homeassistant.const import Platform, CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
 
 from .icaapi_async import IcaAPIAsync
@@ -21,12 +21,15 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     setup_global_services(hass)
     return True
 
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up ICA from a config entry."""
 
     uid = entry.data[CONF_ICA_ID]
     pin = entry.data[CONF_ICA_PIN]
-    update_interval = datetime.timedelta(minutes=entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))
+    update_interval = datetime.timedelta(
+        minutes=entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+    )
     user_token = entry.data["user"]
     api = IcaAPIAsync(uid, pin, user_token)
     coordinator = IcaCoordinator(hass, entry, _LOGGER, update_interval, api)

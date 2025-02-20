@@ -1,4 +1,5 @@
 """DataUpdateCoordinator for the Todoist component."""
+
 from datetime import timedelta
 import re
 import logging
@@ -51,16 +52,11 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._icaCurrentBonus: list | None = None
         self._icaShoppingLists: list[IcaShoppingList] | None = None
         self._icaRecipes: list[IcaRecipe] | None = None
-        
-        STORAGE_PATH = ".storage/ica.{key}.json"
-        key = f"{self._config_entry.data[CONF_ICA_ID]}.baseitems"
-        # path = Path(self._hass.config.path(STORAGE_PATH.format(key=entry.data[CONF_STORAGE_KEY])))
-        path = Path(self._hass.config.path(STORAGE_PATH.format(key=key)))
-        #self._icaBaseItemsStore = LocalFile(self._hass, path)
-        self._icaBaseItemsEntry = CacheEntry(
-            self._hass,
-            key,
-            partial(self.api.get_baseitems))
+
+        config_entry_key = self._config_entry.data[CONF_ICA_ID]
+        self._ica_baseitems = CacheEntry(
+            self._hass, f"{config_entry_key}.baseitems", partial(self.api.get_baseitems)
+        )
 
     def get_shopping_list(self, list_id) -> IcaShoppingList:
         # await self.async_get_shopping_lists()
@@ -83,16 +79,16 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         return articleGroups.get(str.lower(productName), 12)
 
     def parse_summary(self, summary):
-        r = re.search(r"^(?P<min_quantity>\d-)?(?P<quantity>[0-9,.]*)? ?(?P<unit>st|förp|kg|hg|g|l|dl|cl|ml|msk|tsk|krm)? ?(?P<name>.+)$", summary)
-        quantity = r['quantity']
-        unit = r['unit']
-        productName = r['name'] or summary
+        r = re.search(
+            r"^(?P<min_quantity>\d-)?(?P<quantity>[0-9,.]*)? ?(?P<unit>st|förp|kg|hg|g|l|dl|cl|ml|msk|tsk|krm)? ?(?P<name>.+)$",
+            summary,
+        )
+        quantity = r["quantity"]
+        unit = r["unit"]
+        productName = r["name"] or summary
         articleGroupId = self.get_article_group(productName)
 
-        ti = {
-            "summary": summary,
-            "productName": productName
-        }
+        ti = {"summary": summary, "productName": productName}
         if unit:
             ti["unit"] = unit
         if quantity:
@@ -102,10 +98,10 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         if articleGroupId:
             ti["articleGroupId"] = articleGroupId
 
-        if ti.get('quantity', None) and ti.get('unit', None):
-            ti['summary'] = f"{ti['quantity']} {ti['unit']} {productName}"
-        elif ti.get('quantity', None):
-            ti['summary'] = f"{ti['quantity']} {productName}"
+        if ti.get("quantity", None) and ti.get("unit", None):
+            ti["summary"] = f"{ti['quantity']} {ti['unit']} {productName}"
+        elif ti.get("quantity", None):
+            ti["summary"] = f"{ti['quantity']} {productName}"
 
         _LOGGER.info("Parsed info from '%s' to %s", summary, ti)
         return ti
@@ -130,12 +126,11 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._icaRecipes = None
         self._icaOffers = None
         self._icaCurrentBonus = None
-        self._icaBaseItems = None
         try:
             self._icaShoppingLists = await self.async_get_shopping_lists()
             self._icaOffers = await self.async_get_offers()
             self._icaCurrentBonus = await self.async_get_current_bonus()
-            self._icaBaseItems = await self.async_get_baseitems()
+            await self._ica_baseitems.get_value(invalidate_cache=True)
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
@@ -146,20 +141,25 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             if "shoppingLists" in x:
                 y = x["shoppingLists"]
                 self._icaShoppingLists = [
-                    await self.api.get_shopping_list(z["offlineId"]) 
-                    for z in y if z["offlineId"] in self._config_entry.data.get(CONF_SHOPPING_LISTS, [])
+                    await self.api.get_shopping_list(z["offlineId"])
+                    for z in y
+                    if z["offlineId"]
+                    in self._config_entry.data.get(CONF_SHOPPING_LISTS, [])
                 ]
 
-        self._hass.bus.async_fire(f"{DOMAIN}_event", {
-            "type": "shopping_lists_loaded",
-            "uid": self._config_entry.data[CONF_ICA_ID],
-            "data": self._icaShoppingLists
-        })
+        self._hass.bus.async_fire(
+            f"{DOMAIN}_event",
+            {
+                "type": "shopping_lists_loaded",
+                "uid": self._config_entry.data[CONF_ICA_ID],
+                "data": self._icaShoppingLists,
+            },
+        )
         return self._icaShoppingLists
 
     async def async_get_baseitems(self):
         """Return ICA favorite items (baseitems) fetched at most once."""
-        return await self._icaBaseItemsEntry.get_value()
+        return await self._ica_baseitems.get_value()
 
     async def async_get_product_categories(self) -> list[IcaProductCategory]:
         """Return ICA product categories fetched at most once."""
@@ -180,22 +180,28 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         # todo: Cache offers, but invalidate cache once in a while...
         if self._icaOffers is None:
             self._icaOffers = await self.api.get_offers([s["id"] for s in stores])
-            self._hass.bus.async_fire(f"{DOMAIN}_event", {
-                "type": "offers_loaded",
-                "uid": self._config_entry.data[CONF_ICA_ID],
-                "data": self._icaOffers
-            })
+            self._hass.bus.async_fire(
+                f"{DOMAIN}_event",
+                {
+                    "type": "offers_loaded",
+                    "uid": self._config_entry.data[CONF_ICA_ID],
+                    "data": self._icaOffers,
+                },
+            )
         return self._icaOffers
 
     async def async_get_current_bonus(self):
         # todo: Cache offers, but invalidate cache once in a while...
         if self._icaCurrentBonus is None:
             self._icaCurrentBonus = await self.api.get_current_bonus()
-            self._hass.bus.async_fire(f"{DOMAIN}_event", {
-                "type": "current_bonus_loaded",
-                "uid": self._config_entry.data[CONF_ICA_ID],
-                "data": self._icaCurrentBonus
-            })
+            self._hass.bus.async_fire(
+                f"{DOMAIN}_event",
+                {
+                    "type": "current_bonus_loaded",
+                    "uid": self._config_entry.data[CONF_ICA_ID],
+                    "data": self._icaCurrentBonus,
+                },
+            )
         return self._icaCurrentBonus
 
     async def async_get_recipe(self, recipe_id: int) -> IcaRecipe:

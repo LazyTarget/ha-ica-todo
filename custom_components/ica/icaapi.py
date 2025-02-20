@@ -7,7 +7,6 @@ from .const import (
     ITEM_LIST,
     ITEM_NAME,
     IS_CHECKED,
-    
     MY_LIST_ENDPOINT,
     MY_BONUS_ENDPOINT,
     MY_CARDS_ENDPOINT,
@@ -29,16 +28,21 @@ from .icatypes import IcaStore, IcaOffer, IcaShoppingList, IcaProductCategory, I
 from .authenticator import IcaAuthenticator
 
 import logging
+
 _LOGGER = logging.getLogger(__name__)
+
 
 def get_rest_url(endpoint: str):
     # return "/".join([API.URLs.BASE_URL, endpoint])
     return "/".join([API.URLs.QUERY_BASE, endpoint])
 
+
 class IcaAPI:
     """Class to retrieve and manipulate ICA Shopping lists"""
 
-    def __init__(self, user, psw, user_token=None, session: requests.Session | None = None) -> None:
+    def __init__(
+        self, user, psw, user_token=None, session: requests.Session | None = None
+    ) -> None:
         if user_token is None:
             authenticator = IcaAuthenticator(user, psw, session)
             authenticator.do_full_login(user, psw)
@@ -94,7 +98,7 @@ class IcaAPI:
     def get_current_bonus(self):
         url = get_rest_url(MY_BONUS_ENDPOINT)
         return get(self._session, url, self._auth_key)
-    
+
     def get_recipe(self, recipe_id: int) -> IcaRecipe:
         url = str.format(get_rest_url(RECIPE_ENDPOINT), recipe_id)
         return get(self._session, url, self._auth_key)

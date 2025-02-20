@@ -3,6 +3,7 @@ from typing import Any, Dict
 from requests import Session
 import json
 import logging
+
 _LOGGER = logging.getLogger(__name__)
 
 CONTENT_TYPE = ("Content-Type", "application/json; charset=utf-8")
@@ -49,7 +50,7 @@ def post(
     url: str,
     auth_key: str | None = None,
     data: Dict[str, Any] | None = None,
-    json_data: str | None = None
+    json_data: str | None = None,
 ):
     request_id = data.pop("request_id", None) if data else None
 

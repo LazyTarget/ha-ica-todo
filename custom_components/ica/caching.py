@@ -20,7 +20,7 @@ class CacheEntry:
         key: str,
         value_factory,
         persistToFile: bool = True,
-        logger: logging.Logger = None
+        logger: logging.Logger = None,
     ) -> None:
         # Example: CacheEntry(hass, f"{self._config_entry.data[CONF_ICA_ID]}.baseitems")
         self._hass = hass
@@ -40,9 +40,7 @@ class CacheEntry:
         if (invalidate_cache or not self._value) and self._file:
             # Load persisted file
             self._value = await self._file.async_load_json()
-            self._logger.debug(
-                "Loaded from file: %s = %s", self._path, self._value
-            )
+            self._logger.debug("Loaded from file: %s = %s", self._path, self._value)
 
         if invalidate_cache or not self._value:
             # Invoke value factory (example: API)
@@ -52,9 +50,7 @@ class CacheEntry:
             if self._file:
                 # Persist new value to file
                 await self._file.async_store_json(self._value)
-                self._logger.debug(
-                    "Saved to file: %s = %s", self._path, self._value
-                )
+                self._logger.debug("Saved to file: %s = %s", self._path, self._value)
 
         return self._value
 
@@ -62,8 +58,9 @@ class CacheEntry:
 class LocalFile:
     """Local storage for a single To-do list."""
 
-    def __init__(self, hass: HomeAssistant, path: Path,
-                 logger: logging.Logger = None) -> None:
+    def __init__(
+        self, hass: HomeAssistant, path: Path, logger: logging.Logger = None
+    ) -> None:
         """Initialize LocalFile."""
         self._hass = hass
         self._path = path
@@ -76,9 +73,7 @@ class LocalFile:
             async with self._lock:
                 return await self._hass.async_add_executor_job(self._load)
         except OSError as err:
-            self._logger.warning(
-                "Failed to load cache file '%s': %s", self._path, err
-            )
+            self._logger.warning("Failed to load cache file '%s': %s", self._path, err)
             return None
 
     async def async_load_json(self) -> object:
