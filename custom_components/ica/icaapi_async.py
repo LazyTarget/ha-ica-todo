@@ -82,6 +82,13 @@ class IcaAPIAsync:
             self._api = await run_async(lambda: IcaAPI(self._uid, self._pin))
         return await run_async(lambda: self._api.get_offers(store_ids))
 
+    async def search_offers(
+        self, store_ids: list[int], offer_ids: list[str]
+    ) -> list[IcaOffer]:
+        if not self._api:
+            self._api = await run_async(lambda: IcaAPI(self._uid, self._pin))
+        return await run_async(lambda: self._api.search_offers(store_ids, offer_ids))
+
     async def get_current_bonus(self):
         if not self._api:
             self._api = await run_async(lambda: IcaAPI(self._uid, self._pin))

@@ -77,6 +77,11 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             f"{config_entry_key}.favorite_stores_offers",
             partial(self._get_offers),
         )
+        self._ica_favorite_stores_offers_full = CacheEntry(
+            hass,
+            f"{config_entry_key}.favorite_stores_offers_full",
+            partial(self._search_offers),
+        )
 
     async def _get_shopping_lists(self) -> list[IcaShoppingList]:
         api_data = await self.api.get_shopping_lists()
@@ -160,6 +165,71 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 return matches[0]
         return None
 
+    async def _search_offers(self):
+        offers_per_store = self._ica_favorite_stores_offers.current_value()
+        if not offers_per_store:
+            return None
+
+        # store_ids = list(offers_per_store.keys())
+        store_ids = list(
+            filter(lambda i: i == "12226" or i == "12045", offers_per_store.keys())
+        )  # Limit to these 2 for know...
+        offer_ids = []
+
+        for store_id in offers_per_store:
+            store = offers_per_store[store_id]
+            oids = [
+                o["id"]
+                for o in store["offers"]
+                if o and o.get("isUsed", None) is not True
+            ]
+            offer_ids = sorted(list(set(offer_ids)) + list(set(oids)))
+        # _LOGGER.warning("StoreIds: %s", store_ids)
+        # _LOGGER.warning("OfferIds: %s", offer_ids)
+
+        full_offers = await self.api.search_offers(store_ids, offer_ids)
+        # _LOGGER.info("FULL: %s", full_offers)
+
+        # Fire event(s)
+        self._hass.bus.async_fire(
+            f"{DOMAIN}_event",
+            {
+                "type": "active_offers",
+                "uid": self._config_entry.data[CONF_ICA_ID],
+                "data": full_offers,
+            },
+        )
+
+        baseitems = self._ica_baseitems.current_value()
+        bi_eans = [
+            i["articleEan"] for i in baseitems if i and i.get("articleEan", None)
+        ]
+        _LOGGER.warning("Favorite eans: %s", bi_eans)
+
+        for offer in full_offers:
+            eans = offer.get("eans", None)
+            if eans:
+                for ean in eans:
+                    id = ean["id"]
+                    if id in bi_eans:
+                        _LOGGER.fatal(
+                            "Offer on Favorite EAN!! %s", offer.get("name", id)
+                        )
+
+                        self._hass.bus.async_fire(
+                            f"{DOMAIN}_event",
+                            {
+                                "type": "baseitem_offers_found",
+                                "uid": self._config_entry.data[CONF_ICA_ID],
+                                "data": {
+                                    "bi_ean": id,
+                                    "offer": offer,
+                                },
+                            },
+                        )
+
+        return None
+
     async def _async_update_data(
         self, refresh=False
     ) -> None:  # list[IcaShoppingListEntry]:
@@ -176,6 +246,10 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
             self._icaShoppingLists = await self.async_get_shopping_lists(refresh=True)
             await self._ica_current_bonus.get_value(invalidate_cache=refresh)
+
+            await self._ica_favorite_stores_offers_full.get_value(
+                invalidate_cache=refresh
+            )
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
@@ -221,7 +295,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         # Get offers
         offers_per_store = await self.api.get_offers([s["id"] for s in stores])
 
-        # Fire event
+        # Fire event(s)
         self._hass.bus.async_fire(
             f"{DOMAIN}_event",
             {
@@ -230,6 +304,9 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 "data": offers_per_store,
             },
         )
+
+        # self._lookup_baseitems_on_offer()
+
         return offers_per_store
 
     async def _get_current_bonus(self):

@@ -71,9 +71,7 @@ class IcaAPI:
     def get_articles(self):
         url = get_rest_url(API.URLs.ARTICLES_ENDPOINT)
         data = get(self._session, url, self._auth_key)
-        return (
-            data["articles"] if data and "articles" in data else None
-        )
+        return data["articles"] if data and "articles" in data else None
 
     def get_store(self, store_id) -> IcaStore:
         url = str.format(get_rest_url(STORE_ENDPOINT), store_id)
@@ -101,6 +99,14 @@ class IcaAPI:
             all_store_offers[store_id] = self.get_offers_for_store(store_id)
         _LOGGER.info("Fetched offers for stores: %s", store_ids)
         return all_store_offers
+
+    def search_offers(
+        self, store_ids: list[int], offer_ids: list[str]
+    ) -> list[IcaOffer]:
+        url = get_rest_url(API.URLs.OFFERS_SEARCH_ENDPOINT)
+        j = {"offerIds": offer_ids, "storeIds": store_ids}
+        offers = post(self._session, url, self._auth_key, json_data=j)
+        return offers
 
     def get_current_bonus(self):
         url = get_rest_url(MY_BONUS_ENDPOINT)
