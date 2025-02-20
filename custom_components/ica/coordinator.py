@@ -130,7 +130,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             self._icaShoppingLists = await self.async_get_shopping_lists()
             self._icaOffers = await self.async_get_offers()
             self._icaCurrentBonus = await self.async_get_current_bonus()
-            await self._ica_baseitems.get_value(invalidate_cache=True)
+            await self._ica_baseitems.refresh()
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 

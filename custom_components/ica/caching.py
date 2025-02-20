@@ -36,22 +36,25 @@ class CacheEntry:
 
     async def get_value(self, invalidate_cache: bool = False) -> object:
         """Gets value from state, file or API"""
-
         if (invalidate_cache or not self._value) and self._file:
             # Load persisted file
             self._value = await self._file.async_load_json()
             self._logger.debug("Loaded from file: %s = %s", self._path, self._value)
 
         if invalidate_cache or not self._value:
-            # Invoke value factory (example: API)
-            self._value = await self._value_factory()
-            self._logger.debug("Loaded from factory: %s", self._value)
+            return await self.refresh()
+        return self._value
 
-            if self._file:
-                # Persist new value to file
-                await self._file.async_store_json(self._value)
-                self._logger.debug("Saved to file: %s = %s", self._path, self._value)
+    async def refresh(self):
+        """Refreshes state using the value_factory"""
+        # Invoke value factory (example: API)
+        self._value = await self._value_factory()
+        self._logger.debug("Loaded from factory: %s", self._value)
 
+        if self._file:
+            # Persist new value to file
+            await self._file.async_store_json(self._value)
+            self._logger.debug("Saved to file: %s = %s", self._path, self._value)
         return self._value
 
 
