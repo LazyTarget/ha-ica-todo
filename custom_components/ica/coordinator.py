@@ -47,7 +47,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._nRecipes: int = nRecipes
         self._stores: list[IcaStore] | None = None
         self._productCategories: list[IcaProductCategory] | None = None
-        self._icaOffers: list[IcaOffer] | None = None
         self._icaBaseItems: list | None = None
         self._icaCurrentBonus: list | None = None
         self._icaShoppingLists: list[IcaShoppingList] | None = None
@@ -61,10 +60,20 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._ica_baseitems = CacheEntry(
             hass, f"{config_entry_key}.baseitems", partial(self.api.get_baseitems)
         )
+        self._ica_favorite_stores = CacheEntry(
+            hass,
+            f"{config_entry_key}.favorite_stores",
+            partial(self.api.get_favorite_stores),
+        )
         self._ica_shopping_lists = CacheEntry(
             hass,
             f"{config_entry_key}.shopping_lists",
             partial(self._get_shopping_lists),
+        )
+        self._ica_favorite_stores_offers = CacheEntry(
+            hass,
+            f"{config_entry_key}.favorite_stores_offers",
+            partial(self.async_get_offers),
         )
 
     async def _get_shopping_lists(self) -> list[IcaShoppingList]:
@@ -138,12 +147,11 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         return ti
 
     def get_offer_info(self, offerId):
-        if not self._icaOffers:
+        offers_per_store = self._ica_favorite_stores_offers.current_value()
+        if not offers_per_store:
             return None
-
-        all_store_offers = self._icaOffers
-        for store_id in all_store_offers:
-            store = all_store_offers[store_id]
+        for store_id in offers_per_store:
+            store = offers_per_store[store_id]
             matches = [o for o in store["offers"] if o["id"] == offerId]
             if matches:
                 _LOGGER.info("Matched offer: %s", matches)
@@ -153,14 +161,18 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     async def _async_update_data(self) -> None:  # list[IcaShoppingListEntry]:
         """Fetch data from the ICA API."""
         self._icaRecipes = None
-        self._icaOffers = None
         self._icaCurrentBonus = None
-        try:
-            self._icaShoppingLists = await self.async_get_shopping_lists(refresh=True)
-            self._icaOffers = await self.async_get_offers()
-            self._icaCurrentBonus = await self.async_get_current_bonus()
-            await self._ica_baseitems.get_value()
+        try:            
+            # Get common ICA data first
             await self._ica_articles.get_value()
+            await self._ica_baseitems.get_value()
+            
+            # Get user specific data
+            await self._ica_favorite_stores.get_value()
+            await self._ica_favorite_stores_offers.get_value()
+            
+            self._icaShoppingLists = await self.async_get_shopping_lists(refresh=True)
+            self._icaCurrentBonus = await self.async_get_current_bonus()
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
@@ -195,27 +207,27 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         return self._productCategories
 
     async def async_get_stores(self) -> list[IcaStore]:
-        """Return ICA favorite stores fetched at most once."""
-        if self._stores is None:
-            self._stores = await self.api.get_favorite_stores()
-        return self._stores
+        """Return ICA favorite stores."""
+        return await self._ica_favorite_stores.get_value()
 
     async def async_get_offers(self):
-        """Return ICA offers at favorite stores fetched at most once."""
+        """Return ICA offers at favorite stores."""
+        # Get dependency
         stores = await self.async_get_stores()
 
-        # todo: Cache offers, but invalidate cache once in a while...
-        if self._icaOffers is None:
-            self._icaOffers = await self.api.get_offers([s["id"] for s in stores])
-            self._hass.bus.async_fire(
-                f"{DOMAIN}_event",
-                {
-                    "type": "offers_loaded",
-                    "uid": self._config_entry.data[CONF_ICA_ID],
-                    "data": self._icaOffers,
-                },
-            )
-        return self._icaOffers
+        # Get offers
+        offers_per_store = await self.api.get_offers([s["id"] for s in stores])
+
+        # Fire event
+        self._hass.bus.async_fire(
+            f"{DOMAIN}_event",
+            {
+                "type": "offers_loaded",
+                "uid": self._config_entry.data[CONF_ICA_ID],
+                "data": offers_per_store,
+            },
+        )
+        return offers_per_store
 
     async def async_get_current_bonus(self):
         # todo: Cache offers, but invalidate cache once in a while...
