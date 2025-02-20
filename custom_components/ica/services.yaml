@@ -21,3 +21,19 @@ get_baseitems:
       selector:
         config_entry:
           integration: ica
+add_baseitem:
+  fields:
+    integration:
+      name: "ICA Account"
+      required: true
+      selector:
+        config_entry:
+          integration: ica
+    identifier:
+      name: "Name / Barcode"
+      description: "Either a free text name or a Barcode"
+      example: "07300400375504"
+      default: ''
+      required: true
+      selector:
+        text:

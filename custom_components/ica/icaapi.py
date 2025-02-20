@@ -68,6 +68,15 @@ class IcaAPI:
         url = get_rest_url(API.URLs.MY_BASEITEMS_ENDPOINT)
         return get(self._session, url, self._auth_key)
 
+    def sync_baseitems(self, items: list):
+        url = get_rest_url(API.URLs.SYNC_MY_BASEITEMS_ENDPOINT)
+        j = items
+        return post(self._session, url, self._auth_key, json_data=j)
+
+    def lookup_barcode(self, identifier: str):
+        url = str.format(get_rest_url(API.URLs.PRODUCT_BARCODE_LOOKUP_ENDPOINT), identifier)
+        return get(self._session, url, self._auth_key)
+
     def get_articles(self):
         url = get_rest_url(API.URLs.ARTICLES_ENDPOINT)
         data = get(self._session, url, self._auth_key)

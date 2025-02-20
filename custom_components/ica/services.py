@@ -19,6 +19,13 @@ GET_BASEITEMS_SCHEMA = vol.Schema(
     }
 )
 
+ADD_BASEITEM_SCHEMA = vol.Schema(
+    {
+        # vol.Required("integration"): cv.string
+        vol.Required("integration"): vol.All(cv.ensure_list, [cv.string]),
+        vol.Required("identifier"): cv.string,
+    }
+)
 
 def setup_global_services(hass: HomeAssistant) -> None:
     if not hass.services.has_service(DOMAIN, IcaServices.REFRESH_ALL):
@@ -78,6 +85,39 @@ def setup_global_services(hass: HomeAssistant) -> None:
             handle_get_baseitems,
             schema=GET_BASEITEMS_SCHEMA,
             supports_response=SupportsResponse.ONLY,
+        )
+
+    if not hass.services.has_service(DOMAIN, IcaServices.ADD_BASEITEM):
+        async def handle_add_baseitem(call: ServiceCall) -> None:
+            """Call will add item to the user's favorite items"""
+            identifier = call.data["identifier"]
+            config_entry: ConfigEntry | None
+            for entry_id in call.data["integration"]:
+                if not (config_entry := hass.config_entries.async_get_entry(entry_id)):
+                    raise ServiceValidationError(
+                        translation_domain=DOMAIN,
+                        translation_key="integration_not_found",
+                        translation_placeholders={"target": DOMAIN},
+                    )
+                if config_entry.state != ConfigEntryState.LOADED:
+                    raise HomeAssistantError(
+                        translation_domain=DOMAIN,
+                        translation_key="not_loaded",
+                        translation_placeholders={"target": config_entry.title},
+                    )
+                coordinator: IcaCoordinator = (
+                    config_entry.coordinator or hass.data[DOMAIN][entry_id]
+                )
+                baseitems = await coordinator.async_add_baseitem(identifier)
+                return {"baseitems": baseitems}
+            return None
+
+        hass.services.async_register(
+            DOMAIN,
+            IcaServices.ADD_BASEITEM,
+            handle_add_baseitem,
+            schema=ADD_BASEITEM_SCHEMA,
+            supports_response=SupportsResponse.OPTIONAL,
         )
 
     # Non-entity based Services

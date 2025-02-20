@@ -50,6 +50,20 @@ class IcaAPIAsync:
             )
         return await run_async(lambda: self._api.get_baseitems())
 
+    async def sync_baseitems(self, items):
+        if not self._api:
+            self._api = await run_async(
+                lambda: IcaAPI(self._uid, self._pin, self._user)
+            )
+        return await run_async(lambda: self._api.sync_baseitems(items))
+
+    async def lookup_barcode(self, identifier):
+        if not self._api:
+            self._api = await run_async(
+                lambda: IcaAPI(self._uid, self._pin, self._user)
+            )
+        return await run_async(lambda: self._api.lookup_barcode(identifier))
+
     async def get_articles(self):
         if not self._api:
             self._api = await run_async(

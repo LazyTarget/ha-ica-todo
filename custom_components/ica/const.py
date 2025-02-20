@@ -105,6 +105,7 @@ class IcaServices(StrEnum):
     GET_RECIPE = "get_recipe"
     # GET_STORE_DISCOUNTS = "get_store_discounts"
     GET_BASEITEMS = "get_baseitems"
+    ADD_BASEITEM = "add_baseitem"
     # LOOKUP_BARCODE = "lookup_barcode"
 
 
@@ -128,10 +129,14 @@ class API:
 
         # ShoppingListService
         MY_BASEITEMS_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/baseitems"
+        SYNC_MY_BASEITEMS_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/baseitems"
         ARTICLES_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/articles"
 
         # OfferService
         OFFERS_SEARCH_ENDPOINT: Final = "sverige/digx/mobile/offerservice/v1/offers/search"
+
+        # ProductService
+        PRODUCT_BARCODE_LOOKUP_ENDPOINT: Final = "sverige/digx/mobile/productservice/v1/product/{}"
 
 
 MY_LISTS_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/shoppinglists" #"user/offlineshoppinglists"
