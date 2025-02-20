@@ -3,12 +3,12 @@ from datetime import timedelta
 import re
 import logging
 import json
+from functools import partial
 from pathlib import Path
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from homeassistant.util import slugify
 
 from .icaapi_async import IcaAPIAsync
 from .icatypes import (
@@ -19,7 +19,7 @@ from .icatypes import (
     IcaOffer,
     IcaShoppingList,
 )
-from .cache_store import LocalFile
+from .caching import LocalFile, CacheEntry
 from .const import DOMAIN, CONF_ICA_ID, CONF_SHOPPING_LISTS
 
 _LOGGER = logging.getLogger(__name__)
@@ -53,10 +53,14 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._icaRecipes: list[IcaRecipe] | None = None
         
         STORAGE_PATH = ".storage/ica.{key}.json"
-        key = slugify(f"{self._config_entry.data[CONF_ICA_ID]}.baseitems")
+        key = f"{self._config_entry.data[CONF_ICA_ID]}.baseitems"
         # path = Path(self._hass.config.path(STORAGE_PATH.format(key=entry.data[CONF_STORAGE_KEY])))
         path = Path(self._hass.config.path(STORAGE_PATH.format(key=key)))
-        self._icaBaseItemsStore = LocalFile(self._hass, path)
+        #self._icaBaseItemsStore = LocalFile(self._hass, path)
+        self._icaBaseItemsEntry = CacheEntry(
+            self._hass,
+            key,
+            partial(self.api.get_baseitems))
 
     def get_shopping_list(self, list_id) -> IcaShoppingList:
         # await self.async_get_shopping_lists()
@@ -132,8 +136,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             self._icaOffers = await self.async_get_offers()
             self._icaCurrentBonus = await self.async_get_current_bonus()
             self._icaBaseItems = await self.async_get_baseitems()
-            #if self._nRecipes:
-            #    self._icaRecipes = await self.async_get_recipes(self._nRecipes)
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
@@ -157,17 +159,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
     async def async_get_baseitems(self):
         """Return ICA favorite items (baseitems) fetched at most once."""
-        if not self._icaBaseItems:
-            self._icaBaseItems = await self._icaBaseItemsStore.async_load_json()
-            _LOGGER.info("Loaded baseitems from file: %s", self._icaBaseItems)
-
-        if not self._icaBaseItems:
-            self._icaBaseItems = await self.api.get_baseitems()
-            _LOGGER.info("Fetched baseitems from API: %s", self._icaBaseItems)
-            await self._icaBaseItemsStore.async_store_json(self._icaBaseItems)
-
-        _LOGGER.info("Returned baseitems: %s", self._icaBaseItems)
-        return self._icaBaseItems
+        return await self._icaBaseItemsEntry.get_value()
 
     async def async_get_product_categories(self) -> list[IcaProductCategory]:
         """Return ICA product categories fetched at most once."""
