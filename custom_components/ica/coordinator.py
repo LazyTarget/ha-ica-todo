@@ -171,39 +171,40 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         if not offers_per_store:
             return None
 
-        # store_ids = list(offers_per_store.keys())
-        store_ids = list(
-            filter(lambda i: i == "12226" or i == "12045", offers_per_store.keys())
-        )  # Limit to these 2 for know...
+        store_ids = list(offers_per_store.keys())
         offer_ids = []
 
         for store_id in offers_per_store:
+            if store_id != 12226 and store_id != 12045:
+                # Limit to these 2 for now...
+                continue
             store = offers_per_store[store_id]
             oids = [
                 o["id"]
                 for o in store["offers"]
-                if o and o.get("isUsed", None) is not True
+                #if o and o.get("isUsed", None) is not True
             ]
             offer_ids = sorted(list(set(offer_ids)) + list(set(oids)))
-        # _LOGGER.warning("StoreIds: %s", store_ids)
-        # _LOGGER.warning("OfferIds: %s", offer_ids)
+        # _LOGGER.warning("StoreIds: %s :: %s", type(store_ids), store_ids)
+        # _LOGGER.warning("OfferIds: %s :: %s", type(offer_ids), offer_ids)
 
         full_offers = await self.api.search_offers(store_ids, offer_ids)
-        # _LOGGER.info("FULL: %s", full_offers)
 
-        # Fire event(s)
-        self._hass.bus.async_fire(
-            f"{DOMAIN}_event",
-            {
-                "type": "active_offers",
-                "uid": self._config_entry.data[CONF_ICA_ID],
-                "data": full_offers,
-            },
-        )
+        # # Fire event(s)
+        # self._hass.bus.async_fire(
+        #     f"{DOMAIN}_event",
+        #     {
+        #         "type": "active_offers",
+        #         "uid": self._config_entry.data[CONF_ICA_ID],
+        #         "data": full_offers,
+        #     },
+        # )
 
         baseitems = self._ica_baseitems.current_value()
         bi_eans = [
-            i["articleEan"] for i in baseitems if i and i.get("articleEan", None)
+            i["articleEan"]
+            for i in baseitems
+            if i and i.get("articleEan", None)
         ]
         _LOGGER.warning("Favorite eans: %s", bi_eans)
 
@@ -212,9 +213,10 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             if eans:
                 for ean in eans:
                     id = ean["id"]
-                    if id in bi_eans:
+                    if id in bi_eans or f"0{id}" in bi_eans:
                         _LOGGER.fatal(
-                            "Offer on Favorite EAN!! %s", offer.get("name", id)
+                            "Offer on Favorite! EAN=%s, Name=%s, OfferId=%s",
+                            id, offer.get("name", None), offer.get("id", None)
                         )
 
                         self._hass.bus.async_fire(
@@ -228,8 +230,9 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                                 },
                             },
                         )
+                        # todo: Add service that takes offerId and adds to a target todo-list
 
-        return None
+        return full_offers
 
     async def _async_update_data(
         self, refresh=False
@@ -242,12 +245,13 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             await self._ica_baseitems.get_value(invalidate_cache=refresh)
 
             # Get user specific data
-            await self._ica_favorite_stores.get_value(invalidate_cache=refresh)
-            await self._ica_favorite_stores_offers.get_value(invalidate_cache=refresh)
-
-            self._icaShoppingLists = await self.async_get_shopping_lists(refresh=True)
             await self._ica_current_bonus.get_value(invalidate_cache=refresh)
+            self._icaShoppingLists = await self.async_get_shopping_lists(refresh=True)
 
+            await self._ica_favorite_stores.get_value(invalidate_cache=refresh)
+            await self._ica_favorite_stores_offers.get_value(
+                invalidate_cache=refresh
+            )
             await self._ica_favorite_stores_offers_full.get_value(
                 invalidate_cache=refresh
             )

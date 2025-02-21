@@ -223,7 +223,7 @@ class IcaAuthenticator:
         token = self.init_login(user, psw, state)
 
         result = self.get_access_token(registered_app, state, token, code_verifier)
-        _LOGGER.debug("Full login completed :: Token: %s", result)
+        _LOGGER.fatal("Full login completed :: Token: %s", result)
 
         self._user = result
         self._auth_key = result["access_token"]
