@@ -51,3 +51,13 @@ add_offer_to_shopping_list:
       required: true
       selector:
         text:
+    conflict_mode:
+      name: "Conflict mode"
+      description: "What do to if the item already exists"
+      default: 'ignore'
+      selector:
+        select:
+          options:
+            - "ignore"
+            - "append"
+            - "merge"

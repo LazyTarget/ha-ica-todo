@@ -98,6 +98,8 @@ ITEM_LIST: Final = "Rows"
 ITEM_NAME: Final = "ProductName"
 IS_CHECKED: Final = "IsStrikedOver"
 
+CONFLICT_MODES = ["ignore", "append", "merge"]
+
 
 class IcaServices(StrEnum):
     """Services for the ICA integration"""

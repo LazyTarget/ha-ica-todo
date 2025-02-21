@@ -28,7 +28,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, CONF_JSON_DATA_IN_DESC, IcaServices
+from .const import DOMAIN, CONF_JSON_DATA_IN_DESC, IcaServices, CONFLICT_MODES
 from .coordinator import IcaCoordinator
 from .icatypes import IcaShoppingList
 
@@ -60,9 +60,12 @@ async def async_setup_entry(
 def async_register_services(hass: HomeAssistant, coordinator: IcaCoordinator) -> None:
     """Register services."""
 
-    async def handle_add_offer_to_shopping_list(entity: IcaShoppingListEntity, call: ServiceCall) -> None:
+    async def handle_add_offer_to_shopping_list(
+        entity: IcaShoppingListEntity, call: ServiceCall
+    ) -> None:
         """Call will add an existing Offer to a ICA shopping list"""
         offer_id = call.data["offer_id"]
+        conflict_mode = call.data.get("conflict_mode", CONFLICT_MODES[0])
         offer = coordinator.get_offer_info_full(offer_id)
         # _LOGGER.fatal("Offer to add: %s", offer)
         if not offer:
@@ -73,23 +76,30 @@ def async_register_services(hass: HomeAssistant, coordinator: IcaCoordinator) ->
             "isStrikedOver": False,
             "sourceId": -1,
             "articleGroupId": offer.get("category", {}).get("articleGroupId", 12),
-            "articleGroupIdExtended": offer.get("category", {}).get("expandedArticleGroupId", 12),
+            "articleGroupIdExtended": offer.get("category", {}).get(
+                "expandedArticleGroupId", 12
+            ),
             "offerId": offer_id,
-            "lastChange": datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+            "lastChange": datetime.datetime.utcnow().replace(microsecond=0).isoformat()
+            + "Z",
             "offlineId": str(uuid.uuid4()),
         }
         # _LOGGER.fatal("Item to add: %s", item)
-        await entity._async_create_todo_item_from_ica_shopping_list_item(item)
-        return item
+        result = await entity._async_create_todo_item_from_ica_shopping_list_item(
+            item, conflict_mode
+        )
+        return {"result": result, "item": item}
 
     platform = entity_platform.async_get_current_platform()
     platform.async_register_entity_service(
         IcaServices.Add_OFFER_TO_SHOPPING_LIST,
         {
-            vol.Required("offer_id"): cv.string
+            vol.Required("offer_id"): cv.string,
+            vol.Optional("conflict_mode"): vol.In(CONFLICT_MODES),
         },
         handle_add_offer_to_shopping_list,
-        supports_response=SupportsResponse.OPTIONAL)
+        supports_response=SupportsResponse.OPTIONAL,
+    )
 
     # # Non-entity based Services
     # if not hass.services.has_service(DOMAIN, IcaServices.GET_RECIPE):
@@ -238,14 +248,28 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         result = json.dumps(result)
         return result
 
-    async def _async_create_todo_item_from_ica_shopping_list_item(self, row_item):
+    async def _async_create_todo_item_from_ica_shopping_list_item(
+        self, row_item, conflict_mode
+    ):
         """Create a To-do item."""
         # if item.status != TodoItemStatus.NEEDS_ACTION:
         #     raise ValueError("Only active tasks may be created.")
         shopping_list = await self.coordinator.async_get_shopping_list(
-            self._project_id,
-            invalidate_cache=True
+            self._project_id, invalidate_cache=True
         )
+
+        offer_id = row_item.get("offerId", None)
+        matches_by_offer_id = [
+            r for r in shopping_list["rows"] if offer_id and r.get("offerId", None) == offer_id
+        ]
+        # _LOGGER.fatal("MATCHES_OFFER: %s", matches_by_offer_id)
+
+        has_conflict = matches_by_offer_id
+        if has_conflict and conflict_mode == "ignore":
+            _LOGGER.warning("Ignored add due to conflict mode 'ignore': %s", row_item)
+            return False
+        # elif has_conflict and conflict_mode == "merge":
+        #     # todo: implement...
 
         # ti = self.coordinator.parse_summary(item.summary)
         # ti["sourceId"] = -1
@@ -266,8 +290,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
             raise ValueError("Only active tasks may be created.")
         # shopping_list = self.coordinator.get_shopping_list(self._project_id)
         shopping_list = await self.coordinator.async_get_shopping_list(
-            self._project_id,
-            invalidate_cache=True
+            self._project_id, invalidate_cache=True
         )
 
         ti = self.coordinator.parse_summary(item.summary)
@@ -287,8 +310,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         """Update a To-do item."""
         # shopping_list = self.coordinator.get_shopping_list(self._project_id)
         shopping_list = await self.coordinator.async_get_shopping_list(
-            self._project_id,
-            invalidate_cache=True
+            self._project_id, invalidate_cache=True
         )
 
         if "changedRows" not in shopping_list:
@@ -317,8 +339,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         # )
         # shopping_list = self.coordinator.get_shopping_list(self._project_id)
         shopping_list = await self.coordinator.async_get_shopping_list(
-            self._project_id,
-            invalidate_cache=True
+            self._project_id, invalidate_cache=True
         )
 
         if "deletedRows" not in shopping_list:
