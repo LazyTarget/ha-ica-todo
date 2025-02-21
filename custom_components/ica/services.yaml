@@ -37,3 +37,17 @@ add_baseitem:
       required: true
       selector:
         text:
+add_offer_to_shopping_list:
+  target:
+    entity:
+      integration: ica
+      domain: todo
+  fields:
+    offer_id:
+      name: "OfferId"
+      description: "The offer id to add to a shopping list"
+      example: "2000681790"
+      default: ''
+      required: true
+      selector:
+        text:

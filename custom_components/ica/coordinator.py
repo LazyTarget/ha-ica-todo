@@ -162,8 +162,18 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             store = offers_per_store[store_id]
             matches = [o for o in store["offers"] if o["id"] == offerId]
             if matches:
-                _LOGGER.info("Matched offer: %s", matches)
+                # _LOGGER.info("Matched offer: %s", matches)
                 return matches[0]
+        return None
+
+    def get_offer_info_full(self, offerId):
+        offers = self._ica_favorite_stores_offers_full.current_value()
+        if not offers:
+            return None
+        matches = [o for o in offers if o["id"] == offerId]
+        if matches:
+            # _LOGGER.info("Matched offer full: %s", matches)
+            return matches[0]
         return None
 
     async def _search_offers(self):
@@ -222,7 +232,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                         self._hass.bus.async_fire(
                             f"{DOMAIN}_event",
                             {
-                                "type": "baseitem_offers_found",
+                                "type": "baseitem_offer_found",
                                 "uid": self._config_entry.data[CONF_ICA_ID],
                                 "data": {
                                     "bi_ean": id,
@@ -331,14 +341,14 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         offers_per_store = await self.api.get_offers([s["id"] for s in stores])
 
         # Fire event(s)
-        self._hass.bus.async_fire(
-            f"{DOMAIN}_event",
-            {
-                "type": "offers_loaded",
-                "uid": self._config_entry.data[CONF_ICA_ID],
-                "data": offers_per_store,
-            },
-        )
+        # self._hass.bus.async_fire(
+        #     f"{DOMAIN}_event",
+        #     {
+        #         "type": "offers_loaded",
+        #         "uid": self._config_entry.data[CONF_ICA_ID],
+        #         "data": offers_per_store,
+        #     },
+        # )
 
         # self._lookup_baseitems_on_offer()
 

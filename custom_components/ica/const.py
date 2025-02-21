@@ -107,6 +107,7 @@ class IcaServices(StrEnum):
     GET_BASEITEMS = "get_baseitems"
     ADD_BASEITEM = "add_baseitem"
     # LOOKUP_BARCODE = "lookup_barcode"
+    Add_OFFER_TO_SHOPPING_LIST = "add_offer_to_shopping_list"
 
 
 class API:

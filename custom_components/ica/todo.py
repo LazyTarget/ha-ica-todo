@@ -5,6 +5,7 @@ import datetime
 import json
 from typing import Any, cast
 import voluptuous as vol
+import uuid
 
 from homeassistant.components.todo import (
     TodoItem,
@@ -59,21 +60,36 @@ async def async_setup_entry(
 def async_register_services(hass: HomeAssistant, coordinator: IcaCoordinator) -> None:
     """Register services."""
 
-    # if not hass.services.has_service(DOMAIN, IcaServices.GET_RECIPE):
-    #     async def handle_get_recipe(entity: TodoListEntity, call: ServiceCall) -> None:
-    #         """Call will query ICA api after a specific Recipe"""
-    #         recipe_id = call.data["recipe_id"]
-    #         recipe = await coordinator.async_get_recipe(recipe_id)
-    #         return recipe
+    async def handle_add_offer_to_shopping_list(entity: IcaShoppingListEntity, call: ServiceCall) -> None:
+        """Call will add an existing Offer to a ICA shopping list"""
+        offer_id = call.data["offer_id"]
+        offer = coordinator.get_offer_info_full(offer_id)
+        # _LOGGER.fatal("Offer to add: %s", offer)
+        if not offer:
+            return
+        item = {
+            "internalOrder": 999,
+            "productName": offer["name"],
+            "isStrikedOver": False,
+            "sourceId": -1,
+            "articleGroupId": offer.get("category", {}).get("articleGroupId", 12),
+            "articleGroupIdExtended": offer.get("category", {}).get("expandedArticleGroupId", 12),
+            "offerId": offer_id,
+            "lastChange": datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+            "offlineId": str(uuid.uuid4()),
+        }
+        # _LOGGER.fatal("Item to add: %s", item)
+        await entity._async_create_todo_item_from_ica_shopping_list_item(item)
+        return item
 
-    #     platform = entity_platform.async_get_current_platform()
-    #     platform.async_register_entity_service(
-    #         IcaServices.GET_RECIPE,
-    #         {
-    #             vol.Required("recipe_id"): cv.string
-    #         },
-    #         handle_get_recipe,
-    #         supports_response=SupportsResponse.ONLY)
+    platform = entity_platform.async_get_current_platform()
+    platform.async_register_entity_service(
+        IcaServices.Add_OFFER_TO_SHOPPING_LIST,
+        {
+            vol.Required("offer_id"): cv.string
+        },
+        handle_add_offer_to_shopping_list,
+        supports_response=SupportsResponse.OPTIONAL)
 
     # # Non-entity based Services
     # if not hass.services.has_service(DOMAIN, IcaServices.GET_RECIPE):
@@ -221,6 +237,25 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
             return None
         result = json.dumps(result)
         return result
+
+    async def _async_create_todo_item_from_ica_shopping_list_item(self, row_item):
+        """Create a To-do item."""
+        # if item.status != TodoItemStatus.NEEDS_ACTION:
+        #     raise ValueError("Only active tasks may be created.")
+        shopping_list = self.coordinator.get_shopping_list(self._project_id)
+
+        # ti = self.coordinator.parse_summary(item.summary)
+        # ti["sourceId"] = -1
+        # ti["isStrikedOver"] = False
+        if "createdRows" not in shopping_list:
+            shopping_list["createdRows"] = []
+        shopping_list["createdRows"].append(row_item)
+
+        shopping_list["latestChange"] = (
+            datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+        )
+        await self.coordinator.api.sync_shopping_list(shopping_list)
+        await self.coordinator.async_refresh()
 
     async def async_create_todo_item(self, item: TodoItem) -> None:
         """Create a To-do item."""
