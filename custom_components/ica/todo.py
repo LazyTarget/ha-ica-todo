@@ -200,7 +200,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                         due=due,
                     )
                 )
-        _LOGGER.debug("%s ITEMS: %s", self._project_name, items)
+            _LOGGER.debug("%s ITEMS: %s", self._project_name, items)
         self._attr_todo_items = items
         super()._handle_coordinator_update()
 
@@ -264,7 +264,11 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         """Create a To-do item."""
         if item.status != TodoItemStatus.NEEDS_ACTION:
             raise ValueError("Only active tasks may be created.")
-        shopping_list = self.coordinator.get_shopping_list(self._project_id)
+        # shopping_list = self.coordinator.get_shopping_list(self._project_id)
+        shopping_list = await self.coordinator.async_get_shopping_list(
+            self._project_id,
+            invalidate_cache=True
+        )
 
         ti = self.coordinator.parse_summary(item.summary)
         ti["sourceId"] = -1
@@ -281,7 +285,11 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
         """Update a To-do item."""
-        shopping_list = self.coordinator.get_shopping_list(self._project_id)
+        # shopping_list = self.coordinator.get_shopping_list(self._project_id)
+        shopping_list = await self.coordinator.async_get_shopping_list(
+            self._project_id,
+            invalidate_cache=True
+        )
 
         if "changedRows" not in shopping_list:
             shopping_list["changedRows"] = []
@@ -307,7 +315,11 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         # await asyncio.gather(
         #     *[self.coordinator.api.remove_from_list(task_id=uid) for uid in uids]
         # )
-        shopping_list = self.coordinator.get_shopping_list(self._project_id)
+        # shopping_list = self.coordinator.get_shopping_list(self._project_id)
+        shopping_list = await self.coordinator.async_get_shopping_list(
+            self._project_id,
+            invalidate_cache=True
+        )
 
         if "deletedRows" not in shopping_list:
             shopping_list["deletedRows"] = []
@@ -318,14 +330,14 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         await self.coordinator.api.sync_shopping_list(shopping_list)
         await self.coordinator.async_refresh()
 
-    async def async_move_todo_item(self, uid: str, previous_uid: str | None) -> None:
-        """Move a To-do item."""
-        # await asyncio.gather(
-        #     *[self.coordinator.api.remove_from_list(task_id=uid) for uid in uids]
-        # )
-        shopping_list = self.coordinator.get_shopping_list(self._project_id)
-        await self.coordinator.api.sync_shopping_list(shopping_list)
-        await self.coordinator.async_refresh()
+    # async def async_move_todo_item(self, uid: str, previous_uid: str | None) -> None:
+    #     """Move a To-do item."""
+    #     # await asyncio.gather(
+    #     #     *[self.coordinator.api.remove_from_list(task_id=uid) for uid in uids]
+    #     # )
+    #     shopping_list = self.coordinator.get_shopping_list(self._project_id)
+    #     await self.coordinator.api.sync_shopping_list(shopping_list)
+    #     await self.coordinator.async_refresh()
 
     async def async_added_to_hass(self) -> None:
         """When entity is added to hass update state from existing coordinator data."""

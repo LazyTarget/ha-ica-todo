@@ -23,6 +23,7 @@ from .icatypes import (
 )
 from .caching import CacheEntry
 from .const import DOMAIN, CONF_ICA_ID, CONF_SHOPPING_LISTS
+from .utils import get_diffs
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,7 +50,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._stores: list[IcaStore] | None = None
         self._productCategories: list[IcaProductCategory] | None = None
         self._icaBaseItems: list | None = None
-        self._icaShoppingLists: list[IcaShoppingList] | None = None
         self._icaRecipes: list[IcaRecipe] | None = None
 
         config_entry_key = self._config_entry.data[CONF_ICA_ID]
@@ -71,7 +71,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._ica_shopping_lists = CacheEntry(
             hass,
             f"{config_entry_key}.shopping_lists",
-            partial(self._get_shopping_lists),
+            partial(self.async_get_shopping_lists),
         )
         self._ica_favorite_stores_offers = CacheEntry(
             hass,
@@ -103,8 +103,12 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             return x
         return None
 
-    async def async_get_shopping_list(self, list_id, invalidate_cache: bool = False) -> IcaShoppingList:
-        selected_lists = await self._ica_shopping_lists.get_value(invalidate_cache) or []
+    async def async_get_shopping_list(
+        self, list_id, invalidate_cache: bool = False
+    ) -> IcaShoppingList:
+        selected_lists = (
+            await self._ica_shopping_lists.get_value(invalidate_cache) or []
+        )
         for x in filter(lambda x: x["offlineId"] == list_id, selected_lists):
             return x
         return None
@@ -198,7 +202,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             oids = [
                 o["id"]
                 for o in store["offers"]
-                #if o and o.get("isUsed", None) is not True
+                # if o and o.get("isUsed", None) is not True
             ]
             offer_ids = sorted(list(set(offer_ids)) + list(set(oids)))
         # _LOGGER.warning("StoreIds: %s :: %s", type(store_ids), store_ids)
@@ -218,9 +222,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
         baseitems = self._ica_baseitems.current_value()
         bi_eans = [
-            i["articleEan"]
-            for i in baseitems
-            if i and i.get("articleEan", None)
+            i["articleEan"] for i in baseitems if i and i.get("articleEan", None)
         ]
         _LOGGER.warning("Favorite eans: %s", bi_eans)
 
@@ -232,7 +234,9 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                     if id in bi_eans or f"0{id}" in bi_eans:
                         _LOGGER.fatal(
                             "Offer on Favorite! EAN=%s, Name=%s, OfferId=%s",
-                            id, offer.get("name", None), offer.get("id", None)
+                            id,
+                            offer.get("name", None),
+                            offer.get("id", None),
                         )
 
                         self._hass.bus.async_fire(
@@ -262,12 +266,10 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
             # Get user specific data
             await self._ica_current_bonus.get_value(invalidate_cache=refresh)
-            self._icaShoppingLists = await self.async_get_shopping_lists(refresh=True)
+            await self._ica_shopping_lists.get_value(invalidate_cache=True)
 
             await self._ica_favorite_stores.get_value(invalidate_cache=refresh)
-            await self._ica_favorite_stores_offers.get_value(
-                invalidate_cache=refresh
-            )
+            await self._ica_favorite_stores_offers.get_value(invalidate_cache=refresh)
             await self._ica_favorite_stores_offers_full.get_value(
                 invalidate_cache=refresh
             )
@@ -276,19 +278,43 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
     async def async_get_shopping_lists(self, refresh=False) -> list[IcaShoppingList]:
         """Return ICA shopping lists fetched at most once."""
-        selected_lists = await self._ica_shopping_lists.get_value(
-            invalidate_cache=refresh
-        )
 
+        current = self._ica_shopping_lists.current_value()
+        # updated = await self._ica_shopping_lists.get_value(invalidate_cache=refresh)
+        updated = await self._get_shopping_lists()
         self._hass.bus.async_fire(
             f"{DOMAIN}_event",
             {
                 "type": "shopping_lists_loaded",
                 "uid": self._config_entry.data[CONF_ICA_ID],
-                "data": selected_lists,
+                "data": updated,
             },
         )
-        return selected_lists
+
+        for shopping_list in (updated or []):
+            old_rows = [
+                l["rows"]
+                for l in (current or [])
+                if current and l["id"] == shopping_list["id"]
+            ]
+            if not old_rows or len(old_rows) < 1:
+                continue
+            old_rows = old_rows[0]
+            new_rows = shopping_list["rows"]
+
+            diffs = get_diffs(old_rows, new_rows)
+            self._hass.bus.async_fire(
+                f"{DOMAIN}_event",
+                {
+                    "type": "shopping_list_updated",
+                    "uid": self._config_entry.data[CONF_ICA_ID],
+                    "shopping_list_id": shopping_list["id"],
+                    "shopping_list_name": shopping_list["title"],
+                    "diffs": diffs,
+                },
+            )
+
+        return updated
 
     async def async_get_baseitems(self):
         """Return ICA favorite items (baseitems) fetched at most once."""
