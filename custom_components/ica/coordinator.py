@@ -103,6 +103,12 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             return x
         return None
 
+    async def async_get_shopping_list(self, list_id, invalidate_cache: bool = False) -> IcaShoppingList:
+        selected_lists = await self._ica_shopping_lists.get_value(invalidate_cache) or []
+        for x in filter(lambda x: x["offlineId"] == list_id, selected_lists):
+            return x
+        return None
+
     def get_article_group(self, product_name) -> int:
         articles = self._ica_articles.current_value() or []
         if not articles:

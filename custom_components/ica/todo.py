@@ -242,7 +242,10 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         """Create a To-do item."""
         # if item.status != TodoItemStatus.NEEDS_ACTION:
         #     raise ValueError("Only active tasks may be created.")
-        shopping_list = self.coordinator.get_shopping_list(self._project_id)
+        shopping_list = await self.coordinator.async_get_shopping_list(
+            self._project_id,
+            invalidate_cache=True
+        )
 
         # ti = self.coordinator.parse_summary(item.summary)
         # ti["sourceId"] = -1
