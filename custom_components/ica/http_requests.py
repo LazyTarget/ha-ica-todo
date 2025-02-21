@@ -41,7 +41,12 @@ def get(
         _LOGGER.debug("HTTP [GET] Resp: %s", json.dumps(response.json()))
         return response.json()
 
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except BaseException as ex:
+        _LOGGER.error("HTTP [GET] Resp: %s", response.text)
+        raise ex
+
     return response.ok
 
 
@@ -69,7 +74,12 @@ def post(
         _LOGGER.debug("HTTP [POST] Resp: %s", json.dumps(response.json()))
         return response.json()
 
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except BaseException as ex:
+        _LOGGER.error("HTTP [POST] Resp: %s", response.text)
+        raise ex
+
     return response.ok
 
 
@@ -88,5 +98,10 @@ def delete(
         headers=headers,
     )
 
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except BaseException as ex:
+        _LOGGER.error("HTTP [DELETE] Resp: %s", response.text)
+        raise ex
+
     return response.ok
