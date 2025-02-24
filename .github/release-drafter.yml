@@ -24,6 +24,7 @@ version-resolver:
     labels:
       - 'patch'
   default: patch
+commitish: refs/heads/main
 template: |
   ## Changes
 
