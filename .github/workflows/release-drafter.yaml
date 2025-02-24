@@ -1,12 +1,12 @@
-name: Release drafter
+name: release-drafter
 
 on:
   push:
     branches:
-      - master
       - main
   pull_request:
     types: [opened, reopened, synchronize]
+  workflow_dispatch:
 
 jobs:
   update_release_draft:

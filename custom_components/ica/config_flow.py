@@ -137,6 +137,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
         self.user_token = self.config_entry.data["user"]
         _LOGGER.debug("Options flow - data: %s", self.config_entry.data)
 
+        config_entry_data = self.config_entry.data.copy()
         if self.SHOPPING_LIST_SELECTOR_SCHEMA is None:
             api = IcaAPIAsync(
                 uid=self.config_entry.data[CONF_ICA_ID],
@@ -149,8 +150,11 @@ class IcaOptionsFlowHandler(OptionsFlow):
             self.SHOPPING_LIST_SELECTOR_SCHEMA = (
                 self.build_shopping_list_selector_schema(self.shopping_lists)
             )
+            _LOGGER.warning("Updating user_token: %s -> %s",
+                            config_entry_data["user"]["access_token"],
+                            api._user["access_token"])
+            config_entry_data["user"] = api._user
 
-        config_entry_data = self.config_entry.data.copy()
         if user_input is not None:
             config_entry_data[CONF_SCAN_INTERVAL] = user_input.get(
                 CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
