@@ -25,6 +25,9 @@ version-resolver:
       - 'patch'
   default: patch
 autolabeler:
+  - label: 'ci/cd'
+    files:
+      - '.github/*'
   - label: 'chore'
     files:
       - '*.md'
@@ -46,5 +49,5 @@ template: |
 
   $CHANGES
 
-  ## A special thanks to the contributors that help make this integration!
+  ## Contributors ❤️
   $CONTRIBUTORS
