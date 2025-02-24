@@ -2,8 +2,7 @@ name: release-published
 
 on:
   release:
-    types: [created, published, released]
-  workflow_dispatch:
+    types: [created, published, released, prereleased]
 
 jobs:
   release_zip_file:
