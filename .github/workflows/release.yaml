@@ -1,4 +1,4 @@
-name: release-drafter
+name: release
 
 on:
   push:
@@ -29,6 +29,7 @@ jobs:
           fetch-depth: 0
 
       - name: Create Release
+        id: release_drafter
         uses: release-drafter/release-drafter@v6
         with:
           disable-releaser: github.ref != 'refs/heads/main'
@@ -36,10 +37,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # release-published.yaml
+      # release-published.yaml (but modified...)
       - name: "Set manifest version number"
+        # run: |
+        #   python3 ${{ github.workspace }}/.github/scripts/update_hacs_manifest.py --version ${{ github.ref_name }}
         run: |
-          python3 ${{ github.workspace }}/.github/scripts/update_hacs_manifest.py --version ${{ github.ref_name }}
+          python3 ${{ github.workspace }}/.github/scripts/update_hacs_manifest.py --version ${{ steps.release_drafter.outputs.resolved_version }}
 
       - name: Create zip
         run: |
@@ -52,5 +55,6 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: ./custom_components/ica/ica.zip
           asset_name: ica.zip
-          tag: ${{ github.ref }}
+          # tag: ${{ github.ref }}
+          tag: ${{ steps.release_drafter.outputs.resolved_version }}
           overwrite: true
