@@ -2,7 +2,7 @@ name: release-published
 
 on:
   release:
-    types: [published]
+    types: [created, published, released]
   workflow_dispatch:
 
 jobs:
@@ -12,13 +12,16 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
       - name: "Set manifest version number"
         run: |
           python3 ${{ github.workspace }}/.github/scripts/update_hacs_manifest.py --version ${{ github.ref_name }}
+
       - name: Create zip
         run: |
           cd custom_components/ica
           zip ica.zip -r ./
+
       - name: Upload zip to release
         uses: svenstaro/upload-release-action@v1-release
         with:
