@@ -1,0 +1,33 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+change-template: '- #$NUMBER $TITLE'
+sort-direction: ascending
+exclude-contributors:
+  - 'github-actions[bot]'
+  - 'github-actions'
+  - 'renovate[bot]'
+  - 'renovate'
+  - 'pre-commit-ci'
+  - 'pre-commit-ci[bot]'
+  - 'crowdin-bot'
+exclude-labels:
+  - 'skip-changelog'
+  - 'dependencies'
+version-resolver:
+  major:
+    labels:
+      - 'major'
+  minor:
+    labels:
+      - 'minor'
+  patch:
+    labels:
+      - 'patch'
+  default: patch
+template: |
+  ## Changes
+
+  $CHANGES
+
+  ## Contributors
+  $CONTRIBUTORS
