@@ -2,7 +2,7 @@ name: release-published
 
 on:
   release:
-    types: [created, published, released, prereleased]
+    types: [published]
 
 jobs:
   release_zip_file:
