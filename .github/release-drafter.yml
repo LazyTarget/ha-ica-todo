@@ -28,9 +28,10 @@ autolabeler:
   - label: 'ci/cd'
     files:
       - '/.github/*'
-  - label: 'chore'
+  - label: 'documentation'
     files:
       - '*.md'
+      - '/docs/*'
     branch:
       - '/docs{0,1}\/.+/'
   - label: 'bug'
@@ -45,7 +46,7 @@ autolabeler:
       - '/JIRA-[0-9]{1,4}/' 
 commitish: refs/heads/main
 template: |
-  ## Changes
+  ## Changes 🚀 
 
   $CHANGES
 
