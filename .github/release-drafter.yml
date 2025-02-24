@@ -28,3 +28,6 @@ template: |
   ## Changes
 
   $CHANGES
+
+  ## A special thanks to the contributors that help make this integration!
+  $CONTRIBUTORS
