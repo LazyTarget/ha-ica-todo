@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - master
   # pull_request:
   #   types: [opened, reopened, synchronize]
   workflow_dispatch:
@@ -30,6 +31,9 @@ jobs:
         uses: release-drafter/release-drafter@v6
         with:
           disable-releaser: github.ref != 'refs/heads/main'
+          name: next
+          tag: next
+          version: next
           publish: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
