@@ -19,6 +19,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: "Set manifest version number"
+        run: |
+          python3 ${{ github.workspace }}/.github/scripts/update_hacs_manifest.py --version ${{ github.ref_name }}
+
       - name: Create ZIP file
         run: |
           mkdir -p output
