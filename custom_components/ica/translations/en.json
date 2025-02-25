@@ -40,6 +40,16 @@
       }
     },
     "services": {
+      "get_recipe": {
+        "name": "Get recipe",
+        "description": "Gets a ICA recipe",
+        "fields": {
+          "recipe_id": {
+            "name": "Recipe id",
+            "description": "The id of the recipe to retrieve"
+          }
+        }
+      },
       "get_baseitems": {
         "name": "Get favorite items",
         "description": "Gets the favorite items (a.k.a baseitems) for the user",
@@ -47,6 +57,34 @@
           "integration": {
             "name": "ICA Account",
             "description": "The config account to look within"
+          }
+        }
+      },
+      "add_baseitem": {
+        "name": "Add a favorite item",
+        "description": "Adds a new favorite item to ICA's list of baseitems for the user",
+        "fields": {
+          "integration": {
+            "name": "ICA Account",
+            "description": "The config account to look within"
+          },
+          "identifier": {
+            "name": "Identifier",
+            "descriptin": "Name / Barcode of the item to add"
+          }
+        }
+      },
+      "add_offer_to_shopping_list": {
+        "name": "Add a offer to list",
+        "description": "Adds a current offer to a shopping list",
+        "fields": {
+          "offer_id": {
+            "name": "OfferId",
+            "description": "The offer id to add to a shopping list"
+          },
+          "conflict_mode": {
+            "name": "Conflict mode",
+            "descriptin": "What do to if the item already exists"
           }
         }
       },
