@@ -1,3 +1,4 @@
+---
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.9.7
@@ -7,6 +8,10 @@ repos:
           - --fix
       - id: ruff-format
         files: ^((custom_components|pylint|script|tests)/.+)?[^/]+\.(py|pyi)$
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
   - repo: https://github.com/sourcery-ai/sourcery
     rev: v1.34.0
     hooks:
