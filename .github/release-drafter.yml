@@ -27,7 +27,7 @@ version-resolver:
 autolabeler:
   - label: 'ci/cd'
     files:
-      - '/.github/**'
+      - '/.github/**/*'
   - label: 'documentation'
     files:
       - '*.md'
