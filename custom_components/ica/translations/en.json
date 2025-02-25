@@ -15,18 +15,6 @@
           }
         }
       },
-      "options": {
-        "step": {
-          "init": {
-            "data": {
-              "shopping_lists": "Shopping lists"
-            },
-            "data_description": {
-              "shopping_lists": "The shopping lists to track"
-            }
-          }
-        }
-      },
       "error": {
         "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
         "invalid_credentials": "[%key:common::config_flow::error::invalid_credentials%]",
@@ -39,7 +27,29 @@
         "default": "[%key:common::config_flow::create_entry::authenticated%]"
       }
     },
+    "options": {
+      "step": {
+        "init": {
+          "data": {
+            "shopping_lists": "Shopping lists"
+          },
+          "data_description": {
+            "shopping_lists": "The shopping lists to track"
+          }
+        }
+      }
+    },
     "services": {
+      "get_baseitems": {
+        "name": "Get favorite items",
+        "description": "Gets the favorite items (a.k.a baseitems) for the user",
+        "fields": {
+          "integration": {
+            "name": "ICA Account",
+            "description": "The config account to look within"
+          }
+        }
+      },
       "new_task": {
         "name": "New task",
         "description": "Creates a new task and add it to a project.",

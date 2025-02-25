@@ -1,5 +1,6 @@
 ---
 refresh_all:
+
 get_recipe:
   # target:
   #   entity:
@@ -14,6 +15,7 @@ get_recipe:
       required: true
       selector:
         text:
+
 get_baseitems:
   fields:
     integration:
@@ -22,6 +24,7 @@ get_baseitems:
       selector:
         config_entry:
           integration: ica
+
 add_baseitem:
   fields:
     integration:
@@ -38,6 +41,7 @@ add_baseitem:
       required: true
       selector:
         text:
+
 add_offer_to_shopping_list:
   target:
     entity:
