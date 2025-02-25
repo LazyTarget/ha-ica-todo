@@ -2,5 +2,8 @@
     "name": "ICA shopping list",
     "render_readme": true,
     "iot_class": "Cloud Polling",
-    "country": "SE"
+    "country": "SE",
+    "content_in_root": false,
+    "zip_release": true,
+    "filename": "ica.zip"
 }
