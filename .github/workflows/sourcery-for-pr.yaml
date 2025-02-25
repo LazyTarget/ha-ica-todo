@@ -4,7 +4,7 @@ on:
   pull_request:
 
 jobs:
-  review-with-sourcery:
+  review-pr-with-sourcery:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

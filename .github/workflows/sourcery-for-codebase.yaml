@@ -3,9 +3,10 @@ name: Sourcery (for Codebase)
 on:
   push:
     branches: [main, master]
+  workflow_dispatch:
 
 jobs:
-  review-with-sourcery:
+  review-codebase-with-sourcery:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
