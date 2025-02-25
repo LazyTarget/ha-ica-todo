@@ -2,22 +2,13 @@ import requests
 from datetime import datetime
 from .http_requests import get, post, delete
 from .const import (
-    AUTH_TICKET,
-    LIST_NAME,
-    ITEM_LIST,
-    ITEM_NAME,
-    IS_CHECKED,
     MY_LIST_ENDPOINT,
     MY_BONUS_ENDPOINT,
-    MY_CARDS_ENDPOINT,
     MY_LISTS_ENDPOINT,
     STORE_ENDPOINT,
-    OFFERS_ENDPOINT,
     RECIPE_ENDPOINT,
-    MY_RECIPES_ENDPOINT,
     MY_STORES_ENDPOINT,
     MY_LIST_SYNC_ENDPOINT,
-    STORE_SEARCH_ENDPOINT,
     STORE_OFFERS_ENDPOINT,
     ARTICLEGROUPS_ENDPOINT,
     RANDOM_RECIPES_ENDPOINT,
@@ -74,7 +65,9 @@ class IcaAPI:
         return post(self._session, url, self._auth_key, json_data=j)
 
     def lookup_barcode(self, identifier: str):
-        url = str.format(get_rest_url(API.URLs.PRODUCT_BARCODE_LOOKUP_ENDPOINT), identifier)
+        url = str.format(
+            get_rest_url(API.URLs.PRODUCT_BARCODE_LOOKUP_ENDPOINT), identifier
+        )
         return get(self._session, url, self._auth_key)
 
     def get_articles(self):
@@ -103,9 +96,9 @@ class IcaAPI:
         return get(self._session, url, self._auth_key)
 
     def get_offers(self, store_ids: list[int]) -> list[IcaOffer]:
-        all_store_offers = {}
-        for store_id in store_ids:
-            all_store_offers[store_id] = self.get_offers_for_store(store_id)
+        all_store_offers = {
+            store_id: self.get_offers_for_store(store_id) for store_id in store_ids
+        }
         _LOGGER.info("Fetched offers for stores: %s", store_ids)
         return all_store_offers
 
@@ -114,8 +107,7 @@ class IcaAPI:
     ) -> list[IcaOffer]:
         url = get_rest_url(API.URLs.OFFERS_SEARCH_ENDPOINT)
         j = {"offerIds": offer_ids, "storeIds": store_ids}
-        offers = post(self._session, url, self._auth_key, json_data=j)
-        return offers
+        return post(self._session, url, self._auth_key, json_data=j)
 
     def get_current_bonus(self):
         url = get_rest_url(MY_BONUS_ENDPOINT)
@@ -148,9 +140,9 @@ class IcaAPI:
             "commentText": comment,
             "sortingStore": 1 if storeSorting else 0,
             "rows": [],
-            "latestChange": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+            "latestChange": f"{datetime.utcnow().replace(microsecond=0).isoformat()}Z",
         }
-        response = post(self._session, url, self._auth_key, data)
+        post(self._session, url, self._auth_key, data)
         # list_id = response["id"]
         return self.get_shopping_list(offline_id)
 
@@ -168,15 +160,7 @@ class IcaAPI:
         else:
             sync_data = data
 
-        data2 = post(self._session, url, self._auth_key, sync_data)
-        # if data is not None and "Rows" in data:
-        #    for row in data["Rows"]:
-        #        name = row["ProductName"]
-        #        uuid = row["OfflineId"]
-        #        status = row["IsStrikedOver"]
-        #        source = row["SourceId"]
-
-        return data2
+        return post(self._session, url, self._auth_key, sync_data)
 
     def delete_shopping_list(self, offline_id: int):
         url = str.format(get_rest_url(MY_LIST_ENDPOINT), offline_id)

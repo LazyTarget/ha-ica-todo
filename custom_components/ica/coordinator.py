@@ -3,10 +3,8 @@
 from datetime import timedelta
 import re
 import logging
-import json
 import uuid
 from functools import partial
-from pathlib import Path
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
@@ -18,7 +16,6 @@ from .icatypes import (
     IcaProductCategory,
     IcaRecipe,
     IcaShoppingListEntry,
-    IcaOffer,
     IcaShoppingList,
 )
 from .caching import CacheEntry
@@ -88,13 +85,12 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         api_data = await self.api.get_shopping_lists()
         if "shoppingLists" in api_data:
             y = api_data["shoppingLists"]
-            selected_lists = [
+            return [
                 await self.api.get_shopping_list(z["offlineId"])
                 for z in y
                 if z["offlineId"]
                 in self._config_entry.data.get(CONF_SHOPPING_LISTS, [])
             ]
-            return selected_lists
         return None
 
     def get_shopping_list(self, list_id) -> IcaShoppingList:
@@ -156,10 +152,11 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         if articleGroupId:
             ti["articleGroupId"] = articleGroupId
 
-        if ti.get("quantity", None) and ti.get("unit", None):
-            ti["summary"] = f"{ti['quantity']} {ti['unit']} {productName}"
-        elif ti.get("quantity", None):
-            ti["summary"] = f"{ti['quantity']} {productName}"
+        if ti.get("quantity"):
+            if ti.get("unit"):
+                ti["summary"] = f"{ti['quantity']} {ti['unit']} {productName}"
+            else:
+                ti["summary"] = f"{ti['quantity']} {productName}"
 
         _LOGGER.info("Parsed info from '%s' to %s", summary, ti)
         return ti
@@ -170,21 +167,20 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             return None
         for store_id in offers_per_store:
             store = offers_per_store[store_id]
-            matches = [o for o in store["offers"] if o["id"] == offerId]
-            if matches:
+            if matches := [o for o in store["offers"] if o["id"] == offerId]:
                 # _LOGGER.info("Matched offer: %s", matches)
                 return matches[0]
         return None
 
     def get_offer_info_full(self, offerId):
-        offers = self._ica_favorite_stores_offers_full.current_value()
-        if not offers:
+        if offers := self._ica_favorite_stores_offers_full.current_value():
+            return (
+                matches[0]
+                if (matches := [o for o in offers if o["id"] == offerId])
+                else None
+            )
+        else:
             return None
-        matches = [o for o in offers if o["id"] == offerId]
-        if matches:
-            # _LOGGER.info("Matched offer full: %s", matches)
-            return matches[0]
-        return None
 
     async def _search_offers(self):
         offers_per_store = self._ica_favorite_stores_offers.current_value()
@@ -195,7 +191,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         offer_ids = []
 
         for store_id in offers_per_store:
-            if store_id != 12226 and store_id != 12045:
+            if store_id not in [12226, 12045]:
                 # Limit to these 2 for now...
                 continue
             store = offers_per_store[store_id]
@@ -227,14 +223,13 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         _LOGGER.warning("Favorite eans: %s", bi_eans)
 
         for offer in full_offers:
-            eans = offer.get("eans", None)
-            if eans:
+            if eans := offer.get("eans", None):
                 for ean in eans:
-                    id = ean["id"]
-                    if id in bi_eans or f"0{id}" in bi_eans:
+                    ean_id = ean["id"]
+                    if ean_id in bi_eans or f"0{ean_id}" in bi_eans:
                         _LOGGER.fatal(
                             "Offer on Favorite! EAN=%s, Name=%s, OfferId=%s",
-                            id,
+                            ean_id,
                             offer.get("name", None),
                             offer.get("id", None),
                         )
@@ -245,7 +240,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                                 "type": "baseitem_offer_found",
                                 "uid": self._config_entry.data[CONF_ICA_ID],
                                 "data": {
-                                    "bi_ean": id,
+                                    "bi_ean": ean_id,
                                     "offer": offer,
                                 },
                             },
@@ -279,7 +274,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     async def async_get_shopping_lists(self, refresh=False) -> list[IcaShoppingList]:
         """Return ICA shopping lists fetched at most once."""
 
-        current = self._ica_shopping_lists.current_value()
+        current = self._ica_shopping_lists.current_value() or []
         # updated = await self._ica_shopping_lists.get_value(invalidate_cache=refresh)
         updated = await self._get_shopping_lists()
         self._hass.bus.async_fire(
@@ -291,13 +286,12 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             },
         )
 
-        for shopping_list in (updated or []):
-            old_rows = [
-                l["rows"]
-                for l in (current or [])
-                if current and l["id"] == shopping_list["id"]
-            ]
-            if not old_rows or len(old_rows) < 1:
+        for shopping_list in updated or []:
+            old_rows = next(
+                (lst["rows"] for lst in current if lst["id"] == shopping_list["id"]),
+                [],
+            )
+            if not old_rows:
                 continue
             old_rows = old_rows[0]
             new_rows = shopping_list["rows"]
@@ -369,22 +363,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         # Get dependency
         stores = await self.async_get_stores()
 
-        # Get offers
-        offers_per_store = await self.api.get_offers([s["id"] for s in stores])
-
-        # Fire event(s)
-        # self._hass.bus.async_fire(
-        #     f"{DOMAIN}_event",
-        #     {
-        #         "type": "offers_loaded",
-        #         "uid": self._config_entry.data[CONF_ICA_ID],
-        #         "data": offers_per_store,
-        #     },
-        # )
-
-        # self._lookup_baseitems_on_offer()
-
-        return offers_per_store
+        return await self.api.get_offers([s["id"] for s in stores])
 
     async def _get_current_bonus(self):
         """Returns ICA bonus information"""

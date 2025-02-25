@@ -1,9 +1,8 @@
 """A todo platform for ICA shopping lists."""
 
-import asyncio
 import datetime
 import json
-from typing import Any, cast
+from typing import Any
 import voluptuous as vol
 import uuid
 
@@ -15,7 +14,6 @@ from homeassistant.components.todo import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import (
-    Event,
     HomeAssistant,
     ServiceCall,
     callback,
@@ -23,10 +21,8 @@ from homeassistant.core import (
 )
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers import entity_platform
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, CONF_JSON_DATA_IN_DESC, IcaServices, CONFLICT_MODES
 from .coordinator import IcaCoordinator
@@ -80,8 +76,12 @@ def async_register_services(hass: HomeAssistant, coordinator: IcaCoordinator) ->
                 "expandedArticleGroupId", 12
             ),
             "offerId": offer_id,
-            "lastChange": datetime.datetime.utcnow().replace(microsecond=0).isoformat()
-            + "Z",
+            "lastChange": (
+                datetime.datetime.now(datetime.timezone.utc)
+                .replace(microsecond=0)
+                .isoformat()
+                + "Z"
+            ),
             "offlineId": str(uuid.uuid4()),
         }
         # _LOGGER.fatal("Item to add: %s", item)
@@ -183,8 +183,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         items = []
-        shopping_list = self.coordinator.get_shopping_list(self._project_id)
-        if shopping_list:
+        if shopping_list := self.coordinator.get_shopping_list(self._project_id):
             self._project_name = shopping_list["title"]
             for task in shopping_list["rows"]:
                 if task.get("offerId", None):
@@ -260,7 +259,9 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
 
         offer_id = row_item.get("offerId", None)
         matches_by_offer_id = [
-            r for r in shopping_list["rows"] if offer_id and r.get("offerId", None) == offer_id
+            r
+            for r in shopping_list["rows"]
+            if offer_id and r.get("offerId", None) == offer_id
         ]
         # _LOGGER.fatal("MATCHES_OFFER: %s", matches_by_offer_id)
 
@@ -279,7 +280,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         shopping_list["createdRows"].append(row_item)
 
         shopping_list["latestChange"] = (
-            datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+            f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
         )
         await self.coordinator.api.sync_shopping_list(shopping_list)
         await self.coordinator.async_refresh()
@@ -301,7 +302,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         shopping_list["createdRows"].append(ti)
 
         shopping_list["latestChange"] = (
-            datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+            f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
         )
         await self.coordinator.api.sync_shopping_list(shopping_list)
         await self.coordinator.async_refresh()

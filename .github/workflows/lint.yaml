@@ -1,3 +1,4 @@
+---
 name: "Lint"
 
 on:
@@ -11,20 +12,23 @@ jobs:
     name: Lint
     runs-on: "ubuntu-latest"
     steps:
-        - name: "Checkout the repository"
-          uses: actions/checkout@v4
+      - name: "Checkout the repository"
+        uses: actions/checkout@v4
 
-        - name: "Set up Python"
-          uses: actions/setup-python@v5
-          with:
-            python-version: "3.11"
-            cache: "pip"
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
 
-        - name: "Install requirements"
-          run: python3 -m pip install -r requirements.txt
+      - name: "Install requirements-dev"
+        run: python3 -m pip install -r requirements-dev.txt
 
-        - name: "Install ruff"
-          run: python3 -m pip install ruff
+      - name: "ruff check ."
+        run: python3 -m ruff check .
 
-        - name: "Run"
-          run: python3 -m ruff check .
+      - name: yaml-lint
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          # file_or_dir: myfolder/*values*.yaml
+          config_file: .yamllint.yaml

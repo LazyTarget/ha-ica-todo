@@ -1,3 +1,4 @@
+---
 name-template: 'v$RESOLVED_VERSION'
 tag-template: 'v$RESOLVED_VERSION'
 change-template: '- #$NUMBER $TITLE'
@@ -43,7 +44,7 @@ autolabeler:
     branch:
       - '/feature\/.+/'
     body:
-      - '/JIRA-[0-9]{1,4}/' 
+      - '/JIRA-[0-9]{1,4}/'
 commitish: refs/heads/master
 template: |
   ## 🚀 Changes

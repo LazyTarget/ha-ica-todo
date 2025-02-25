@@ -87,14 +87,11 @@ class LocalFile:
     async def async_load_json(self) -> object:
         """Loads the json-file as JSON object"""
         content = await self.async_load()
-        result = json.loads(content) if content else None
-        return result
+        return json.loads(content) if content else None
 
     def _load(self) -> str:
         """Load the json-file from disk."""
-        if not self._path.exists():
-            return ""
-        return self._path.read_text()
+        return self._path.read_text() if self._path.exists() else ""
 
     async def async_store(self, content: str) -> None:
         """Persist string content to file on disk."""
