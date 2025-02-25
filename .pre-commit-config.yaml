@@ -12,6 +12,9 @@ repos:
     rev: v1.35.1
     hooks:
       - id: yamllint
+        language: python
+        types: [file, yaml]
+        files: ^((custom_components|script|tests)/.+)?[^/]+\.(yaml|yml)$
   - repo: https://github.com/sourcery-ai/sourcery
     rev: v1.34.0
     hooks:
