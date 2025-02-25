@@ -85,13 +85,12 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         api_data = await self.api.get_shopping_lists()
         if "shoppingLists" in api_data:
             y = api_data["shoppingLists"]
-            selected_lists = [
+            return [
                 await self.api.get_shopping_list(z["offlineId"])
                 for z in y
                 if z["offlineId"]
                 in self._config_entry.data.get(CONF_SHOPPING_LISTS, [])
             ]
-            return selected_lists
         return None
 
     def get_shopping_list(self, list_id) -> IcaShoppingList:
@@ -153,10 +152,11 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         if articleGroupId:
             ti["articleGroupId"] = articleGroupId
 
-        if ti.get("quantity", None) and ti.get("unit", None):
-            ti["summary"] = f"{ti['quantity']} {ti['unit']} {productName}"
-        elif ti.get("quantity", None):
-            ti["summary"] = f"{ti['quantity']} {productName}"
+        if ti.get("quantity"):
+            if ti.get("unit"):
+                ti["summary"] = f"{ti['quantity']} {ti['unit']} {productName}"
+            else:
+                ti["summary"] = f"{ti['quantity']} {productName}"
 
         _LOGGER.info("Parsed info from '%s' to %s", summary, ti)
         return ti
@@ -167,21 +167,20 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             return None
         for store_id in offers_per_store:
             store = offers_per_store[store_id]
-            matches = [o for o in store["offers"] if o["id"] == offerId]
-            if matches:
+            if matches := [o for o in store["offers"] if o["id"] == offerId]:
                 # _LOGGER.info("Matched offer: %s", matches)
                 return matches[0]
         return None
 
     def get_offer_info_full(self, offerId):
-        offers = self._ica_favorite_stores_offers_full.current_value()
-        if not offers:
+        if offers := self._ica_favorite_stores_offers_full.current_value():
+            return (
+                matches[0]
+                if (matches := [o for o in offers if o["id"] == offerId])
+                else None
+            )
+        else:
             return None
-        matches = [o for o in offers if o["id"] == offerId]
-        if matches:
-            # _LOGGER.info("Matched offer full: %s", matches)
-            return matches[0]
-        return None
 
     async def _search_offers(self):
         offers_per_store = self._ica_favorite_stores_offers.current_value()
@@ -192,7 +191,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         offer_ids = []
 
         for store_id in offers_per_store:
-            if store_id != 12226 and store_id != 12045:
+            if store_id not in [12226, 12045]:
                 # Limit to these 2 for now...
                 continue
             store = offers_per_store[store_id]
@@ -224,8 +223,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         _LOGGER.warning("Favorite eans: %s", bi_eans)
 
         for offer in full_offers:
-            eans = offer.get("eans", None)
-            if eans:
+            if eans := offer.get("eans", None):
                 for ean in eans:
                     id = ean["id"]
                     if id in bi_eans or f"0{id}" in bi_eans:
@@ -365,22 +363,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         # Get dependency
         stores = await self.async_get_stores()
 
-        # Get offers
-        offers_per_store = await self.api.get_offers([s["id"] for s in stores])
-
-        # Fire event(s)
-        # self._hass.bus.async_fire(
-        #     f"{DOMAIN}_event",
-        #     {
-        #         "type": "offers_loaded",
-        #         "uid": self._config_entry.data[CONF_ICA_ID],
-        #         "data": offers_per_store,
-        #     },
-        # )
-
-        # self._lookup_baseitems_on_offer()
-
-        return offers_per_store
+        return await self.api.get_offers([s["id"] for s in stores])
 
     async def _get_current_bonus(self):
         """Returns ICA bonus information"""

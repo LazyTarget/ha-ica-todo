@@ -19,7 +19,7 @@ def create_headers(
     headers: Dict[str, str] = {}
 
     if auth_key:
-        headers.update([(AUTHORIZATION[0], AUTHORIZATION[1] % auth_key)])
+        headers |= [(AUTHORIZATION[0], AUTHORIZATION[1] % auth_key)]
     if with_content:
         headers.update([CONTENT_TYPE])
     if request_id:
@@ -60,7 +60,7 @@ def post(
     request_id = data.pop("request_id", None) if data else None
 
     headers = create_headers(
-        auth_key=auth_key, with_content=True if data else False, request_id=request_id
+        auth_key=auth_key, with_content=bool(data), request_id=request_id
     )
 
     response = session.post(

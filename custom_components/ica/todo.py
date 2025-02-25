@@ -76,8 +76,12 @@ def async_register_services(hass: HomeAssistant, coordinator: IcaCoordinator) ->
                 "expandedArticleGroupId", 12
             ),
             "offerId": offer_id,
-            "lastChange": datetime.datetime.utcnow().replace(microsecond=0).isoformat()
-            + "Z",
+            "lastChange": (
+                datetime.datetime.now(datetime.timezone.utc)
+                .replace(microsecond=0)
+                .isoformat()
+                + "Z"
+            ),
             "offlineId": str(uuid.uuid4()),
         }
         # _LOGGER.fatal("Item to add: %s", item)
@@ -179,8 +183,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         items = []
-        shopping_list = self.coordinator.get_shopping_list(self._project_id)
-        if shopping_list:
+        if shopping_list := self.coordinator.get_shopping_list(self._project_id):
             self._project_name = shopping_list["title"]
             for task in shopping_list["rows"]:
                 if task.get("offerId", None):
@@ -277,7 +280,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         shopping_list["createdRows"].append(row_item)
 
         shopping_list["latestChange"] = (
-            datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+            f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
         )
         await self.coordinator.api.sync_shopping_list(shopping_list)
         await self.coordinator.async_refresh()
@@ -299,7 +302,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         shopping_list["createdRows"].append(ti)
 
         shopping_list["latestChange"] = (
-            datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+            f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
         )
         await self.coordinator.api.sync_shopping_list(shopping_list)
         await self.coordinator.async_refresh()

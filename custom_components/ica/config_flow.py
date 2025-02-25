@@ -157,42 +157,16 @@ class IcaOptionsFlowHandler(OptionsFlow):
                 CONF_JSON_DATA_IN_DESC, False
             )
 
-            selection = user_input.get(CONF_SHOPPING_LISTS, [])
-            if selection:
+            if selection := user_input.get(CONF_SHOPPING_LISTS, []):
                 config_entry_data[CONF_SHOPPING_LISTS] = selection
                 _LOGGER.info("Options flow - new data %s", config_entry_data)
-                #     # CONF_ICA_ID: user_input[CONF_ICA_ID] or self.initial_input[CONF_ICA_ID],
-                #     # CONF_ICA_PIN: user_input[CONF_ICA_PIN] or self.initial_input[CONF_ICA_PIN],
-                #     # "user": self.user_token,
-                #     # "access_token": self.user_token["access_token"],
-                #     CONF_SHOPPING_LISTS: selection,
-                # }
-
-                # #return self.async_create_entry(title=CONFIG_ENTRY_NAME % self.user_token["person_name"],
-                # #                               data=config_entry_data)
-                # #return self.async_create_entry(title="", data={})
-
-                # r = self.hass.config_entries.async_update_entry(
-                #     self.config_entry,
-                #     data=config_entry_data,
-                # )
-                # if r:
-                #     self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
-                # return self.async_abort(reason="Integration was reloaded")
-
-                # # Only works for ConfigFlows
-                # return self.async_update_reload_and_abort(
-                #     self.config_entry,
-                #     data=config_entry_data
-                # )
             else:
-                errors[CONF_SHOPPING_LISTS] = "Invalid value submitted: %s" % selection
+                errors[CONF_SHOPPING_LISTS] = f"Invalid value submitted: {selection}"
 
-            r = self.hass.config_entries.async_update_entry(
+            if self.hass.config_entries.async_update_entry(
                 self.config_entry,
                 data=config_entry_data,
-            )
-            if r:
+            ):
                 self.hass.config_entries.async_schedule_reload(
                     self.config_entry.entry_id
                 )
@@ -222,7 +196,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
 
     def build_shopping_list_selector_schema(self, lists):
         current_lists_value = self.config_entry.data.get(CONF_SHOPPING_LISTS, [])
-        schema = {
+        return {
             vol.Required(
                 CONF_SHOPPING_LISTS,
                 description="The shopping lists to track",
@@ -240,4 +214,3 @@ class IcaOptionsFlowHandler(OptionsFlow):
                 )
             ),
         }
-        return schema

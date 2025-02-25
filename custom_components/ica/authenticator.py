@@ -115,8 +115,7 @@ class IcaAuthenticator:
 
     def init_app(self):
         app_registration_api_access_token = self.get_token_for_app_registration()
-        registered_app = self.register_app(app_registration_api_access_token)
-        return registered_app
+        return self.register_app(app_registration_api_access_token)
 
     def init_oauth(self, registered_app, code_challenge):
         url = self.get_rest_url(API.URLs.OAUTH2_AUTHORIZE_ENDPOINT)

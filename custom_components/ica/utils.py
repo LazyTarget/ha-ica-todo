@@ -9,13 +9,10 @@ class EmptyLogger(logging.Logger):
 
 
 def to_dict(list_source, key: str = "id"):
-    if not list_source:
-        return {}
-    return {value[key]: value for index, value in enumerate(list_source)}
+    return {value[key]: value for value in list_source} if list_source else {}
 
 
 def get_diffs(a, b, key: str = "id"):
-    diffs = []
     if isinstance(a, list):
         a = to_dict(a, key)
     if isinstance(b, list):
@@ -23,11 +20,11 @@ def get_diffs(a, b, key: str = "id"):
 
     added = b.keys() - a.keys()
     removed = a.keys() - b.keys()
-    diffs.extend(list({"op": "+", key: row_id, "new": b[row_id]} for row_id in added))
-    diffs.extend(list({"op": "-", key: row_id, "old": a[row_id]} for row_id in removed))
+    diffs = [{"op": "+", key: row_id, "new": b[row_id]} for row_id in added]
+    diffs.extend([{"op": "-", key: row_id, "old": a[row_id]} for row_id in removed])
 
-    a_set = {v for v in a}
-    b_set = {v for v in b}
+    a_set = set(a)
+    b_set = set(b)
     remaining = a_set.intersection(b_set)
 
     for row_id in remaining:

@@ -96,9 +96,9 @@ class IcaAPI:
         return get(self._session, url, self._auth_key)
 
     def get_offers(self, store_ids: list[int]) -> list[IcaOffer]:
-        all_store_offers = {}
-        for store_id in store_ids:
-            all_store_offers[store_id] = self.get_offers_for_store(store_id)
+        all_store_offers = {
+            store_id: self.get_offers_for_store(store_id) for store_id in store_ids
+        }
         _LOGGER.info("Fetched offers for stores: %s", store_ids)
         return all_store_offers
 
@@ -107,8 +107,7 @@ class IcaAPI:
     ) -> list[IcaOffer]:
         url = get_rest_url(API.URLs.OFFERS_SEARCH_ENDPOINT)
         j = {"offerIds": offer_ids, "storeIds": store_ids}
-        offers = post(self._session, url, self._auth_key, json_data=j)
-        return offers
+        return post(self._session, url, self._auth_key, json_data=j)
 
     def get_current_bonus(self):
         url = get_rest_url(MY_BONUS_ENDPOINT)
@@ -161,15 +160,7 @@ class IcaAPI:
         else:
             sync_data = data
 
-        data2 = post(self._session, url, self._auth_key, sync_data)
-        # if data is not None and "Rows" in data:
-        #    for row in data["Rows"]:
-        #        name = row["ProductName"]
-        #        uuid = row["OfflineId"]
-        #        status = row["IsStrikedOver"]
-        #        source = row["SourceId"]
-
-        return data2
+        return post(self._session, url, self._auth_key, sync_data)
 
     def delete_shopping_list(self, offline_id: int):
         url = str.format(get_rest_url(MY_LIST_ENDPOINT), offline_id)
