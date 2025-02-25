@@ -1,0 +1,54 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+change-template: '- #$NUMBER $TITLE'
+sort-direction: ascending
+exclude-contributors:
+  - 'github-actions[bot]'
+  - 'github-actions'
+  - 'renovate[bot]'
+  - 'renovate'
+  - 'pre-commit-ci'
+  - 'pre-commit-ci[bot]'
+  - 'crowdin-bot'
+exclude-labels:
+  - 'skip-changelog'
+  - 'dependencies'
+version-resolver:
+  major:
+    labels:
+      - 'major'
+  minor:
+    labels:
+      - 'minor'
+  patch:
+    labels:
+      - 'patch'
+  default: patch
+autolabeler:
+  - label: 'ci/cd'
+    files:
+      - '/.github/*'
+  - label: 'documentation'
+    files:
+      - '*.md'
+      - '/docs/*'
+    branch:
+      - '/docs{0,1}\/.+/'
+  - label: 'bug'
+    branch:
+      - '/fix\/.+/'
+    title:
+      - '/fix/i'
+  - label: 'enhancement'
+    branch:
+      - '/feature\/.+/'
+    body:
+      - '/JIRA-[0-9]{1,4}/' 
+commitish: refs/heads/main
+template: |
+  ## Changes 🚀 
+
+  $CHANGES
+
+  ## Contributors ❤️
+  $CONTRIBUTORS
