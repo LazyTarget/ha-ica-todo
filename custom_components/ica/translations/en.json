@@ -70,7 +70,7 @@
           },
           "identifier": {
             "name": "Identifier",
-            "descriptin": "Name / Barcode of the item to add"
+            "description": "Name / Barcode of the item to add"
           }
         }
       },
@@ -84,7 +84,7 @@
           },
           "conflict_mode": {
             "name": "Conflict mode",
-            "descriptin": "What do to if the item already exists"
+            "description": "What do to if the item already exists"
           }
         }
       },
