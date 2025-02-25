@@ -225,11 +225,11 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         for offer in full_offers:
             if eans := offer.get("eans", None):
                 for ean in eans:
-                    id = ean["id"]
-                    if id in bi_eans or f"0{id}" in bi_eans:
+                    ean_id = ean["id"]
+                    if ean_id in bi_eans or f"0{ean_id}" in bi_eans:
                         _LOGGER.fatal(
                             "Offer on Favorite! EAN=%s, Name=%s, OfferId=%s",
-                            id,
+                            ean_id,
                             offer.get("name", None),
                             offer.get("id", None),
                         )
@@ -240,7 +240,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                                 "type": "baseitem_offer_found",
                                 "uid": self._config_entry.data[CONF_ICA_ID],
                                 "data": {
-                                    "bi_ean": id,
+                                    "bi_ean": ean_id,
                                     "offer": offer,
                                 },
                             },
