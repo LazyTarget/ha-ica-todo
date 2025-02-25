@@ -12,20 +12,26 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: "Set manifest version number"
-        run: |
-          python3 ${{ github.workspace }}/.github/scripts/update_hacs_manifest.py --version ${{ github.ref_name }}
-
-      - name: Create zip
-        run: |
-          cd custom_components/ica
-          zip ica.zip -r ./
-
-      - name: Upload zip to release
-        uses: svenstaro/upload-release-action@v1-release
+      - name: Release Asset
+        uses: "rogerselwyn/actions/release-asset@main"
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ./custom_components/ica/ica.zip
-          asset_name: ica.zip
-          tag: ${{ github.ref }}
-          overwrite: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          component: "ica"
+
+      # - name: "Set manifest version number"
+      #   run: |
+      #     python3 ${{ github.workspace }}/.github/scripts/update_hacs_manifest.py --version ${{ github.ref_name }}
+
+      # - name: Create zip
+      #   run: |
+      #     cd custom_components/ica
+      #     zip ica.zip -r ./
+
+      # - name: Upload zip to release
+      #   uses: svenstaro/upload-release-action@v1-release
+      #   with:
+      #     repo_token: ${{ secrets.GITHUB_TOKEN }}
+      #     file: ./custom_components/ica/ica.zip
+      #     asset_name: ica.zip
+      #     tag: ${{ github.ref }}
+      #     overwrite: true
