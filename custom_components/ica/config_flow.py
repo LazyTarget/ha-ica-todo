@@ -6,7 +6,6 @@ from typing import Any
 
 from requests.exceptions import HTTPError
 import voluptuous as vol
-import copy
 
 from homeassistant import config_entries
 from homeassistant.config_entries import (
@@ -24,7 +23,6 @@ from .const import (
     CONFIG_ENTRY_NAME,
     CONF_ICA_ID,
     CONF_ICA_PIN,
-    CONF_NUM_RECIPES,
     CONF_SHOPPING_LISTS,
     CONF_JSON_DATA_IN_DESC,
     DEFAULT_SCAN_INTERVAL,

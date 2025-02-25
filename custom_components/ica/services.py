@@ -27,8 +27,10 @@ ADD_BASEITEM_SCHEMA = vol.Schema(
     }
 )
 
+
 def setup_global_services(hass: HomeAssistant) -> None:
     if not hass.services.has_service(DOMAIN, IcaServices.REFRESH_ALL):
+
         async def handle_refresh_all(call: ServiceCall) -> None:
             """Call will force the coordinator to refresh all data"""
             c = 0
@@ -56,6 +58,7 @@ def setup_global_services(hass: HomeAssistant) -> None:
         )
 
     if not hass.services.has_service(DOMAIN, IcaServices.GET_BASEITEMS):
+
         async def handle_get_baseitems(call: ServiceCall) -> None:
             """Call will query ICA api after the user's favorite items"""
             config_entry: ConfigEntry | None
@@ -88,6 +91,7 @@ def setup_global_services(hass: HomeAssistant) -> None:
         )
 
     if not hass.services.has_service(DOMAIN, IcaServices.ADD_BASEITEM):
+
         async def handle_add_baseitem(call: ServiceCall) -> None:
             """Call will add item to the user's favorite items"""
             identifier = call.data["identifier"]
@@ -122,11 +126,12 @@ def setup_global_services(hass: HomeAssistant) -> None:
 
     # Non-entity based Services
     if not hass.services.has_service(DOMAIN, IcaServices.GET_RECIPE):
+
         async def handle_get_recipe(call: ServiceCall) -> None:
             """Call will query ICA api after a specific Recipe"""
             config_entry: ConfigEntry = hass.config_entries.async_entries(DOMAIN)[0]
             coordinator: IcaCoordinator = (
-                config_entry.coordinator or hass.data[DOMAIN][entry_id]
+                config_entry.coordinator or hass.data[DOMAIN][config_entry.entry_id]
             )
 
             recipe_id = call.data["recipe_id"]

@@ -1,9 +1,8 @@
 """A todo platform for ICA shopping lists."""
 
-import asyncio
 import datetime
 import json
-from typing import Any, cast
+from typing import Any
 import voluptuous as vol
 import uuid
 
@@ -15,7 +14,6 @@ from homeassistant.components.todo import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import (
-    Event,
     HomeAssistant,
     ServiceCall,
     callback,
@@ -23,10 +21,8 @@ from homeassistant.core import (
 )
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers import entity_platform
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, CONF_JSON_DATA_IN_DESC, IcaServices, CONFLICT_MODES
 from .coordinator import IcaCoordinator
@@ -260,7 +256,9 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
 
         offer_id = row_item.get("offerId", None)
         matches_by_offer_id = [
-            r for r in shopping_list["rows"] if offer_id and r.get("offerId", None) == offer_id
+            r
+            for r in shopping_list["rows"]
+            if offer_id and r.get("offerId", None) == offer_id
         ]
         # _LOGGER.fatal("MATCHES_OFFER: %s", matches_by_offer_id)
 

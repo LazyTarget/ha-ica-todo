@@ -3,10 +3,8 @@
 from datetime import timedelta
 import re
 import logging
-import json
 import uuid
 from functools import partial
-from pathlib import Path
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
@@ -18,7 +16,6 @@ from .icatypes import (
     IcaProductCategory,
     IcaRecipe,
     IcaShoppingListEntry,
-    IcaOffer,
     IcaShoppingList,
 )
 from .caching import CacheEntry
@@ -279,7 +276,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     async def async_get_shopping_lists(self, refresh=False) -> list[IcaShoppingList]:
         """Return ICA shopping lists fetched at most once."""
 
-        current = self._ica_shopping_lists.current_value()
+        current = self._ica_shopping_lists.current_value() or []
         # updated = await self._ica_shopping_lists.get_value(invalidate_cache=refresh)
         updated = await self._get_shopping_lists()
         self._hass.bus.async_fire(
@@ -291,13 +288,12 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             },
         )
 
-        for shopping_list in (updated or []):
-            old_rows = [
-                l["rows"]
-                for l in (current or [])
-                if current and l["id"] == shopping_list["id"]
-            ]
-            if not old_rows or len(old_rows) < 1:
+        for shopping_list in updated or []:
+            old_rows = next(
+                (lst["rows"] for lst in current if lst["id"] == shopping_list["id"]),
+                [],
+            )
+            if not old_rows:
                 continue
             old_rows = old_rows[0]
             new_rows = shopping_list["rows"]

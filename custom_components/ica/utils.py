@@ -42,6 +42,8 @@ def get_diffs(a, b, key: str = "id"):
         if props:
             o = {value: old.get(value, None) for value in props}
             n = {value: new.get(value, None) for value in props}
-            diffs.append({'op': '~', key: row_id, 'changed_props': props, 'old': o, 'new': n})
+            diffs.append(
+                {"op": "~", key: row_id, "changed_props": props, "old": o, "new": n}
+            )
 
     return diffs

@@ -1,4 +1,5 @@
 """Constants for the ICA component."""
+
 from typing import Final
 from enum import StrEnum
 
@@ -103,6 +104,7 @@ CONFLICT_MODES = ["ignore", "append", "merge"]
 
 class IcaServices(StrEnum):
     """Services for the ICA integration"""
+
     REFRESH_ALL = "refresh_all"
     GET_RECIPE = "get_recipe"
     # GET_STORE_DISCOUNTS = "get_store_discounts"
@@ -113,14 +115,16 @@ class IcaServices(StrEnum):
 
 
 class API:
-
     class AppRegistration:
         APP_REGISTRATION_ENDPOINT: Final = "register"
         CLIENT_ID: Final = "ica-app-dcr-registration"
-        CLIENT_SECRET: Final = "uxLHTBvZ-Z2fV-SbrHl1E-tz7vB3jQFrwAdSLlbVMMu1rxDdvJU0s8KGu9d1wLS4"
+        CLIENT_SECRET: Final = (
+            "uxLHTBvZ-Z2fV-SbrHl1E-tz7vB3jQFrwAdSLlbVMMu1rxDdvJU0s8KGu9d1wLS4"
+        )
 
     class URLs:
         """URLs and API Endpoints"""
+
         BASE_URL: Final = "https://ims.icagruppen.se"
 
         OAUTH2_AUTHORIZE_ENDPOINT: Final = "oauth/v2/authorize"
@@ -131,29 +135,49 @@ class API:
         QUERY_BASE: Final = "https://apimgw-pub.ica.se"
 
         # ShoppingListService
-        MY_BASEITEMS_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/baseitems"
-        SYNC_MY_BASEITEMS_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/baseitems"
+        MY_BASEITEMS_ENDPOINT: Final = (
+            "sverige/digx/mobile/shoppinglistservice/v1/baseitems"
+        )
+        SYNC_MY_BASEITEMS_ENDPOINT: Final = (
+            "sverige/digx/mobile/shoppinglistservice/v1/baseitems"
+        )
         ARTICLES_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/articles"
 
         # OfferService
-        OFFERS_SEARCH_ENDPOINT: Final = "sverige/digx/mobile/offerservice/v1/offers/search"
+        OFFERS_SEARCH_ENDPOINT: Final = (
+            "sverige/digx/mobile/offerservice/v1/offers/search"
+        )
 
         # ProductService
-        PRODUCT_BARCODE_LOOKUP_ENDPOINT: Final = "sverige/digx/mobile/productservice/v1/product/{}"
+        PRODUCT_BARCODE_LOOKUP_ENDPOINT: Final = (
+            "sverige/digx/mobile/productservice/v1/product/{}"
+        )
 
 
-MY_LISTS_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/shoppinglists" #"user/offlineshoppinglists"
+MY_LISTS_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/shoppinglists"  # "user/offlineshoppinglists"
 MY_LIST_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/shoppinglists/{}"
-MY_LIST_SYNC_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/shoppinglists/{}/sync"
-MY_CARDS_ENDPOINT: Final = "sverige/digx/mobile/cardservice/v1/card/cardaccounts?api-version=2"
+MY_LIST_SYNC_ENDPOINT: Final = (
+    "sverige/digx/mobile/shoppinglistservice/v1/shoppinglists/{}/sync"
+)
+MY_CARDS_ENDPOINT: Final = (
+    "sverige/digx/mobile/cardservice/v1/card/cardaccounts?api-version=2"
+)
 MY_BONUS_ENDPOINT: Final = "sverige/digx/mobile/bonusservice/v1/bonus/current"
 MY_STORES_ENDPOINT: Final = "sverige/digx/mobile/storeservice/v1/favorites"
 MY_RECIPES_ENDPOINT: Final = "sverige/digx/mobile/recipeservice/v1/favorites"
-MY_COMMON_ARTICLES_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/shoppinglists/common"
+MY_COMMON_ARTICLES_ENDPOINT: Final = (
+    "sverige/digx/mobile/shoppinglistservice/v1/shoppinglists/common"
+)
 STORE_ENDPOINT: Final = "sverige/digx/mobile/storeservice/v1/stores/{}"
 STORE_SEARCH_ENDPOINT: Final = "stores/search?Filters&Phrase={}"
 STORE_OFFERS_ENDPOINT: Final = "sverige/digx/mobile/offerservice/v1/offersdiscounts/{}"
 OFFERS_ENDPOINT: Final = "offers?Stores={}"
-ARTICLEGROUPS_ENDPOINT: Final = "sverige/digx/mobile/shoppinglistservice/v1/articles/articlegroups?lastsyncdate={}"
-RECIPE_ENDPOINT: Final = "sverige/digx/mobile/recipeservice/v1/recipes/{}?api-version=2.0"
-RANDOM_RECIPES_ENDPOINT: Final = "sverige/digx/mobile/recipeservice/v1/recipes/random?numberofrecipes={}"
+ARTICLEGROUPS_ENDPOINT: Final = (
+    "sverige/digx/mobile/shoppinglistservice/v1/articles/articlegroups?lastsyncdate={}"
+)
+RECIPE_ENDPOINT: Final = (
+    "sverige/digx/mobile/recipeservice/v1/recipes/{}?api-version=2.0"
+)
+RANDOM_RECIPES_ENDPOINT: Final = (
+    "sverige/digx/mobile/recipeservice/v1/recipes/random?numberofrecipes={}"
+)
