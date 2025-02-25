@@ -10,8 +10,8 @@ NOTE: Currently under development and might be unstable!
 
 - [x] Regex pattern matching for specifying Quantity and Unit
 - [x] Assign due date based on current offer for items synced from ICA
-- [ ] Assign appropriate ArticleGroupId. Using existing values in /common, /baseitems, or do a local or API lookup
-- [ ] Get current offers in favorite stores. If any "productEan" matches one of my favorite products "baseitems", then automatically add it, with a due date
+- [x] Assign appropriate ArticleGroupId. Using existing values in /common, /baseitems, or do a local or API lookup
+- [x] Get current offers in favorite stores. If any "productEan" matches one of my favorite products "baseitems", then automatically add it, with a due date => Can be done by writing an automation and listening on ica_event
 
 **Integration**
 - [x] Shopping list picker for which lists to track
@@ -36,3 +36,7 @@ NOTE: Currently under development and might be unstable!
 **Recipes**
 - [ ] Able to export Ica recipe into Trello
 
+**Docs**
+- [ ] Document installation/configuration
+- [ ] Document use-case examples
+- [ ] Document Automation examples
