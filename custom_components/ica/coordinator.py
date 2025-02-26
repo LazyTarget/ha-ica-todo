@@ -269,6 +269,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 invalidate_cache=refresh
             )
         except Exception as err:
+            _LOGGER.fatal("Exception when getting data. Tkn: %s => Err: %s", self.api._user, err)
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
     async def async_get_shopping_lists(self, refresh=False) -> list[IcaShoppingList]:

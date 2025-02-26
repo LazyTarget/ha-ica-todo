@@ -8,6 +8,7 @@ from .icatypes import (
     IcaProductCategory,
     IcaRecipe,
 )
+from .icatypes import AuthCredentials, AuthState
 
 
 async def run_async(func):
@@ -18,56 +19,57 @@ async def run_async(func):
 class IcaAPIAsync:
     """Class to retrieve and hold the data for a Shopping list from ICA"""
 
-    def __init__(self, uid, pin, user_token=None):
-        self._uid = uid
-        self._pin = pin
+    def __init__(
+        self, credentials: AuthCredentials, auth_state: AuthState | None
+    ) -> None:
+        self._credentials = credentials
+        self._auth_state = auth_state
         self._api = None
-        self._user = user_token
 
     def get_authenticated_user(self):
         if not self._api:
-            self._api = IcaAPI(self._uid, self._pin, self._user)
+            self._api = IcaAPI(self._credentials, self._auth_state)
         return self._api.get_authenticated_user()
 
     async def get_shopping_lists(self) -> list[IcaShoppingList]:
         if not self._api:
             self._api = await run_async(
-                lambda: IcaAPI(self._uid, self._pin, self._user)
+                lambda: IcaAPI(self._credentials, self._auth_state)
             )
         return await run_async(lambda: self._api.get_shopping_lists())
 
     async def get_shopping_list(self, list_id: str) -> IcaShoppingList:
         if not self._api:
             self._api = await run_async(
-                lambda: IcaAPI(self._uid, self._pin, self._user)
+                lambda: IcaAPI(self._credentials, self._auth_state)
             )
         return await run_async(lambda: self._api.get_shopping_list(list_id))
 
     async def get_baseitems(self):
         if not self._api:
             self._api = await run_async(
-                lambda: IcaAPI(self._uid, self._pin, self._user)
+                lambda: IcaAPI(self._credentials, self._auth_state)
             )
         return await run_async(lambda: self._api.get_baseitems())
 
     async def sync_baseitems(self, items):
         if not self._api:
             self._api = await run_async(
-                lambda: IcaAPI(self._uid, self._pin, self._user)
+                lambda: IcaAPI(self._credentials, self._auth_state)
             )
         return await run_async(lambda: self._api.sync_baseitems(items))
 
     async def lookup_barcode(self, identifier):
         if not self._api:
             self._api = await run_async(
-                lambda: IcaAPI(self._uid, self._pin, self._user)
+                lambda: IcaAPI(self._credentials, self._auth_state)
             )
         return await run_async(lambda: self._api.lookup_barcode(identifier))
 
     async def get_articles(self):
         if not self._api:
             self._api = await run_async(
-                lambda: IcaAPI(self._uid, self._pin, self._user)
+                lambda: IcaAPI(self._credentials, self._auth_state)
             )
         return await run_async(lambda: self._api.get_articles())
 

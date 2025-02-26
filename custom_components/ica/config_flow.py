@@ -17,6 +17,7 @@ from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
+from .icatypes import AuthCredentials
 from .icaapi_async import IcaAPIAsync
 from .const import (
     DOMAIN,
@@ -46,7 +47,7 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     initial_input = None
-    user_token = None
+    auth_state = None
     shopping_lists = None
 
     SHOPPING_LIST_SELECTOR_SCHEMA = None
@@ -67,10 +68,15 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Abort flow if a config entry with same Accound ID exists (prevent duplicate requests...)
             self._abort_if_unique_id_configured()
 
-            api = IcaAPIAsync(user_input[CONF_ICA_ID], user_input[CONF_ICA_PIN])
+            credentials = AuthCredentials(
+                user_input[CONF_ICA_ID], user_input[CONF_ICA_PIN]
+            )
+
+            # api = IcaAPIAsync(user_input[CONF_ICA_ID], user_input[CONF_ICA_PIN])
+            api = IcaAPIAsync(credentials, auth_state=None)
             try:
                 self.shopping_lists = await api.get_shopping_lists()
-                self.user_token = api.get_authenticated_user()
+                self.auth_state = api.get_authenticated_user()
                 # self.decoded_id = jwt.decode(self.user_token["id_token"], options={"verify_signature": False})
                 # self.user_token["name"] = f"{self.decoded_id["given_name"]} {self.decoded_id["family_name"]}"
             except HTTPError as err:
@@ -90,12 +96,15 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     or self.initial_input[CONF_ICA_PIN],
                     CONF_SCAN_INTERVAL: user_input[CONF_SCAN_INTERVAL]
                     or self.initial_input[CONF_SCAN_INTERVAL],
-                    "user": self.user_token,
-                    "access_token": self.user_token["access_token"],
+                    "auth_state": self.auth_state,
+                    "user": self.auth_state.Token,
+                    "access_token": self.auth_state.Token.access_token,
                     # CONF_SHOPPING_LISTS: user_input[CONF_SHOPPING_LISTS]
                 }
                 return self.async_create_entry(
-                    title=CONFIG_ENTRY_NAME % self.user_token["person_name"],
+                    title=CONFIG_ENTRY_NAME
+                    % (self.auth_state.JwtUserInfo or {}).get("person_name", None)
+                    or config_entry_data[CONF_ICA_ID],
                     data=config_entry_data,
                 )
 
@@ -135,6 +144,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
         self.user_token = self.config_entry.data["user"]
         _LOGGER.debug("Options flow - data: %s", self.config_entry.data)
 
+        config_entry_data = self.config_entry.data.copy()
         if self.SHOPPING_LIST_SELECTOR_SCHEMA is None:
             api = IcaAPIAsync(
                 uid=self.config_entry.data[CONF_ICA_ID],
@@ -147,8 +157,13 @@ class IcaOptionsFlowHandler(OptionsFlow):
             self.SHOPPING_LIST_SELECTOR_SCHEMA = (
                 self.build_shopping_list_selector_schema(self.shopping_lists)
             )
+            _LOGGER.warning(
+                "Updating user_token: %s -> %s",
+                config_entry_data["user"]["access_token"],
+                api._user["access_token"],
+            )
+            config_entry_data["user"] = api._user
 
-        config_entry_data = self.config_entry.data.copy()
         if user_input is not None:
             config_entry_data[CONF_SCAN_INTERVAL] = user_input.get(
                 CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL

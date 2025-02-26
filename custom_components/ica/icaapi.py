@@ -16,6 +16,7 @@ from .const import (
     API,
 )
 from .icatypes import IcaStore, IcaOffer, IcaShoppingList, IcaProductCategory, IcaRecipe
+from .icatypes import AuthCredentials, AuthState
 from .authenticator import IcaAuthenticator
 
 import logging
@@ -32,20 +33,35 @@ class IcaAPI:
     """Class to retrieve and manipulate ICA Shopping lists"""
 
     def __init__(
-        self, user, psw, user_token=None, session: requests.Session | None = None
+        self,
+        credentials: AuthCredentials,
+        auth_state: AuthState | None,
+        session: requests.Session | None = None,
     ) -> None:
-        if user_token is None:
-            authenticator = IcaAuthenticator(user, psw, session)
-            authenticator.do_full_login(user, psw)
-            self._user = authenticator._user
-        else:
-            self._user = user_token
+        _LOGGER.warning("IcaAPI ensure_login pre: %s", auth_state)
+        authenticator = IcaAuthenticator(credentials, auth_state, session)
+        auth_state = authenticator.ensure_login()
+        _LOGGER.warning("IcaAPI ensure_login post: %s", auth_state)
+        self._auth_state = auth_state
+        self._user = auth_state.Token
+        self._auth_key = auth_state.Token.access_token
 
-        self._auth_key = self._user["access_token"]
+        # if user_token is None:
+        #     authenticator = IcaAuthenticator(user, psw, session)
+        #     _LOGGER.warning("Invoking full login: %s=%s", user, psw)
+        #     authenticator.do_full_login(user, psw)
+        #     self._user = authenticator._user
+        #     _LOGGER.warning("Caching user to API: %s", self._user)
+        # else:
+        #     self._user = user_token
+        #     _LOGGER.warning("Reusing user: %s", self._user)
+        # self._auth_key = self._user["access_token"]
+
         self._session = session or requests.Session()
 
     def get_authenticated_user(self):
-        return self._user
+        # return self._user
+        return self._auth_state
 
     def get_shopping_lists(self) -> list[IcaShoppingList]:
         url = get_rest_url(MY_LISTS_ENDPOINT)
