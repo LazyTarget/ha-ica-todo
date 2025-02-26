@@ -1,9 +1,14 @@
-import requests
-import jwt
-import re
-from .const import API
-
 import logging
+import re
+import datetime
+from typing import Dict
+
+import jwt
+import requests
+
+
+from .const import API
+from .icatypes import AuthCredentials, OAuthClient, OAuthToken, JwtUserInfo, AuthState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -11,12 +16,20 @@ _LOGGER = logging.getLogger(__name__)
 class IcaAuthenticator:
     """Class to handle authentications"""
 
-    cookie_jar = None
+    _credentials: AuthCredentials
+    _auth_state: AuthState | None = None
     _auth_key = None
 
-    def __init__(self, user, psw, session: requests.Session | None = None) -> None:
+    def __init__(
+        self,
+        credentials: AuthCredentials,
+        state: AuthState | None,
+        session: requests.Session | None = None,
+    ) -> None:
         # self._auth_key = get_auth_key(user, psw)
         self._session = session or requests.Session()
+        self._auth_state = state
+        self._credentials = credentials
 
     def get_rest_url(self, endpoint: str):
         return "/".join([API.URLs.BASE_URL, endpoint])
@@ -104,7 +117,7 @@ class IcaAuthenticator:
         response.raise_for_status()
         return None
 
-    def register_app(self, app_registration_api_access_token):
+    def register_app(self, app_registration_api_access_token) -> OAuthClient:
         url = self.get_rest_url(API.AppRegistration.APP_REGISTRATION_ENDPOINT)
         j = {"software_id": "dcr-ica-app-template"}
         h = {"Authorization": f"Bearer {app_registration_api_access_token}"}
@@ -117,7 +130,7 @@ class IcaAuthenticator:
         app_registration_api_access_token = self.get_token_for_app_registration()
         return self.register_app(app_registration_api_access_token)
 
-    def init_oauth(self, registered_app, code_challenge):
+    def init_oauth(self, registered_app: OAuthClient, code_challenge):
         url = self.get_rest_url(API.URLs.OAUTH2_AUTHORIZE_ENDPOINT)
         p = {
             "client_id": registered_app["client_id"],
@@ -146,11 +159,11 @@ class IcaAuthenticator:
 
         return state
 
-    def init_login(self, user, pwd, state):
+    def init_login(self, credentials: AuthCredentials, state):
         url = self.get_rest_url(API.URLs.LOGIN_ENDPOINT)
         d = {
-            "userName": user,
-            "password": pwd,
+            "userName": credentials.username,
+            "password": credentials.password,
         }
         # Posts login form...
         response = self.invoke_post(url, data=d)
@@ -177,7 +190,9 @@ class IcaAuthenticator:
 
         return token
 
-    def get_access_token(self, registered_app, state, token, code_verifier):
+    def get_access_token(
+        self, registered_app: OAuthClient, state, token, code_verifier
+    ) -> OAuthToken:
         url = self.get_rest_url(API.URLs.OAUTH2_AUTHORIZE_ENDPOINT)
         p = {
             "client_id": registered_app["client_id"],
@@ -204,10 +219,10 @@ class IcaAuthenticator:
         url = self.get_rest_url(API.URLs.OAUTH2_TOKEN_ENDPOINT)
         d = {
             "code": code,
-            "client_id": registered_app["client_id"],
-            "client_secret": registered_app["client_secret"],
+            "client_id": registered_app.client_id,
+            "client_secret": registered_app.client_secret,
             "grant_type": "authorization_code",
-            "scope": registered_app["scope"],
+            "scope": registered_app.scope,
             "response_type": "token",
             "code_verifier": code_verifier,
             "redirect_uri": "icacurity://app",
@@ -216,49 +231,132 @@ class IcaAuthenticator:
         response.raise_for_status()
         tkn = response.json()
 
-        # Parse and append the Person Name
-        decoded = jwt.decode(tkn["id_token"], options={"verify_signature": False})
-        tkn["person_name"] = f"{decoded['given_name']} {decoded['family_name']}"
+        # # Parse and append the Person Name
+        # decoded = jwt.decode(tkn["id_token"], options={"verify_signature": False})
+        # # tkn["person_name"] = f"{decoded['given_name']} {decoded['family_name']}"
+        # user_info = JwtUserInfo(decoded)
+        # tkn["person_name"] = user_info.person_name
+        # tkn["jwt_info"] = user_info
+        return tkn
+
+    def refresh_token(
+        self, registered_app: OAuthClient, auth_token: OAuthToken
+    ) -> OAuthToken:
+        # Invokes /oauth/v2/token
+        url = self.get_rest_url(API.URLs.OAUTH2_TOKEN_ENDPOINT)
+        import base64
+
+        basic_auth = base64.b64encode(
+            f"{registered_app.client_id}:{registered_app.client_secret}".encode("utf-8")
+        ).decode("ascii")
+        h: Dict[str, str] = {"Authorization": f"Basic {basic_auth}"}
+        d = {"grant_type": "refresh_token", "refresh_token": auth_token.refresh_token}
+        response = self.invoke_post(url, data=d, headers=h)
+        response.raise_for_status()
+        tkn = response.json()
         return tkn
 
     def generate_code_challenge(self):
         import base64
-        import os
         import hashlib
+        import os
 
         code_verifier = base64.urlsafe_b64encode(os.urandom(40)).decode("utf-8")
         re.sub("[^a-zA-Z0-9]+", "", code_verifier)
         code_verifier = re.sub("[^a-zA-Z0-9]+", "", code_verifier)
-        code_verifier, len(code_verifier)
+        # code_verifier, len(code_verifier)
         # ('KTZVMl6OrcoTIej5c9QUaQ5x2p95P46D5hd2yb7kuAIBCVM9j0P1lA', 54)
 
         code_challenge = hashlib.sha256(code_verifier.encode("utf-8")).digest()
         code_challenge = base64.urlsafe_b64encode(code_challenge).decode("utf-8")
         code_challenge = code_challenge.replace("=", "")
-        code_challenge, len(code_challenge)
+        # code_challenge, len(code_challenge)
         # ('81R8C6QhI5He4enPDCr7KgRqP6fQZ37FNQAP5NkaOBg', 43)
 
         _LOGGER.debug("code_challenge: %s", code_challenge)
         _LOGGER.debug("code_verifier: %s", code_verifier)
         return (code_challenge, code_verifier)
 
-    def do_full_login(self, user, psw):
+    def ensure_login(self):
         """This will run the complete chain"""
 
-        # Register an App to get a client_id
-        registered_app = self.init_app()
+        state = self._handle_login(self._credentials, self._auth_state)
+        self._auth_state = state
+        self._auth_key = state.Token.access_token
+        return self._auth_state
 
-        # Generate code_challenge & code_verifier
-        (code_challenge, code_verifier) = self.generate_code_challenge()
+        # # Register an App to get a client_id
+        # registered_app = self.init_app()
 
-        # Initiate OAuth login with Authorization-code with PKCE
-        state = self.init_oauth(registered_app, code_challenge)
+        # # Generate code_challenge & code_verifier
+        # (code_challenge, code_verifier) = self.generate_code_challenge()
 
-        token = self.init_login(user, psw, state)
+        # # Initiate OAuth login with Authorization-code with PKCE
+        # state = self.init_oauth(registered_app, code_challenge)
 
-        result = self.get_access_token(registered_app, state, token, code_verifier)
-        _LOGGER.fatal("Full login completed :: Token: %s", result)
+        # token = self.init_login(credentials, state)
 
-        self._user = result
-        self._auth_key = result["access_token"]
-        return result
+        # result = self.get_access_token(registered_app, state, token, code_verifier)
+        # _LOGGER.fatal("Full login completed :: Token: %s", result)
+
+        # self._user = result
+        # self._auth_key = result["access_token"]
+        # return result
+
+    def _handle_login(self, credentials: AuthCredentials, state: AuthState):
+        # todo: make into staticmethod
+
+        now = datetime.datetime.now()
+
+        if new_client := not state.Client:
+            # Initialize new client app to get a client_id/client_secret
+            state.Client = self.init_app()
+            _LOGGER.info(
+                "Handle login :: Initialized client: %s", state.Client.client_id
+            )
+
+        if new_client or not state.Token:
+            # Has no token or is a new client, then init a new login
+            _LOGGER.fatal("Handle login :: Full login initiated")
+
+            # Generate code_challenge & code_verifier
+            (code_challenge, code_verifier) = self.generate_code_challenge()
+
+            # Initiate OAuth login with Authorization-code with PKCE
+            state = self.init_oauth(state.Client, code_challenge)
+
+            token = self.init_login(credentials, state)
+
+            access_token = self.get_access_token(
+                state.Client, state, token, code_verifier
+            )
+
+            state.Token = access_token
+            state.Token.expiry = now + datetime.timedelta(
+                seconds=state.Token.expires_in or 2592000
+            )
+            _LOGGER.info("Handle login :: Access Token: %s", state.Token)
+
+            # Parse and append the Person Name
+            decoded = jwt.decode(
+                access_token["id_token"], options={"verify_signature": False}
+            )
+            state.JwtUserInfo = JwtUserInfo(decoded)
+            _LOGGER.info("Handle login :: Jwt user info: %s", state.JwtUserInfo)
+        elif not state.Token.expiry or state.Token.expiry < now:
+            # Refresh login
+            if refresh_token := self.refresh_token(state.Client, state.Token):
+                state.Token.refresh(refresh_token)
+                state.Token.expiry = now + datetime.timedelta(
+                    seconds=state.Token.expires_in or 2592000
+                )
+                _LOGGER.info("Handle login :: Refresh Token: %s", state.Token)
+            else:
+                _LOGGER.warning(
+                    "Handle login :: Failed to refresh token. Access token: %s",
+                    state.Token,
+                )
+                raise RuntimeError("Failed to retrieve a refresh token")
+
+        _LOGGER.info("Handle login :: State: %s", state)
+        return state

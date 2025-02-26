@@ -11,6 +11,7 @@ from .icaapi_async import IcaAPIAsync
 from .coordinator import IcaCoordinator
 from .services import setup_global_services
 from .const import DOMAIN, CONF_ICA_PIN, CONF_ICA_ID, DEFAULT_SCAN_INTERVAL
+from .icatypes import AuthCredentials, AuthState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,9 +32,32 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         minutes=entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
     )
     user_token = entry.data["user"]
-    api = IcaAPIAsync(uid, pin, user_token)
+    _LOGGER.warning("Persisted user: %s", user_token)
+
+    credentials = AuthCredentials(uid, pin)
+    auth_state = AuthState()
+    auth_state.Token = user_token
+
+    api = IcaAPIAsync(credentials, auth_state)
     coordinator = IcaCoordinator(hass, entry, _LOGGER, update_interval, api)
+
+    ft = api.get_authenticated_user()
+    _LOGGER.warning("Before first_refresh: %s", ft)
     await coordinator.async_config_entry_first_refresh()
+    at = api.get_authenticated_user()
+    _LOGGER.warning("After first_refresh: %s", at)
+    diff = at != ft
+    _LOGGER.warning("Config entry state diff: %s", diff)
+    if diff:
+        new_data = entry.data.copy()
+        new_data["user"] = at.Token
+        new_data["auth_state"] = at
+        _LOGGER.warning("Entry data to persist: %s", new_data)
+        r = hass.config_entries.async_update_entry(
+            entry,
+            data=new_data,
+        )
+        _LOGGER.warning("Update res: %s", r)
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
