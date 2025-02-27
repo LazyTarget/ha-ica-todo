@@ -290,7 +290,7 @@ class IcaAuthenticator:
 
         current_token = auth_state.get("token", None)
         current_token_expiry = (
-            datetime.date.fromisoformat(current_token["expiry"])
+            dt_util.parse_datetime(current_token["expiry"])
             if current_token and current_token.get("expiry", None)
             else None
         )

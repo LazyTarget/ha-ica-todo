@@ -5,20 +5,11 @@ class AuthCredentials(TypedDict):
     username: str
     password: str
 
-    # def __init__(self, username: str, password: str):
-    #     self.username = username
-    #     self.password = password
-
 
 class OAuthClient(TypedDict):
     client_id: str
     client_secret: str
     scope: str
-
-    # def __init__(self, client_id: str, client_secret: str, scope: str):
-    #     self.client_id = client_id
-    #     self.client_secret = client_secret
-    #     self.scope = scope
 
 
 class OAuthToken(TypedDict):
@@ -33,23 +24,8 @@ class OAuthToken(TypedDict):
     refresh_token: str
     scope: str
     expires_in: int
-    # # Properties not defined in OAuth spec:
-    # expiry: datetime.datetime | None
-
-    # def __init__(self, token_json):
-    #     self.id_token = token_json.get("id_token", None)
-    #     self.token_type = token_json["token_type"]
-    #     self.access_token = token_json["access_token"]
-    #     self.refresh_token = token_json["refresh_token"]
-    #     self.scope = token_json["scope"]
-    #     self.expires_in = int(token_json.get("expires_in", 2592000))
-
-    # def refresh(self, refresh_token: "OAuthToken"):
-    #     self.token_type = refresh_token.token_type
-    #     self.access_token = refresh_token.access_token
-    #     self.refresh_token = refresh_token.refresh_token
-    #     self.scope = refresh_token.scope
-    #     self.expires_in = refresh_token.expires_in
+    # # Extra properties not defined in OAuth spec:
+    expiry: str
 
 
 class JwtUserInfo(dict):
@@ -66,9 +42,9 @@ class JwtUserInfo(dict):
 
 
 class AuthState(TypedDict):
-    client: OAuthClient | None = None
-    token: OAuthToken | None = None
-    user: JwtUserInfo | None = None
+    client: OAuthClient | None
+    token: OAuthToken | None
+    user: JwtUserInfo | None
 
 
 class Address(TypedDict):
