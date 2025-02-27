@@ -76,14 +76,11 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             )
 
-            # api = IcaAPIAsync(user_input[CONF_ICA_ID], user_input[CONF_ICA_PIN])
             api = IcaAPIAsync(credentials, auth_state=None)
             try:
                 await api.ensure_login()
                 self.shopping_lists = await api.get_shopping_lists()
                 self.auth_state = api.get_authenticated_user()
-                # self.decoded_id = jwt.decode(self.user_token["id_token"], options={"verify_signature": False})
-                # self.user_token["name"] = f"{self.decoded_id["given_name"]} {self.decoded_id["family_name"]}"
             except HTTPError as err:
                 if err.response.status_code == HTTPStatus.UNAUTHORIZED:
                     errors["base"] = "invalid_credentials"
@@ -102,7 +99,6 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_SCAN_INTERVAL: user_input[CONF_SCAN_INTERVAL]
                     or self.initial_input[CONF_SCAN_INTERVAL],
                     "auth_state": self.auth_state,
-                    # CONF_SHOPPING_LISTS: user_input[CONF_SHOPPING_LISTS]
                 }
                 config_entry_name = CONFIG_ENTRY_NAME % (
                     self.auth_state["user"].person_name
@@ -132,14 +128,13 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class IcaOptionsFlowHandler(OptionsFlow):
     """Handle an options flow for ICA."""
 
-    initial_input = None
-    user_token = None
     shopping_lists = None
 
     SHOPPING_LIST_SELECTOR_SCHEMA = None
 
     def __init__(self, config_entry: ConfigEntry) -> None:
         """Initialize Ica options flow"""
+        # pylint: disable=W0613 unused-argument
         super().__init__()
 
     async def async_step_init(
@@ -147,54 +142,11 @@ class IcaOptionsFlowHandler(OptionsFlow):
     ) -> FlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
-        self.user_token = self.config_entry.data.get("user", None)
         _LOGGER.debug("Options flow - data: %s", self.config_entry.data)
 
         config_entry_data = self.config_entry.data.copy()
-        if not self.SHOPPING_LIST_SELECTOR_SCHEMA:
-            # credentials = AuthCredentials(
-            #     {
-            #         "username": config_entry_data[CONF_ICA_ID],
-            #         "password": config_entry_data[CONF_ICA_PIN],
-            #     }
-            # )
-            # auth_state = AuthState(config_entry.data.get("auth_state", {}))
-            # api = IcaAPIAsync(credentials, auth_state)
 
-            # await api.ensure_login()
-            if not self.shopping_lists:
-                # Instead of getting from API, use the coordinator which should have a logged in API
-                # This will also revalidate the cached shopping lists
-                # data = await coordinator.async_get_shopping_lists()
-
-                coordinator: IcaCoordinator = self.config_entry.coordinator
-                data = await coordinator.api.get_shopping_lists()  # get from API directly as it will not limit the chosen shopping lists
-                if data and "shoppingLists" in data:
-                    y = data["shoppingLists"]
-                    lists = [
-                        z
-                        for z in y
-                        if z["offlineId"] and z["title"]
-                        # in self.config_entry.data.get(CONF_SHOPPING_LISTS, [])
-                    ]
-                    self.shopping_lists = lists
-
-            self.SHOPPING_LIST_SELECTOR_SCHEMA = (
-                (self.build_shopping_list_selector_schema(self.shopping_lists))
-                if self.shopping_lists
-                else {}
-            )
-
-            # # todo: Move this code to a reconfigure options flow
-            # new_state = api.get_authenticated_user()
-            # _LOGGER.warning(
-            #     "Updating user_token: %s -> %s",
-            #     config_entry_data["user"]["access_token"],
-            #     new_state["token"]["access_token"],
-            # )
-            # config_entry_data["auth_state"] = new_state
-            # config_entry_data["user"] = new_state["token"]
-
+        # Handle input
         if user_input is not None:
             config_entry_data[CONF_SCAN_INTERVAL] = user_input.get(
                 CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
@@ -218,6 +170,11 @@ class IcaOptionsFlowHandler(OptionsFlow):
                 )
             return self.async_abort(reason="Integration was reloaded")
 
+        # Build dynamic schemas
+        coordinator: IcaCoordinator = self.config_entry.coordinator
+        await self._ensure_dynamic_schemas_are_built(coordinator)
+
+        # Format form schema
         schema = vol.Schema(
             {
                 vol.Required(
@@ -232,7 +189,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
                     description="Whether to write extra information as JSON in the description field",
                 ): bool,
             }
-        ).extend(self.SHOPPING_LIST_SELECTOR_SCHEMA)
+        ).extend(self.SHOPPING_LIST_SELECTOR_SCHEMA or {})
 
         return self.async_show_form(
             step_id="init",
@@ -240,7 +197,28 @@ class IcaOptionsFlowHandler(OptionsFlow):
             errors=errors,
         )
 
-    def build_shopping_list_selector_schema(self, lists):
+    async def _ensure_data_is_loaded_for_dynamic_schemas(
+        self, coordinator: IcaCoordinator
+    ):
+        if not self.shopping_lists:
+            # Re-uses the coordinator on the config_entry for communicating with ICA api
+            # Therefore no need to instantiate and authenticate a API new instance
+            # Get shopping_lists directly from API as it will not limit the chosen shopping lists
+            data = await coordinator.api.get_shopping_lists()
+            if data and "shoppingLists" in data:
+                y = data["shoppingLists"]
+                lists = [z for z in y if z["offlineId"] and z["title"]]
+                self.shopping_lists = lists
+
+    async def _ensure_dynamic_schemas_are_built(self, coordinator: IcaCoordinator):
+        # Shopping list selector
+        if not self.SHOPPING_LIST_SELECTOR_SCHEMA:
+            await self._ensure_data_is_loaded_for_dynamic_schemas(coordinator)
+            self.SHOPPING_LIST_SELECTOR_SCHEMA = (
+                self._build_shopping_list_selector_schema(self.shopping_lists)
+            )
+
+    def _build_shopping_list_selector_schema(self, lists):
         return {
             vol.Required(
                 CONF_SHOPPING_LISTS,
