@@ -43,8 +43,8 @@ class IcaAPI:
         auth_state = authenticator.ensure_login()
         _LOGGER.warning("IcaAPI ensure_login post: %s", auth_state)
         self._auth_state = auth_state
-        self._user = auth_state.Token
-        self._auth_key = auth_state.Token.access_token
+        self._user = auth_state["token"]
+        self._auth_key = auth_state["token"]["access_token"]
 
         # if user_token is None:
         #     authenticator = IcaAuthenticator(user, psw, session)

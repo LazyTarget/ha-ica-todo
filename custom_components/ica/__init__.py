@@ -31,12 +31,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     update_interval = datetime.timedelta(
         minutes=entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
     )
-    user_token = entry.data["user"]
+    user_token = entry.data.get("user", None)
     _LOGGER.warning("Persisted user: %s", user_token)
 
-    credentials = AuthCredentials(uid, pin)
+    credentials = AuthCredentials({"username": uid, "password": pin})
     auth_state = AuthState()
-    auth_state.Token = user_token
+    auth_state["token"] = user_token
 
     api = IcaAPIAsync(credentials, auth_state)
     coordinator = IcaCoordinator(hass, entry, _LOGGER, update_interval, api)
@@ -50,7 +50,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.warning("Config entry state diff: %s", diff)
     if diff:
         new_data = entry.data.copy()
-        new_data["user"] = at.Token
+        new_data["user"] = at["token"]
         new_data["auth_state"] = at
         _LOGGER.warning("Entry data to persist: %s", new_data)
         r = hass.config_entries.async_update_entry(

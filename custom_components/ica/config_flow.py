@@ -17,7 +17,7 @@ from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
-from .icatypes import AuthCredentials
+from .icatypes import AuthCredentials, AuthState
 from .icaapi_async import IcaAPIAsync
 from .const import (
     DOMAIN,
@@ -69,7 +69,7 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured()
 
             credentials = AuthCredentials(
-                user_input[CONF_ICA_ID], user_input[CONF_ICA_PIN]
+                {"username": user_input[CONF_ICA_ID], "password": user_input[CONF_ICA_PIN]}
             )
 
             # api = IcaAPIAsync(user_input[CONF_ICA_ID], user_input[CONF_ICA_PIN])
@@ -97,16 +97,17 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_SCAN_INTERVAL: user_input[CONF_SCAN_INTERVAL]
                     or self.initial_input[CONF_SCAN_INTERVAL],
                     "auth_state": self.auth_state,
-                    "user": self.auth_state.Token,
-                    "access_token": self.auth_state.Token.access_token,
+                    "user": self.auth_state["token"],
+                    "access_token": self.auth_state["token"]["access_token"]
                     # CONF_SHOPPING_LISTS: user_input[CONF_SHOPPING_LISTS]
                 }
+                config_entry_name = CONFIG_ENTRY_NAME % (
+                    self.auth_state["userInfo"].person_name
+                    if self.auth_state.get("userInfo", None)
+                    else config_entry_data[CONF_ICA_ID]
+                )
                 return self.async_create_entry(
-                    title=CONFIG_ENTRY_NAME
-                    % (self.auth_state.UserInfo.person_name
-                       if self.auth_state.UserInfo
-                       else None)
-                    or config_entry_data[CONF_ICA_ID],
+                    title=config_entry_name,
                     data=config_entry_data,
                 )
 
@@ -143,28 +144,35 @@ class IcaOptionsFlowHandler(OptionsFlow):
     ) -> FlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
-        self.user_token = self.config_entry.data["user"]
+        self.user_token = self.config_entry.data.get("user", None)
         _LOGGER.debug("Options flow - data: %s", self.config_entry.data)
 
         config_entry_data = self.config_entry.data.copy()
         if self.SHOPPING_LIST_SELECTOR_SCHEMA is None:
-            api = IcaAPIAsync(
-                uid=self.config_entry.data[CONF_ICA_ID],
-                pin=self.config_entry.data[CONF_ICA_PIN],
-                user_token=self.user_token,
+            
+            credentials = AuthCredentials(
+                {"username": config_entry_data[CONF_ICA_ID], "password": config_entry_data[CONF_ICA_PIN]}
             )
+            auth_state = config_entry_data.get("auth_state")
+            if not auth_state:
+                auth_state = AuthState()
+                auth_state["token"] = self.user_token
+
+            api = IcaAPIAsync(credentials, auth_state)
             if not self.shopping_lists:
                 data = await api.get_shopping_lists()
                 self.shopping_lists = data["shoppingLists"]
             self.SHOPPING_LIST_SELECTOR_SCHEMA = (
                 self.build_shopping_list_selector_schema(self.shopping_lists)
             )
+            new_state = api.get_authenticated_user()
             _LOGGER.warning(
                 "Updating user_token: %s -> %s",
                 config_entry_data["user"]["access_token"],
-                api._user["access_token"],
+                new_state["token"]["access_token"],
             )
-            config_entry_data["user"] = api._user
+            config_entry_data["auth_state"] = new_state,
+            config_entry_data["user"] = new_state["token"]
 
         if user_input is not None:
             config_entry_data[CONF_SCAN_INTERVAL] = user_input.get(
