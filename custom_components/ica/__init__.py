@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import json
 
 from homeassistant.config_entries import ConfigEntry, ConfigType
 from homeassistant.const import Platform, CONF_SCAN_INTERVAL
@@ -32,13 +33,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         minutes=entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
     )
     user_token = entry.data.get("user", None)
-    _LOGGER.warning("Persisted user: %s", user_token)
+    _LOGGER.warning("Current persisted user: %s", user_token)
 
     credentials = AuthCredentials({"username": uid, "password": pin})
-    auth_state = AuthState()
+    auth_state = AuthState(entry.data.get("auth_state", {}))
     auth_state["token"] = user_token
 
+    pre = json.dumps(auth_state)
+    _LOGGER.warning("Before ensure_login: %s", auth_state)
+
     api = IcaAPIAsync(credentials, auth_state)
+    await api.ensure_login()
     coordinator = IcaCoordinator(hass, entry, _LOGGER, update_interval, api)
 
     ft = api.get_authenticated_user()
@@ -46,7 +51,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
     at = api.get_authenticated_user()
     _LOGGER.warning("After first_refresh: %s", at)
-    diff = at != ft
+    post = json.dumps(at)
+    diff = pre != post
     _LOGGER.warning("Config entry state diff: %s", diff)
     if diff:
         new_data = entry.data.copy()

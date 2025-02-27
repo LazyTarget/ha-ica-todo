@@ -26,6 +26,13 @@ class IcaAPIAsync:
         self._auth_state = auth_state
         self._api = None
 
+    async def ensure_login(self):
+        if not self._api:
+            self._api = await run_async(
+                lambda: IcaAPI(self._credentials, self._auth_state)
+            )
+        return await run_async(lambda: self._api.ensure_login())
+
     def get_authenticated_user(self):
         if not self._api:
             self._api = IcaAPI(self._credentials, self._auth_state)

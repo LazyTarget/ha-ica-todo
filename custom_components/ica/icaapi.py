@@ -38,13 +38,15 @@ class IcaAPI:
         auth_state: AuthState | None,
         session: requests.Session | None = None,
     ) -> None:
-        _LOGGER.warning("IcaAPI ensure_login pre: %s", auth_state)
-        authenticator = IcaAuthenticator(credentials, auth_state, session)
-        auth_state = authenticator.ensure_login()
-        _LOGGER.warning("IcaAPI ensure_login post: %s", auth_state)
+        self._session = session or requests.Session()
         self._auth_state = auth_state
-        self._user = auth_state["token"]
-        self._auth_key = auth_state["token"]["access_token"]
+
+        # _LOGGER.warning("IcaAPI ensure_login pre: %s", auth_state)
+        self._authenticator = IcaAuthenticator(credentials, auth_state, session)
+        # auth_state = authenticator.ensure_login()
+        # _LOGGER.warning("IcaAPI ensure_login post: %s", auth_state)
+        # self._user = auth_state["token"]
+        # self._auth_key = auth_state["token"]["access_token"]
 
         # if user_token is None:
         #     authenticator = IcaAuthenticator(user, psw, session)
@@ -57,7 +59,11 @@ class IcaAPI:
         #     _LOGGER.warning("Reusing user: %s", self._user)
         # self._auth_key = self._user["access_token"]
 
-        self._session = session or requests.Session()
+    def ensure_login(self):
+        auth_state = self._authenticator.ensure_login()
+        self._auth_state = auth_state
+        self._user = auth_state["token"]
+        self._auth_key = auth_state["token"]["access_token"]
 
     def get_authenticated_user(self):
         # return self._user

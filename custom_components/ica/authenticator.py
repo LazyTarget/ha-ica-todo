@@ -247,10 +247,15 @@ class IcaAuthenticator:
         import base64
 
         basic_auth = base64.b64encode(
-            f"{registered_app['client_id']}:{registered_app['client_secret']}".encode("utf-8")
+            f"{registered_app['client_id']}:{registered_app['client_secret']}".encode(
+                "utf-8"
+            )
         ).decode("ascii")
         h: Dict[str, str] = {"Authorization": f"Basic {basic_auth}"}
-        d = {"grant_type": "refresh_token", "refresh_token": auth_token["refresh_token"]}
+        d = {
+            "grant_type": "refresh_token",
+            "refresh_token": auth_token["refresh_token"],
+        }
         response = self.invoke_post(url, data=d, headers=h)
         response.raise_for_status()
         tkn = response.json()
@@ -307,27 +312,21 @@ class IcaAuthenticator:
     def _handle_login(self, credentials: AuthCredentials, auth_state: AuthState):
         # todo: make into staticmethod
 
-        _LOGGER.info(
-            "Handle login :: Starting state: %s", auth_state
-        )
+        _LOGGER.info("Handle login :: Starting state: %s", auth_state)
         # now = datetime.datetime.now()
         now = dt_util.utcnow()
 
         if new_client := not auth_state.get("client", None):
             # Initialize new client app to get a client_id/client_secret
             auth_state["client"] = self.init_app()
-            _LOGGER.info(
-                "Handle login :: Initialized client: %s", auth_state["client"]["client_id"]
-            )
+            _LOGGER.info("Handle login :: Initialized client: %s", auth_state["client"])
 
         current_token = auth_state.get("token", None)
-        if current_token:
-            current_token_expiry = current_token.get("expiry", str(now))
-            _LOGGER.fatal("Current token expiry: %s", current_token_expiry)
-            current_token_expiry_parse = datetime.datetime.fromisoformat(current_token_expiry)
-            _LOGGER.fatal("Current token expiry fromisoformat: %s", current_token_expiry_parse)
-            current_token_expiry = dt_util.parse_datetime(current_token_expiry)
-            _LOGGER.fatal("Current token expiry parse_datetime: %s", current_token_expiry)
+        current_token_expiry = (
+            datetime.date.fromisoformat(current_token["expiry"])
+            if current_token and not current_token.get("expiry", None)
+            else None
+        )
 
         if new_client or not current_token:
             # Has no token or is a new client, then init a new login
@@ -346,10 +345,13 @@ class IcaAuthenticator:
             )
 
             auth_state["token"] = access_token
-            auth_state["token"]["expiry"] = str(now + datetime.timedelta(
-                seconds=state.token.get("expires_in", 2592000)
-            ))
-            _LOGGER.info("Handle login :: Access Token: %s", state.token)
+            auth_state["token"]["expiry"] = str(
+                now
+                + datetime.timedelta(
+                    seconds=auth_state["token"].get("expires_in", 2592000)
+                )
+            )
+            _LOGGER.info("Handle login :: Access Token: %s", access_token)
 
             # Parse and append the Person Name
             decoded = jwt.decode(
@@ -357,21 +359,26 @@ class IcaAuthenticator:
             )
             auth_state["userInfo"] = JwtUserInfo(decoded)
             _LOGGER.info("Handle login :: Jwt user info: %s", auth_state["userInfo"])
-        elif current_token and current_token_expiry < now:
+        elif current_token_expiry is not None and current_token_expiry < now:
             _LOGGER.fatal("Need to refresh login: %s < %s", current_token_expiry, now)
             # Refresh login
-            if refresh_token := self.get_refresh_token(auth_state["client"], auth_state["token"]):
+            if refresh_token := self.get_refresh_token(
+                auth_state["client"], auth_state["token"]
+            ):
                 auth_state["token"].update(refresh_token)
-                auth_state["token"]["expiry"] = str(now + datetime.timedelta(
-                    seconds=auth_state["token"].get("expires_in", 2592000)
-                ))
+                auth_state["token"]["expiry"] = str(
+                    now
+                    + datetime.timedelta(
+                        seconds=auth_state["token"].get("expires_in", 2592000)
+                    )
+                )
                 _LOGGER.info("Handle login :: Refresh Token: %s", state.token)
             else:
                 _LOGGER.warning(
                     "Handle login :: Failed to refresh token. Access token: %s",
-                    auth_state["token"]
+                    auth_state["token"],
                 )
                 raise RuntimeError("Failed to retrieve a refresh token")
 
-        _LOGGER.info("Handle login :: Auth_State: %s", auth_state)
+        _LOGGER.info("Handle login :: final Auth_State: %s", auth_state)
         return auth_state

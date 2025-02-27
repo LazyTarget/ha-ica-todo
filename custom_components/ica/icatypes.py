@@ -1,5 +1,4 @@
 from typing import TypedDict
-import datetime
 
 
 class AuthCredentials(TypedDict):
@@ -53,13 +52,15 @@ class OAuthToken(TypedDict):
     #     self.expires_in = refresh_token.expires_in
 
 
-class JwtUserInfo:
+class JwtUserInfo(dict):
     def __init__(self, decoded_jwt):
-        self._person_name = f"{decoded_jwt['given_name']} {decoded_jwt['family_name']}"
+        self["person_name"] = (
+            f"{decoded_jwt['given_name']} {decoded_jwt['family_name']}"
+        )
 
     @property
     def person_name(self) -> str | None:
-        return self._person_name
+        return self["person_name"]
 
 
 class AuthState(TypedDict):
