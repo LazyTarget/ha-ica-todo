@@ -47,10 +47,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     post = json.dumps(auth_state)
     diff = pre != post
     if diff:
-        new_data = entry.data.copy()
-        new_data["auth_state"] = auth_state
-        _LOGGER.debug("Persisting new config entry data: %s", new_data)
-        if hass.config_entries.async_update_entry(entry, data=new_data):
+        entry.data["auth_state"] = auth_state
+        _LOGGER.debug("Persisting new config entry data: %s", entry.data)
+        if hass.config_entries.async_update_entry(entry, data=entry.data):
             _LOGGER.info(
                 "Successfully updated config entry data with updated auth state"
             )
