@@ -274,7 +274,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             )
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
-    async def async_get_shopping_lists(self, refresh=False) -> list[IcaShoppingList]:
+    async def async_get_shopping_lists(self) -> list[IcaShoppingList]:
         """Return ICA shopping lists fetched at most once."""
 
         current = self._ica_shopping_lists.current_value() or []

@@ -17,7 +17,8 @@ from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
-from .icatypes import AuthCredentials, AuthState
+from .coordinator import IcaCoordinator
+from .icatypes import AuthCredentials
 from .icaapi_async import IcaAPIAsync
 from .const import (
     DOMAIN,
@@ -78,6 +79,7 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # api = IcaAPIAsync(user_input[CONF_ICA_ID], user_input[CONF_ICA_PIN])
             api = IcaAPIAsync(credentials, auth_state=None)
             try:
+                await api.ensure_login()
                 self.shopping_lists = await api.get_shopping_lists()
                 self.auth_state = api.get_authenticated_user()
                 # self.decoded_id = jwt.decode(self.user_token["id_token"], options={"verify_signature": False})
@@ -100,8 +102,6 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_SCAN_INTERVAL: user_input[CONF_SCAN_INTERVAL]
                     or self.initial_input[CONF_SCAN_INTERVAL],
                     "auth_state": self.auth_state,
-                    "user": self.auth_state["token"],
-                    "access_token": self.auth_state["token"]["access_token"],
                     # CONF_SHOPPING_LISTS: user_input[CONF_SHOPPING_LISTS]
                 }
                 config_entry_name = CONFIG_ENTRY_NAME % (
@@ -151,33 +151,49 @@ class IcaOptionsFlowHandler(OptionsFlow):
         _LOGGER.debug("Options flow - data: %s", self.config_entry.data)
 
         config_entry_data = self.config_entry.data.copy()
-        if self.SHOPPING_LIST_SELECTOR_SCHEMA is None:
-            credentials = AuthCredentials(
-                {
-                    "username": config_entry_data[CONF_ICA_ID],
-                    "password": config_entry_data[CONF_ICA_PIN],
-                }
-            )
-            auth_state = config_entry_data.get("auth_state")
-            if not auth_state:
-                auth_state = AuthState()
-                auth_state["token"] = self.user_token
+        if not self.SHOPPING_LIST_SELECTOR_SCHEMA:
+            # credentials = AuthCredentials(
+            #     {
+            #         "username": config_entry_data[CONF_ICA_ID],
+            #         "password": config_entry_data[CONF_ICA_PIN],
+            #     }
+            # )
+            # auth_state = AuthState(config_entry.data.get("auth_state", {}))
+            # api = IcaAPIAsync(credentials, auth_state)
 
-            api = IcaAPIAsync(credentials, auth_state)
+            # await api.ensure_login()
             if not self.shopping_lists:
-                data = await api.get_shopping_lists()
-                self.shopping_lists = data["shoppingLists"]
+                # Instead of getting from API, use the coordinator which should have a logged in API
+                # This will also revalidate the cached shopping lists
+                # data = await coordinator.async_get_shopping_lists()
+
+                coordinator: IcaCoordinator = self.config_entry.coordinator
+                data = await coordinator.api.get_shopping_lists()  # get from API directly as it will not limit the chosen shopping lists
+                if data and "shoppingLists" in data:
+                    y = data["shoppingLists"]
+                    lists = [
+                        z
+                        for z in y
+                        if z["offlineId"] and z["title"]
+                        # in self.config_entry.data.get(CONF_SHOPPING_LISTS, [])
+                    ]
+                    self.shopping_lists = lists
+
             self.SHOPPING_LIST_SELECTOR_SCHEMA = (
-                self.build_shopping_list_selector_schema(self.shopping_lists)
+                (self.build_shopping_list_selector_schema(self.shopping_lists))
+                if self.shopping_lists
+                else {}
             )
-            new_state = api.get_authenticated_user()
-            _LOGGER.warning(
-                "Updating user_token: %s -> %s",
-                config_entry_data["user"]["access_token"],
-                new_state["token"]["access_token"],
-            )
-            config_entry_data["auth_state"] = new_state
-            config_entry_data["user"] = new_state["token"]
+
+            # # todo: Move this code to a reconfigure options flow
+            # new_state = api.get_authenticated_user()
+            # _LOGGER.warning(
+            #     "Updating user_token: %s -> %s",
+            #     config_entry_data["user"]["access_token"],
+            #     new_state["token"]["access_token"],
+            # )
+            # config_entry_data["auth_state"] = new_state
+            # config_entry_data["user"] = new_state["token"]
 
         if user_input is not None:
             config_entry_data[CONF_SCAN_INTERVAL] = user_input.get(
@@ -189,7 +205,6 @@ class IcaOptionsFlowHandler(OptionsFlow):
 
             if selection := user_input.get(CONF_SHOPPING_LISTS, []):
                 config_entry_data[CONF_SHOPPING_LISTS] = selection
-                _LOGGER.info("Options flow - new data %s", config_entry_data)
             else:
                 errors[CONF_SHOPPING_LISTS] = f"Invalid value submitted: {selection}"
 
@@ -197,6 +212,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
                 self.config_entry,
                 data=config_entry_data,
             ):
+                _LOGGER.debug("Options flow - new entry data %s", config_entry_data)
                 self.hass.config_entries.async_schedule_reload(
                     self.config_entry.entry_id
                 )
@@ -225,12 +241,11 @@ class IcaOptionsFlowHandler(OptionsFlow):
         )
 
     def build_shopping_list_selector_schema(self, lists):
-        current_lists_value = self.config_entry.data.get(CONF_SHOPPING_LISTS, [])
         return {
             vol.Required(
                 CONF_SHOPPING_LISTS,
                 description="The shopping lists to track",
-                default=current_lists_value,
+                default=self.config_entry.data.get(CONF_SHOPPING_LISTS, []),
             ): selector.SelectSelector(
                 selector.SelectSelectorConfig(
                     options=[

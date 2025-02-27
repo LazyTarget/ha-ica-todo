@@ -26,7 +26,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up ICA from a config entry."""
-    _LOGGER.info("Starting config entry data: %s", entry.data)
+    _LOGGER.info("Config entry data: %s", entry.data)
 
     uid = entry.data[CONF_ICA_ID]
     pin = entry.data[CONF_ICA_PIN]
