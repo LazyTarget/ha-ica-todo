@@ -1,6 +1,52 @@
 from typing import TypedDict
 
 
+class AuthCredentials(TypedDict):
+    username: str
+    password: str
+
+
+class OAuthClient(TypedDict):
+    client_id: str
+    client_secret: str
+    scope: str
+
+
+class OAuthToken(TypedDict):
+    """Represents the authentication state.
+
+    Contains the OAuth client information, token, and user info.
+    """
+
+    id_token: str | None
+    token_type: str
+    access_token: str
+    refresh_token: str
+    scope: str
+    expires_in: int
+    # # Extra properties not defined in OAuth spec:
+    expiry: str
+
+
+class JwtUserInfo(dict):
+    def __init__(self, decoded_jwt):
+        self["given_name"] = decoded_jwt["given_name"]
+        self["family_name"] = decoded_jwt["family_name"]
+        self["person_name"] = (
+            f"{decoded_jwt['given_name']} {decoded_jwt['family_name']}"
+        )
+
+    @property
+    def person_name(self) -> str | None:
+        return self["person_name"]
+
+
+class AuthState(TypedDict):
+    client: OAuthClient | None
+    token: OAuthToken | None
+    user: JwtUserInfo | None
+
+
 class Address(TypedDict):
     Street: str | None
     Zip: str | None

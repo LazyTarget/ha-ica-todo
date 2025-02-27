@@ -1,9 +1,17 @@
-import requests
-import jwt
-import re
-from .const import API
-
+import base64
+import hashlib
+import datetime
 import logging
+import re
+from typing import Dict
+from os import urandom
+
+import homeassistant.util.dt as dt_util
+import jwt
+import requests
+
+from .const import API
+from .icatypes import AuthCredentials, AuthState, JwtUserInfo, OAuthClient, OAuthToken
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -11,12 +19,18 @@ _LOGGER = logging.getLogger(__name__)
 class IcaAuthenticator:
     """Class to handle authentications"""
 
-    cookie_jar = None
-    _auth_key = None
+    _credentials: AuthCredentials
+    _auth_state: AuthState | None = None
 
-    def __init__(self, user, psw, session: requests.Session | None = None) -> None:
-        # self._auth_key = get_auth_key(user, psw)
+    def __init__(
+        self,
+        credentials: AuthCredentials,
+        state: AuthState | None,
+        session: requests.Session | None = None,
+    ) -> None:
         self._session = session or requests.Session()
+        self._auth_state = state
+        self._credentials = credentials
 
     def get_rest_url(self, endpoint: str):
         return "/".join([API.URLs.BASE_URL, endpoint])
@@ -104,20 +118,17 @@ class IcaAuthenticator:
         response.raise_for_status()
         return None
 
-    def register_app(self, app_registration_api_access_token):
+    def register_app(self) -> OAuthClient:
+        app_registration_api_access_token = self.get_token_for_app_registration()
         url = self.get_rest_url(API.AppRegistration.APP_REGISTRATION_ENDPOINT)
         j = {"software_id": "dcr-ica-app-template"}
         h = {"Authorization": f"Bearer {app_registration_api_access_token}"}
         response = self.invoke_post(url, json_data=j, headers=h)
         if response and response.status_code in [200, 201]:
-            return response.json()
+            return OAuthClient(response.json())
         return None
 
-    def init_app(self):
-        app_registration_api_access_token = self.get_token_for_app_registration()
-        return self.register_app(app_registration_api_access_token)
-
-    def init_oauth(self, registered_app, code_challenge):
+    def init_oauth(self, registered_app: OAuthClient, code_challenge):
         url = self.get_rest_url(API.URLs.OAUTH2_AUTHORIZE_ENDPOINT)
         p = {
             "client_id": registered_app["client_id"],
@@ -129,7 +140,7 @@ class IcaAuthenticator:
             "prompt": "login",
             "acr": "urn:se:curity:authentication:html-form:IcaCustomers",
         }
-        # Invokes /oauth/v2/authorize
+        # POST /oauth/v2/authorize
         response = self.invoke_get(url, params=p, allow_redirects=False)
         response.raise_for_status()
 
@@ -140,17 +151,17 @@ class IcaAuthenticator:
         state = re.search(r"&state=(\w*)", location)[1]
         _LOGGER.debug("State (Client): %s", state)
 
-        # Invokes /authn/authenticate
+        # GET /authn/authenticate
         response = self.invoke_get(location)
         response.raise_for_status()
 
         return state
 
-    def init_login(self, user, pwd, state):
+    def init_login(self, credentials: AuthCredentials, state):
         url = self.get_rest_url(API.URLs.LOGIN_ENDPOINT)
         d = {
-            "userName": user,
-            "password": pwd,
+            "userName": credentials["username"],
+            "password": credentials["password"],
         }
         # Posts login form...
         response = self.invoke_post(url, data=d)
@@ -177,19 +188,20 @@ class IcaAuthenticator:
 
         return token
 
-    def get_access_token(self, registered_app, state, token, code_verifier):
+    def get_access_token(
+        self, registered_app: OAuthClient, state, token, code_verifier
+    ) -> OAuthToken:
         url = self.get_rest_url(API.URLs.OAUTH2_AUTHORIZE_ENDPOINT)
         p = {
             "client_id": registered_app["client_id"],
             "forceAuthN": "true",
             "acr": "urn:se:curity:authentication:html-form:IcaCustomers",
-            # urn%3Ase%3Acurity%3Aauthentication%3Ahtml-form%3AIcaCustomers
         }
         d = {
             "token": token,
             "state": state,
         }
-        # Authorize
+        # POST /oauth/v2/authorize
         response = self.invoke_post(url, params=p, data=d, allow_redirects=False)
         response.raise_for_status()
 
@@ -200,7 +212,7 @@ class IcaAuthenticator:
         code = re.search(r"&code=(\w*)", location)[1]
         _LOGGER.debug("Code: %s", code)
 
-        # Invokes /authn/authenticate
+        # GET /authn/authenticate
         url = self.get_rest_url(API.URLs.OAUTH2_TOKEN_ENDPOINT)
         d = {
             "code": code,
@@ -215,50 +227,138 @@ class IcaAuthenticator:
         response = self.invoke_post(url, data=d)
         response.raise_for_status()
         tkn = response.json()
+        return OAuthToken(tkn)
 
-        # Parse and append the Person Name
-        decoded = jwt.decode(tkn["id_token"], options={"verify_signature": False})
-        tkn["person_name"] = f"{decoded['given_name']} {decoded['family_name']}"
-        return tkn
+    def get_refresh_token(
+        self, registered_app: OAuthClient, auth_token: OAuthToken
+    ) -> OAuthToken:
+        # Invokes /oauth/v2/token
+        url = self.get_rest_url(API.URLs.OAUTH2_TOKEN_ENDPOINT)
 
-    def generate_code_challenge(self):
-        import base64
-        import os
-        import hashlib
+        basic_auth = IcaAuthenticator.generate_basic_auth(registered_app)
+        h: Dict[str, str] = {"Authorization": f"Basic {basic_auth}"}
+        d = {
+            "grant_type": "refresh_token",
+            "refresh_token": auth_token["refresh_token"],
+        }
+        response = self.invoke_post(url, data=d, headers=h)
+        response.raise_for_status()
+        tkn = response.json()
+        return OAuthToken(tkn)
 
-        code_verifier = base64.urlsafe_b64encode(os.urandom(40)).decode("utf-8")
+    @staticmethod
+    def generate_basic_auth(registered_app: OAuthClient) -> str:
+        """Generates the value for a Basic Auth header"""
+        client_id = registered_app["client_id"]
+        client_secret = registered_app["client_secret"]
+        return base64.b64encode(f"{client_id}:{client_secret}".encode("utf-8")).decode(
+            "ascii"
+        )
+
+    @staticmethod
+    def generate_code_challenge():
+        """Generates a code_challenge and code_verifier"""
+        code_verifier = base64.urlsafe_b64encode(urandom(40)).decode("utf-8")
         re.sub("[^a-zA-Z0-9]+", "", code_verifier)
         code_verifier = re.sub("[^a-zA-Z0-9]+", "", code_verifier)
-        code_verifier, len(code_verifier)
-        # ('KTZVMl6OrcoTIej5c9QUaQ5x2p95P46D5hd2yb7kuAIBCVM9j0P1lA', 54)
 
         code_challenge = hashlib.sha256(code_verifier.encode("utf-8")).digest()
         code_challenge = base64.urlsafe_b64encode(code_challenge).decode("utf-8")
         code_challenge = code_challenge.replace("=", "")
-        code_challenge, len(code_challenge)
-        # ('81R8C6QhI5He4enPDCr7KgRqP6fQZ37FNQAP5NkaOBg', 43)
 
         _LOGGER.debug("code_challenge: %s", code_challenge)
         _LOGGER.debug("code_verifier: %s", code_verifier)
         return (code_challenge, code_verifier)
 
-    def do_full_login(self, user, psw):
-        """This will run the complete chain"""
+    def ensure_login(self):
+        """This will ensure that a valid auth state is loaded"""
+        state = self._auth_state or AuthState()
+        self._auth_state = self._handle_login(self._credentials, state)
+        return self._auth_state
 
-        # Register an App to get a client_id
-        registered_app = self.init_app()
+    def _handle_login(self, credentials: AuthCredentials, auth_state: AuthState):
+        """This will initiate an new login based on the current state and token expiration"""
+        _LOGGER.debug("Handle login :: Starting state: %s", auth_state)
+        now = dt_util.utcnow()
+
+        if new_client := not auth_state.get("client", None):
+            # Initialize new client app to get a client_id/client_secret
+            auth_state["client"] = self.register_app()
+            _LOGGER.debug(
+                "Handle login :: Initialized client: %s", auth_state["client"]
+            )
+
+        current_token = auth_state.get("token", None)
+        current_token_expiry = (
+            dt_util.parse_datetime(current_token["expiry"])
+            if current_token and current_token.get("expiry", None)
+            else None
+        )
+
+        if new_client or not current_token:
+            auth_state = self._handle_new_login(credentials, auth_state)
+        elif current_token_expiry and current_token_expiry < now:
+            _LOGGER.info(
+                "Handle login :: Token expired, will refresh... %s < %s",
+                current_token_expiry,
+                now,
+            )
+            auth_state = self._handle_refresh_login(auth_state)
+
+        _LOGGER.debug("Handle login :: final Auth_State: %s", auth_state)
+        return auth_state
+
+    def _handle_new_login(self, credentials: AuthCredentials, auth_state: AuthState):
+        """This will run the complete login chain"""
+        _LOGGER.info("Handle login :: Full login initiated")
+        now = dt_util.utcnow()
 
         # Generate code_challenge & code_verifier
-        (code_challenge, code_verifier) = self.generate_code_challenge()
+        (code_challenge, code_verifier) = IcaAuthenticator.generate_code_challenge()
 
         # Initiate OAuth login with Authorization-code with PKCE
-        state = self.init_oauth(registered_app, code_challenge)
+        state = self.init_oauth(auth_state["client"], code_challenge)
 
-        token = self.init_login(user, psw, state)
+        token = self.init_login(credentials, state)
 
-        result = self.get_access_token(registered_app, state, token, code_verifier)
-        _LOGGER.fatal("Full login completed :: Token: %s", result)
+        access_token = self.get_access_token(
+            auth_state["client"], state, token, code_verifier
+        )
 
-        self._user = result
-        self._auth_key = result["access_token"]
-        return result
+        auth_state["token"] = access_token
+        auth_state["token"]["expiry"] = str(
+            now
+            + datetime.timedelta(seconds=auth_state["token"].get("expires_in", 2592000))
+        )
+        _LOGGER.debug("Handle login :: Access Token: %s", access_token)
+
+        # Parse and append the Person Name
+        decoded = jwt.decode(
+            access_token["id_token"], options={"verify_signature": False}
+        )
+        auth_state["user"] = JwtUserInfo(decoded)
+        _LOGGER.debug("Handle login :: Jwt user info: %s", auth_state["user"])
+        return auth_state
+
+    def _handle_refresh_login(self, auth_state: AuthState):
+        """This will request a new access_token by sending the refresh_token"""
+        now = dt_util.utcnow()
+
+        if refresh_token := self.get_refresh_token(
+            auth_state["client"], auth_state["token"]
+        ):
+            auth_state["token"].update(refresh_token)
+            auth_state["token"]["expiry"] = str(
+                now
+                + datetime.timedelta(
+                    seconds=auth_state["token"].get("expires_in", 2592000)
+                )
+            )
+            _LOGGER.debug("Handle login :: Refresh Token: %s", auth_state["token"])
+        else:
+            _LOGGER.warning(
+                "Handle login :: Failed to refresh token. Access token: %s",
+                auth_state["token"],
+            )
+            raise RuntimeError("Failed to retrieve a refresh token")
+        return auth_state
