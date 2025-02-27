@@ -54,6 +54,8 @@ class OAuthToken(TypedDict):
 
 class JwtUserInfo(dict):
     def __init__(self, decoded_jwt):
+        self["given_name"] = decoded_jwt["given_name"]
+        self["family_name"] = decoded_jwt["family_name"]
         self["person_name"] = (
             f"{decoded_jwt['given_name']} {decoded_jwt['family_name']}"
         )
@@ -66,7 +68,7 @@ class JwtUserInfo(dict):
 class AuthState(TypedDict):
     client: OAuthClient | None = None
     token: OAuthToken | None = None
-    userInfo: JwtUserInfo | None = None
+    user: JwtUserInfo | None = None
 
 
 class Address(TypedDict):

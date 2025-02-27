@@ -312,14 +312,16 @@ class IcaAuthenticator:
     def _handle_login(self, credentials: AuthCredentials, auth_state: AuthState):
         # todo: make into staticmethod
 
-        _LOGGER.info("Handle login :: Starting state: %s", auth_state)
+        _LOGGER.debug("Handle login :: Starting state: %s", auth_state)
         # now = datetime.datetime.now()
         now = dt_util.utcnow()
 
         if new_client := not auth_state.get("client", None):
             # Initialize new client app to get a client_id/client_secret
             auth_state["client"] = self.init_app()
-            _LOGGER.info("Handle login :: Initialized client: %s", auth_state["client"])
+            _LOGGER.debug(
+                "Handle login :: Initialized client: %s", auth_state["client"]
+            )
 
         current_token = auth_state.get("token", None)
         current_token_expiry = (
@@ -330,7 +332,7 @@ class IcaAuthenticator:
 
         if new_client or not current_token:
             # Has no token or is a new client, then init a new login
-            _LOGGER.fatal("Handle login :: Full login initiated")
+            _LOGGER.info("Handle login :: Full login initiated")
 
             # Generate code_challenge & code_verifier
             (code_challenge, code_verifier) = self.generate_code_challenge()
@@ -351,16 +353,20 @@ class IcaAuthenticator:
                     seconds=auth_state["token"].get("expires_in", 2592000)
                 )
             )
-            _LOGGER.info("Handle login :: Access Token: %s", access_token)
+            _LOGGER.debug("Handle login :: Access Token: %s", access_token)
 
             # Parse and append the Person Name
             decoded = jwt.decode(
                 access_token["id_token"], options={"verify_signature": False}
             )
-            auth_state["userInfo"] = JwtUserInfo(decoded)
-            _LOGGER.info("Handle login :: Jwt user info: %s", auth_state["userInfo"])
+            auth_state["user"] = JwtUserInfo(decoded)
+            _LOGGER.debug("Handle login :: Jwt user info: %s", auth_state["user"])
         elif current_token_expiry is not None and current_token_expiry < now:
-            _LOGGER.fatal("Need to refresh login: %s < %s", current_token_expiry, now)
+            _LOGGER.info(
+                "Token expired, will start refreshing: %s < %s",
+                current_token_expiry,
+                now,
+            )
             # Refresh login
             if refresh_token := self.get_refresh_token(
                 auth_state["client"], auth_state["token"]
@@ -372,7 +378,7 @@ class IcaAuthenticator:
                         seconds=auth_state["token"].get("expires_in", 2592000)
                     )
                 )
-                _LOGGER.info("Handle login :: Refresh Token: %s", state.token)
+                _LOGGER.debug("Handle login :: Refresh Token: %s", auth_state["token"])
             else:
                 _LOGGER.warning(
                     "Handle login :: Failed to refresh token. Access token: %s",
@@ -380,5 +386,5 @@ class IcaAuthenticator:
                 )
                 raise RuntimeError("Failed to retrieve a refresh token")
 
-        _LOGGER.info("Handle login :: final Auth_State: %s", auth_state)
+        _LOGGER.debug("Handle login :: final Auth_State: %s", auth_state)
         return auth_state

@@ -69,7 +69,10 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured()
 
             credentials = AuthCredentials(
-                {"username": user_input[CONF_ICA_ID], "password": user_input[CONF_ICA_PIN]}
+                {
+                    "username": user_input[CONF_ICA_ID],
+                    "password": user_input[CONF_ICA_PIN],
+                }
             )
 
             # api = IcaAPIAsync(user_input[CONF_ICA_ID], user_input[CONF_ICA_PIN])
@@ -98,12 +101,12 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     or self.initial_input[CONF_SCAN_INTERVAL],
                     "auth_state": self.auth_state,
                     "user": self.auth_state["token"],
-                    "access_token": self.auth_state["token"]["access_token"]
+                    "access_token": self.auth_state["token"]["access_token"],
                     # CONF_SHOPPING_LISTS: user_input[CONF_SHOPPING_LISTS]
                 }
                 config_entry_name = CONFIG_ENTRY_NAME % (
-                    self.auth_state["userInfo"].person_name
-                    if self.auth_state.get("userInfo", None)
+                    self.auth_state["user"].person_name
+                    if self.auth_state.get("user", None)
                     else config_entry_data[CONF_ICA_ID]
                 )
                 return self.async_create_entry(
@@ -149,9 +152,11 @@ class IcaOptionsFlowHandler(OptionsFlow):
 
         config_entry_data = self.config_entry.data.copy()
         if self.SHOPPING_LIST_SELECTOR_SCHEMA is None:
-            
             credentials = AuthCredentials(
-                {"username": config_entry_data[CONF_ICA_ID], "password": config_entry_data[CONF_ICA_PIN]}
+                {
+                    "username": config_entry_data[CONF_ICA_ID],
+                    "password": config_entry_data[CONF_ICA_PIN],
+                }
             )
             auth_state = config_entry_data.get("auth_state")
             if not auth_state:
@@ -171,7 +176,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
                 config_entry_data["user"]["access_token"],
                 new_state["token"]["access_token"],
             )
-            config_entry_data["auth_state"] = new_state,
+            config_entry_data["auth_state"] = new_state
             config_entry_data["user"] = new_state["token"]
 
         if user_input is not None:
