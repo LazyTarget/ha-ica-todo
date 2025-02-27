@@ -103,7 +103,9 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
                 return self.async_create_entry(
                     title=CONFIG_ENTRY_NAME
-                    % (self.auth_state.JwtUserInfo or {}).get("person_name", None)
+                    % (self.auth_state.UserInfo.person_name
+                       if self.auth_state.UserInfo
+                       else None)
                     or config_entry_data[CONF_ICA_ID],
                     data=config_entry_data,
                 )

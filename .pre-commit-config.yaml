@@ -23,3 +23,4 @@ repos:
         # * review only changed lines:
         # * omit the summary
         args: [--diff=git diff HEAD, --no-summary]
+        stages: [pre-push]

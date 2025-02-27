@@ -27,15 +27,22 @@ class OAuthToken:
 
     Contains the OAuth client information, token, and user info.
     """
-
     id_token: str | None
-    token_type: str | None
-    access_token: str | None
-    refresh_token: str | None
-    scope: str | None
-    expires_in: int | None
+    token_type: str
+    access_token: str
+    refresh_token: str
+    scope: str
+    expires_in: int
     # Properties not defined in OAuth spec:
     expiry: datetime.datetime | None
+
+    def __init__(self, token_json):
+        self.id_token = token_json.get("id_token", None)
+        self.token_type = token_json["token_type"]
+        self.access_token = token_json["access_token"]
+        self.refresh_token = token_json["refresh_token"]
+        self.scope = token_json["scope"]
+        self.expires_in = int(token_json.get("expires_in", 2592000))
 
     def refresh(self, refresh_token: "OAuthToken"):
         self.token_type = refresh_token.token_type
@@ -46,16 +53,18 @@ class OAuthToken:
 
 
 class JwtUserInfo:
-    person_name: str | None
-
     def __init__(self, decoded_jwt):
-        self.person_name = f"{decoded_jwt['given_name']} {decoded_jwt['family_name']}"
+        self._person_name = f"{decoded_jwt['given_name']} {decoded_jwt['family_name']}"
+
+    @property
+    def person_name(self) -> str | None:
+        return self._person_name
 
 
 class AuthState:
-    Client: OAuthClient | None
-    Token: OAuthToken | None
-    JwtUserInfo: JwtUserInfo | None
+    Client: OAuthClient | None = None
+    Token: OAuthToken | None = None
+    UserInfo: JwtUserInfo | None = None
 
 
 class Address(TypedDict):
