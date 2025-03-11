@@ -66,7 +66,9 @@ class CacheEntry(Generic[_DataT]):
                 # Is wrapped in CacheEntryInfo
                 info: CacheEntryInfo = content
                 self._value = info.get("value")
-                self._timestamp = dt.datetime.fromisoformat(info.get("timestamp"))
+                self._timestamp = dt.datetime.fromisoformat(
+                    info.get("timestamp")
+                ).replace(tzinfo=dt.timezone.utc)
             else:
                 self._value = content
 
