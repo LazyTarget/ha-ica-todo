@@ -5,7 +5,7 @@ import asyncio
 import json
 import logging
 import datetime as dt
-from typing import Generic, Any, TypeVar
+from typing import Generic, Any, TypeVar, TypedDict
 
 from homeassistant.core import HomeAssistant
 from homeassistant.util import slugify
@@ -19,6 +19,8 @@ _DataT = TypeVar("_DataT", default=dict[str, Any])
 
 
 class CacheEntry(Generic[_DataT]):
+    """Handles automatic caching for a data provider."""
+
     def __init__(
         self,
         hass: HomeAssistant,
@@ -62,8 +64,9 @@ class CacheEntry(Generic[_DataT]):
                 and content.get("value")
             ):
                 # Is wrapped in CacheEntryInfo
-                self._value = content.get("value")
-                self._timestamp = dt.datetime.fromisoformat(content.get("timestamp"))
+                info: CacheEntryInfo = content
+                self._value = info.get("value")
+                self._timestamp = dt.datetime.fromisoformat(info.get("timestamp"))
             else:
                 self._value = content
 
@@ -89,7 +92,7 @@ class CacheEntry(Generic[_DataT]):
         if self._file:
             # Persist new value to file
             # info = CacheEntryInfo(self._value, self._timestamp)
-            info = {
+            info: CacheEntryInfo = {
                 "timestamp": str(self._timestamp),
                 "key": self._key,
                 "value": self._value,
@@ -99,12 +102,12 @@ class CacheEntry(Generic[_DataT]):
         return self._value
 
 
-class CacheEntryInfo(Generic[_DataT]):
+class CacheEntryInfo(TypedDict):
     """Cache entry metadata wrapper"""
 
-    def __init__(self, value: _DataT, timestamp: dt.datetime):
-        self.value = value
-        self.timestamp = timestamp
+    timestamp: str
+    key: str
+    value: list | dict
 
 
 class LocalFile:
