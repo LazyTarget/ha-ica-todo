@@ -51,7 +51,7 @@ class CacheEntry(Generic[_DataT]):
 
     async def get_value(self, invalidate_cache: bool | None = None) -> _DataT:
         """Gets value from state, file or API"""
-        now = dt.datetime.utcnow()
+        now = dt.datetime.now(dt.timezone.utc)
 
         if not self._value and self._file:
             # Load persisted file (if initial load)
@@ -86,14 +86,14 @@ class CacheEntry(Generic[_DataT]):
         """Refreshes state using the value_factory"""
         # Invoke value factory (example: API)
         self._value = await self._value_factory()
-        self._timestamp = dt.datetime.utcnow()
+        self._timestamp = dt.datetime.now(dt.timezone.utc)
         self._logger.debug("Loaded from factory: %s", self._value)
 
         if self._file:
             # Persist new value to file
             # info = CacheEntryInfo(self._value, self._timestamp)
             info: CacheEntryInfo = {
-            "timestamp": self._timestamp.isoformat(),
+                "timestamp": self._timestamp.isoformat(),
                 "key": self._key,
                 "value": self._value,
             }
