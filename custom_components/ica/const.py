@@ -91,6 +91,8 @@ CONF_JSON_DATA_IN_DESC: Final = "json_data_in_desc"
 CONF_MENU_MANAGE_SHOPPING_LISTS: Final = "manage_tracked_shopping_lists"
 
 DEFAULT_SCAN_INTERVAL: Final = 5
+CACHING_SECONDS_SHORT_TERM: Final = 300  # 5 minutes
+CACHING_SECONDS_LONG_TERM: Final = 86400  # 24 hours
 
 AUTH_TICKET: Final = "AuthenticationTicket"
 GET_LISTS: Final = "ShoppingLists"

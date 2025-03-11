@@ -19,7 +19,7 @@ from .icatypes import (
     IcaShoppingList,
 )
 from .caching import CacheEntry
-from .const import DOMAIN, CONF_ICA_ID, CONF_SHOPPING_LISTS
+from .const import DOMAIN, CONF_ICA_ID, CONF_SHOPPING_LISTS, CACHING_SECONDS_SHORT_TERM
 from .utils import get_diffs
 
 _LOGGER = logging.getLogger(__name__)
@@ -69,6 +69,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             hass,
             f"{config_entry_key}.shopping_lists",
             partial(self.async_get_shopping_lists),
+            expiry_seconds=CACHING_SECONDS_SHORT_TERM,
         )
         self._ica_favorite_stores_offers = CacheEntry(
             hass,
@@ -250,7 +251,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         return full_offers
 
     async def _async_update_data(
-        self, refresh=False
+        self, refresh: bool | None = None
     ) -> None:  # list[IcaShoppingListEntry]:
         """Fetch data from the ICA API."""
         self._icaRecipes = None
@@ -263,15 +264,14 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             await self._ica_current_bonus.get_value(invalidate_cache=refresh)
             await self._ica_shopping_lists.get_value(invalidate_cache=True)
 
+            # Get store offers
             await self._ica_favorite_stores.get_value(invalidate_cache=refresh)
             await self._ica_favorite_stores_offers.get_value(invalidate_cache=refresh)
             await self._ica_favorite_stores_offers_full.get_value(
                 invalidate_cache=refresh
             )
         except Exception as err:
-            _LOGGER.fatal(
-                "Exception when getting data. Tkn: %s => Err: %s", self.api._user, err
-            )
+            _LOGGER.fatal("Exception when getting data. Err: %s", err)
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
     async def async_get_shopping_lists(self) -> list[IcaShoppingList]:

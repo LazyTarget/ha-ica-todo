@@ -4,22 +4,30 @@ from pathlib import Path
 import asyncio
 import json
 import logging
+import datetime as dt
+from typing import Generic, Any, TypeVar, TypedDict
 
 from homeassistant.core import HomeAssistant
 from homeassistant.util import slugify
 
 from .utils import EmptyLogger
+from .const import CACHING_SECONDS_LONG_TERM
 
 STORAGE_PATH = ".storage/ica.{key}.json"
 
+_DataT = TypeVar("_DataT", default=dict[str, Any])
 
-class CacheEntry:
+
+class CacheEntry(Generic[_DataT]):
+    """Handles automatic caching for a data provider."""
+
     def __init__(
         self,
         hass: HomeAssistant,
         key: str,
         value_factory,
-        persistToFile: bool = True,
+        expiry_seconds: int = CACHING_SECONDS_LONG_TERM,
+        persist_to_file: bool = True,
         logger: logging.Logger = None,
     ) -> None:
         # Example: CacheEntry(hass, f"{self._config_entry.data[CONF_ICA_ID]}.baseitems")
@@ -27,24 +35,48 @@ class CacheEntry:
         self._key = key
         self._path = Path(self._hass.config.path(STORAGE_PATH.format(key=slugify(key))))
         self._file: LocalFile | None = None
-        self._value = None
+        self._value: _DataT = None
         self._value_factory = value_factory
         self._logger: logging.Logger = logger or EmptyLogger()
+        self._timestamp: dt.datetime | None = None
+        self._expiry_seconds: int = expiry_seconds
 
-        if persistToFile:
+        if persist_to_file:
             self._file = LocalFile(self._hass, self._path)
 
-    def current_value(self) -> object:
+    def current_value(self) -> _DataT:
         """Gets the current value from state. Without checking file or API.
         This can be used where async/await is not possible"""
         return self._value
 
-    async def get_value(self, invalidate_cache: bool = False) -> object:
+    async def get_value(self, invalidate_cache: bool | None = None) -> _DataT:
         """Gets value from state, file or API"""
-        if (invalidate_cache or not self._value) and self._file:
-            # Load persisted file
-            self._value = await self._file.async_load_json()
-            self._logger.debug("Loaded from file: %s = %s", self._path, self._value)
+        now = dt.datetime.now(dt.timezone.utc)
+
+        if not self._value and self._file:
+            # Load persisted file (if initial load)
+            content = await self._file.async_load_json()
+            self._logger.debug("Loaded from file: %s = %s", self._path, content)
+            if (
+                content
+                and isinstance(content, dict)
+                and content.get("timestamp")
+                and content.get("value")
+            ):
+                # Is wrapped in CacheEntryInfo
+                info: CacheEntryInfo = content
+                self._value = info.get("value")
+                self._timestamp = dt.datetime.fromisoformat(info.get("timestamp"))
+            else:
+                self._value = content
+
+        # Auto invalidate if passed expiry
+        invalidate_cache = (
+            not self._timestamp
+            or now > (self._timestamp + dt.timedelta(seconds=self._expiry_seconds))
+            if invalidate_cache is None
+            else invalidate_cache
+        )
 
         if invalidate_cache or not self._value:
             return await self.refresh()
@@ -54,13 +86,28 @@ class CacheEntry:
         """Refreshes state using the value_factory"""
         # Invoke value factory (example: API)
         self._value = await self._value_factory()
+        self._timestamp = dt.datetime.now(dt.timezone.utc)
         self._logger.debug("Loaded from factory: %s", self._value)
 
         if self._file:
             # Persist new value to file
-            await self._file.async_store_json(self._value)
-            self._logger.debug("Saved to file: %s = %s", self._path, self._value)
+            # info = CacheEntryInfo(self._value, self._timestamp)
+            info: CacheEntryInfo = {
+                "timestamp": self._timestamp.isoformat(),
+                "key": self._key,
+                "value": self._value,
+            }
+            await self._file.async_store_json(info)
+            self._logger.debug("Saved to file: %s = %s", self._path, info)
         return self._value
+
+
+class CacheEntryInfo(TypedDict):
+    """Cache entry metadata wrapper"""
+
+    timestamp: str
+    key: str
+    value: list | dict
 
 
 class LocalFile:
