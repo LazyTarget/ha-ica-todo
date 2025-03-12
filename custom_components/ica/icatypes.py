@@ -89,13 +89,13 @@ class IcaArticleCategory(TypedDict):
 
 
 class ArticleOfferEan(TypedDict):
-    id: str | None # "eanId"
+    id: str | None  # "eanId"
     articleDescription: str | None
     imageUrl: str | None
 
 
 class ArticleOfferStore(TypedDict):
-    id: str | None # "storeId"
+    id: str | None  # "storeId"
     referencePriceText: str | None
     isValidInStore: bool | None
     isValidOnline: bool | None
@@ -112,9 +112,9 @@ class IcaOfferMechanics(TypedDict):
 
 
 class IcaStoreOffer(TypedDict):
-    id: str | None # "OfferId"
+    id: str | None  # "OfferId"
     category: IcaArticleCategory | None
-    name: str | None # "ArticleName / OfferName"
+    name: str | None  # "ArticleName / OfferName"
     brand: str | None
     packageInformation: str | None
     condition: str | None
@@ -136,9 +136,9 @@ class IcaStoreOffer(TypedDict):
 
 
 class IcaArticleOffer(TypedDict):
-    id: str | None # "OfferId"
+    id: str | None  # "OfferId"
     category: IcaArticleCategory | None
-    name: str | None # "ArticleName / OfferName"
+    name: str | None  # "ArticleName / OfferName"
     brand: str | None
     packageInformation: str | None
     customerInformation: str | None
@@ -158,13 +158,12 @@ class IcaArticleOffer(TypedDict):
     mediumImageUrl: str | None
     largeImageUrl: str | None
     parsedMechanics: IcaOfferMechanics | None
-    
 
 
 # obsolete?
 class IcaOffer(TypedDict):
     # OfferId: str | None
-    id: str | None # "OfferId"
+    id: str | None  # "OfferId"
     StoreId: int | None
     StoreIds: list[int] | None
     ArticleGroupId: int | None
@@ -179,17 +178,22 @@ class IcaOffer(TypedDict):
     LoadedOnCard: bool
     OfferUsed: bool
     Expired: bool
-    #Articles: list[OfferArticle] | None
+    # Articles: list[OfferArticle] | None
+
+
+class OffersAndDiscountsForStore(TypedDict):
+    discounts: list | None
+    offers: list[IcaStoreOffer] | None
 
 
 class IcaShoppingListEntryRecipeRef(TypedDict):
-    id: int # "recipeId"
+    id: int  # "recipeId"
     quantity: float
     unit: str
 
 
 class IcaShoppingListEntry(TypedDict):
-    id: int | None # "RowId"
+    id: int | None  # "RowId"
     offlineId: str | None
     productName: str
     quantity: float | None

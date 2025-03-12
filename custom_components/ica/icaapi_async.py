@@ -2,11 +2,12 @@ import asyncio
 
 from .icaapi import IcaAPI
 from .icatypes import (
+    IcaArticleOffer,
     IcaShoppingList,
     IcaStore,
-    IcaOffer,
     IcaProductCategory,
     IcaRecipe,
+    OffersAndDiscountsForStore,
 )
 from .icatypes import AuthCredentials, AuthState
 
@@ -100,14 +101,16 @@ class IcaAPIAsync:
             self._api = await run_async(lambda: IcaAPI(self._uid, self._pin))
         return await run_async(lambda: self._api.get_product_categories())
 
-    async def get_offers(self, store_ids: list[int]) -> list[IcaOffer]:
+    async def get_offers(
+        self, store_ids: list[int]
+    ) -> dict[str, OffersAndDiscountsForStore]:
         if not self._api:
             self._api = await run_async(lambda: IcaAPI(self._uid, self._pin))
         return await run_async(lambda: self._api.get_offers(store_ids))
 
     async def search_offers(
         self, store_ids: list[int], offer_ids: list[str]
-    ) -> list[IcaOffer]:
+    ) -> list[IcaArticleOffer]:
         if not self._api:
             self._api = await run_async(lambda: IcaAPI(self._uid, self._pin))
         return await run_async(lambda: self._api.search_offers(store_ids, offer_ids))

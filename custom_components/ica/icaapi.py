@@ -15,7 +15,14 @@ from .const import (
     MY_COMMON_ARTICLES_ENDPOINT,
     API,
 )
-from .icatypes import IcaStore, IcaOffer, IcaShoppingList, IcaProductCategory, IcaRecipe
+from .icatypes import (
+    IcaArticleOffer,
+    IcaStore,
+    IcaShoppingList,
+    IcaProductCategory,
+    IcaRecipe,
+    OffersAndDiscountsForStore,
+)
 from .icatypes import AuthCredentials, AuthState
 from .authenticator import IcaAuthenticator
 
@@ -113,20 +120,20 @@ class IcaAPI:
             fav_products["commonArticles"] if "commonArticles" in fav_products else None
         )
 
-    def get_offers_for_store(self, store_id: int) -> list[IcaOffer]:
+    def get_offers_for_store(self, store_id: int) -> OffersAndDiscountsForStore:
         url = str.format(get_rest_url(STORE_OFFERS_ENDPOINT), store_id)
         return get(self._session, url, self._auth_key)
 
-    def get_offers(self, store_ids: list[int]) -> list[IcaOffer]:
+    def get_offers(self, store_ids: list[int]) -> dict[str, OffersAndDiscountsForStore]:
         all_store_offers = {
-            store_id: self.get_offers_for_store(store_id) for store_id in store_ids
+            str(store_id): self.get_offers_for_store(store_id) for store_id in store_ids
         }
         _LOGGER.info("Fetched offers for stores: %s", store_ids)
         return all_store_offers
 
     def search_offers(
         self, store_ids: list[int], offer_ids: list[str]
-    ) -> list[IcaOffer]:
+    ) -> list[IcaArticleOffer]:
         url = get_rest_url(API.URLs.OFFERS_SEARCH_ENDPOINT)
         j = {"offerIds": offer_ids, "storeIds": store_ids}
         return post(self._session, url, self._auth_key, json_data=j)

@@ -18,6 +18,8 @@ from .icatypes import (
     IcaRecipe,
     IcaShoppingListEntry,
     IcaShoppingList,
+    IcaStoreOffer,
+    OffersAndDiscountsForStore,
 )
 from .caching import CacheEntry
 from .const import DOMAIN, CONF_ICA_ID, CONF_SHOPPING_LISTS, CACHING_SECONDS_SHORT_TERM
@@ -72,7 +74,9 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             partial(self.async_get_shopping_lists),
             expiry_seconds=CACHING_SECONDS_SHORT_TERM,
         )
-        self._ica_favorite_stores_offers = CacheEntry(
+        self._ica_favorite_stores_offers = CacheEntry[
+            dict[str, OffersAndDiscountsForStore]
+        ](
             hass,
             f"{config_entry_key}.favorite_stores_offers",
             partial(self._get_offers),
@@ -163,7 +167,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         _LOGGER.info("Parsed info from '%s' to %s", summary, ti)
         return ti
 
-    def get_offer_info(self, offerId):
+    def get_offer_info(self, offerId) -> IcaStoreOffer:
         offers_per_store = self._ica_favorite_stores_offers.current_value()
         if not offers_per_store:
             return None
