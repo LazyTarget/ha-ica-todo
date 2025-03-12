@@ -35,7 +35,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     credentials = AuthCredentials({"username": uid, "password": pin})
-    auth_state = AuthState(entry.data.get("auth_state", {}))
+    auth_state: AuthState = entry.data.get("auth_state", {})
     pre = json.dumps(auth_state)
 
     api = IcaAPIAsync(credentials, auth_state)

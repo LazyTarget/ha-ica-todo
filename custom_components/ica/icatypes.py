@@ -47,49 +47,200 @@ class AuthState(TypedDict):
     user: JwtUserInfo | None
 
 
+class IcaBonusLevel(TypedDict):
+    levelId: int
+    pointValueFrom: int
+    pointValueTom: int
+    voucherValue: int
+
+
+class IcaVoucher(TypedDict):
+    title: str | None
+    subTite: str | None
+    description: str | None
+    redeemedDate: str | None  # Only for used
+    voucherCode: str | None  # example ["Monthly"]
+    voucherType: str | None  # example ["Common"]
+    sender: str | None  # example ["MonthlyBatch"]
+    voucherAmount: int | None
+
+
+class IcaVoucherList(TypedDict):
+    active: list[IcaVoucher] | None
+    used: list[IcaVoucher] | None
+
+
+class IcaBalanceDetail(TypedDict):
+    balanceDescription: str | None
+    pointValue: int
+    voucherValue: int
+    sender: str | None
+
+
+class IcaBalanceGroup(TypedDict):
+    balanceCode: int | None
+    balanceDescription: str | None
+    pointValue: int
+    voucherValue: int
+    detailedBalances: list[IcaBalanceDetail] | None
+
+
+class IcaAccountBalance(TypedDict):
+    showPreliminaryBonus: bool | None
+    preliminaryBonusText: str | None
+    voucherMonth: str | None
+    loyaltyMonth: str | None
+    totalVoucherValue: int | None
+    nextVoucherValue: int | None
+    remainingPointsIncludingBoost: int | None
+    remainingDays: int | None
+    title: str | None
+    groupedBalances: list[IcaBalanceGroup] | None
+
+
+class IcaDiscountSummary(TypedDict):
+    totalDiscount: int
+    numberOfPurchases: int
+
+
+class IcaAccountCurrentBonus(TypedDict):
+    stammisBoostPreamble: str | None
+    stammisBoostText: str | None
+    stammisBoostBonusLevelText: str | None
+    bonusLevels: list[IcaBonusLevel] | None
+    vouchers: list[IcaVoucherList] | None
+    accountBalance: IcaAccountBalance | None
+    discountSummary: IcaDiscountSummary | None
+    errorFetchingDiscount: bool | None
+
+
 class Address(TypedDict):
-    Street: str | None
-    Zip: str | None
-    City: str | None
+    street: str | None
+    zip: str | None
+    city: str | None
 
 
 class Coordinate(TypedDict):
-    Latitude: float | None
-    Longitude: float | None
+    latitude: float | None
+    longitude: float | None
 
 
 class DayOpeningHours(TypedDict):
-    Title: str | None
-    Hours: str | None
+    title: str | None
+    hours: str | None
 
 
 class OpeningHours(TypedDict):
-    Today: str | None
-    RegularHours: list[DayOpeningHours] | None
-    SpecialHours: list[DayOpeningHours] | None
-    OtherOpeningHours: list[DayOpeningHours] | None
+    today: str | None
+    regularHours: list[DayOpeningHours] | None
+    specialHours: list[DayOpeningHours] | None
+    departmentHours: list[DayOpeningHours] | None
+    serviceOpeningHours: list[DayOpeningHours] | None
 
 
 class IcaStore(TypedDict):
-    Id: int | None
-    MarketingName: str | None
-    Address: Address | None
-    Phone: str | None
-    Coordinates: Coordinate | None
-    WebURL: str | None
-    FacebookUrl: str | None
-    FilterItems: list[int] | None
-    ProfileId: str | None
-    OpeningHours: OpeningHours | None
+    id: int  # "storeId"
+    marketingName: str | None
+    address: Address | None
+    phone: str | None
+    coordinates: Coordinate | None
+    webURL: str | None
+    openingHours: OpeningHours | None
 
 
-class OfferArticle(TypedDict):
-    EanId: str | None
-    ArticleDescription: str | None
+class IcaArticleCategory(TypedDict):
+    articleGroupName: str | None
+    articleGroupId: int | None
+    expandedArticleGroupName: str | None
+    expandedArticleGroupId: int | None
 
 
+class ArticleOfferEan(TypedDict):
+    id: str | None  # "eanId"
+    articleDescription: str | None
+    imageUrl: str | None
+
+
+class ArticleOfferStore(TypedDict):
+    id: str | None  # "storeId"
+    referencePriceText: str | None
+    isValidInStore: bool | None
+    isValidOnline: bool | None
+
+
+class IcaOfferMechanics(TypedDict):
+    type: str | None  # Example "Standard"
+    quantity: float | None
+    unitSign: str | None
+    value1: str | None
+    value2: str | None
+    value3: str | None
+    value4: str | None
+
+
+class IcaStoreOffer(TypedDict):
+    id: str | None  # "OfferId"
+    category: IcaArticleCategory | None
+    name: str | None  # "ArticleName / OfferName"
+    brand: str | None
+    packageInformation: str | None
+    condition: str | None
+    restriction: str | None
+    referencePriceText: str | None
+    isSelfScan: bool | None
+    isPersonal: bool | None
+    isUsed: bool | None
+    isValidInStore: bool | None
+    isValidOnline: bool | None
+    validFrom: str | None
+    validTo: str | None
+    requiresLoyaltyCard: bool | None
+    pictureUrl: str | None
+    listImageUrl: str | None
+    isProfileHighlight: bool | None
+    isStoreHighlight: bool | None
+    parsedMechanics: IcaOfferMechanics | None
+
+
+class IcaArticleOffer(TypedDict):
+    id: str | None  # "OfferId"
+    category: IcaArticleCategory | None
+    name: str | None  # "ArticleName / OfferName"
+    brand: str | None
+    packageInformation: str | None
+    customerInformation: str | None
+    condition: str | None
+    disclaimer: str | None
+    restriction: str | None
+    referenceInfo: str | None
+    isSelfScan: bool | None
+    isPersonal: bool | None
+    isUsed: bool | None
+    eans: list[ArticleOfferEan] | None
+    stores: list[ArticleOfferStore] | None
+    validFrom: str | None
+    validTo: str | None
+    requiresLoyaltyCard: bool | None
+    pictureUrl: str | None
+    mediumImageUrl: str | None
+    largeImageUrl: str | None
+    parsedMechanics: IcaOfferMechanics | None
+
+
+class IcaBaseItem(TypedDict):
+    id: str  # "offlineId"
+    text: str  # Freetext or ArticleName
+    articleId: int | None
+    articleGroupId: int | None
+    articleGroupIdExtended: int | None
+    articleEan: str | None
+    sortOrder: int | None
+
+
+# obsolete?
 class IcaOffer(TypedDict):
-    OfferId: str | None
+    # OfferId: str | None
+    id: str | None  # "OfferId"
     StoreId: int | None
     StoreIds: list[int] | None
     ArticleGroupId: int | None
@@ -104,33 +255,54 @@ class IcaOffer(TypedDict):
     LoadedOnCard: bool
     OfferUsed: bool
     Expired: bool
-    Articles: list[OfferArticle] | None
+    # Articles: list[OfferArticle] | None
+
+
+class OffersAndDiscountsForStore(TypedDict):
+    discounts: list | None
+    offers: list[IcaStoreOffer] | None
+
+
+class IcaShoppingListEntryRecipeRef(TypedDict):
+    id: int  # "recipeId"
+    quantity: float
+    unit: str
 
 
 class IcaShoppingListEntry(TypedDict):
-    RowId: int | None
-    ProductName: str | None
-    Quantity: float | None
-    SourceId: int | None
-    IsStrikedOver: bool
-    InternalOrder: int | None
-    ArticleGroupId: int | None
-    ArticleGroupIdExtended: int | None
-    LatestChange: str | None
-    OfflineId: str | None
-    IsSmartItem: bool
+    id: int | None  # "RowId"
+    offlineId: str | None
+    productName: str
+    quantity: float | None
+    unit: str | None
+    recipes: list[IcaShoppingListEntryRecipeRef] | None
+    recipeId: str | None
+    isStrikedOver: bool
+    internalOrder: int | None
+    articleGroupId: int | None
+    articleGroupIdExtended: int | None
+    latestChange: str | None
+    sourceId: int | None
+    isSmartItem: bool | None
 
 
 class IcaShoppingList(TypedDict):
-    Id: int | None
-    Title: str | None
-    CommentText: str | None
-    SortingStore: int | None
-    Rows: list[IcaShoppingListEntry] | None
-    LatestChange: str | None
-    OfflineId: str | None
-    IsPrivate: bool | None
-    IsSmartList: bool | None
+    id: int | None
+    offlineId: str | None
+    title: str | None
+    commentText: str | None
+    sortingStore: int | None
+    rows: list[IcaShoppingListEntry]
+    latestChange: str | None
+    isPrivate: bool | None
+    isSmartList: bool | None
+
+
+class IcaShoppingListSync(TypedDict):
+    changedShoppingListProperties: dict[str, any] | None
+    createdRows: list[IcaShoppingListEntry] | None
+    changedRows: list[IcaShoppingListEntry] | None
+    deletedRows: list[IcaShoppingListEntry] | None
 
 
 class IcaProductCategory(TypedDict):
@@ -138,6 +310,24 @@ class IcaProductCategory(TypedDict):
     Name: str | None
     ParentId: int | None
     LastSyncDate: str | None
+
+
+class IcaArticle(TypedDict):
+    id: int
+    name: str
+    pluralName: str | None
+    parentId: int | None
+    parentIdExtended: int | None
+    status: int | None
+    latestChange: str | None
+    maxiFormatCategoryId: str | None
+    maxiFormatCategoryName: str | None
+    kvantumFormatCategoryId: str | None
+    kvantumFormatCategoryName: str | None
+    supermarketFormatCategoryId: str | None
+    supermarketFormatCategoryName: str | None
+    naraFormatCategoryId: str | None
+    naraFormatCategoryName: str | None
 
 
 class IcaCommonArticle(TypedDict):

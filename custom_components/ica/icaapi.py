@@ -15,7 +15,18 @@ from .const import (
     MY_COMMON_ARTICLES_ENDPOINT,
     API,
 )
-from .icatypes import IcaStore, IcaOffer, IcaShoppingList, IcaProductCategory, IcaRecipe
+from .icatypes import (
+    IcaAccountCurrentBonus,
+    IcaArticle,
+    IcaArticleOffer,
+    IcaBaseItem,
+    IcaShoppingListSync,
+    IcaStore,
+    IcaShoppingList,
+    IcaProductCategory,
+    IcaRecipe,
+    OffersAndDiscountsForStore,
+)
 from .icatypes import AuthCredentials, AuthState
 from .authenticator import IcaAuthenticator
 
@@ -77,14 +88,13 @@ class IcaAPI:
         url = str.format(get_rest_url(MY_LIST_ENDPOINT), list_id)
         return get(self._session, url, self._auth_key)
 
-    def get_baseitems(self):
+    def get_baseitems(self) -> list[IcaBaseItem]:
         url = get_rest_url(API.URLs.MY_BASEITEMS_ENDPOINT)
         return get(self._session, url, self._auth_key)
 
-    def sync_baseitems(self, items: list):
+    def sync_baseitems(self, items: list[IcaBaseItem]) -> list[IcaBaseItem]:
         url = get_rest_url(API.URLs.SYNC_MY_BASEITEMS_ENDPOINT)
-        j = items
-        return post(self._session, url, self._auth_key, json_data=j)
+        return post(self._session, url, self._auth_key, json_data=items)
 
     def lookup_barcode(self, identifier: str):
         url = str.format(
@@ -92,7 +102,7 @@ class IcaAPI:
         )
         return get(self._session, url, self._auth_key)
 
-    def get_articles(self):
+    def get_articles(self) -> list[IcaArticle]:
         url = get_rest_url(API.URLs.ARTICLES_ENDPOINT)
         data = get(self._session, url, self._auth_key)
         return data["articles"] if data and "articles" in data else None
@@ -113,25 +123,25 @@ class IcaAPI:
             fav_products["commonArticles"] if "commonArticles" in fav_products else None
         )
 
-    def get_offers_for_store(self, store_id: int) -> list[IcaOffer]:
+    def get_offers_for_store(self, store_id: int) -> OffersAndDiscountsForStore:
         url = str.format(get_rest_url(STORE_OFFERS_ENDPOINT), store_id)
         return get(self._session, url, self._auth_key)
 
-    def get_offers(self, store_ids: list[int]) -> list[IcaOffer]:
+    def get_offers(self, store_ids: list[int]) -> dict[str, OffersAndDiscountsForStore]:
         all_store_offers = {
-            store_id: self.get_offers_for_store(store_id) for store_id in store_ids
+            str(store_id): self.get_offers_for_store(store_id) for store_id in store_ids
         }
         _LOGGER.info("Fetched offers for stores: %s", store_ids)
         return all_store_offers
 
     def search_offers(
         self, store_ids: list[int], offer_ids: list[str]
-    ) -> list[IcaOffer]:
+    ) -> list[IcaArticleOffer]:
         url = get_rest_url(API.URLs.OFFERS_SEARCH_ENDPOINT)
         j = {"offerIds": offer_ids, "storeIds": store_ids}
         return post(self._session, url, self._auth_key, json_data=j)
 
-    def get_current_bonus(self):
+    def get_current_bonus(self) -> IcaAccountCurrentBonus:
         url = get_rest_url(MY_BONUS_ENDPOINT)
         return get(self._session, url, self._auth_key)
 
@@ -153,14 +163,14 @@ class IcaAPI:
         return get(self._session, url, self._auth_key)
 
     def create_shopping_list(
-        self, offline_id: int, title: str, comment: str, storeSorting: bool = True
+        self, offline_id: int, title: str, comment: str, store_sorting: bool = True
     ) -> IcaShoppingList:
         url = get_rest_url(MY_LISTS_ENDPOINT)
         data = {
             "offlineId": str(offline_id),
             "title": title,
             "commentText": comment,
-            "sortingStore": 1 if storeSorting else 0,
+            "sortingStore": 1 if store_sorting else 0,
             "rows": [],
             "latestChange": f"{datetime.utcnow().replace(microsecond=0).isoformat()}Z",
         }
@@ -168,7 +178,7 @@ class IcaAPI:
         # list_id = response["id"]
         return self.get_shopping_list(offline_id)
 
-    def sync_shopping_list(self, data: IcaShoppingList):
+    def sync_shopping_list(self, data: IcaShoppingListSync) -> IcaShoppingList:
         url = str.format(get_rest_url(MY_LIST_SYNC_ENDPOINT), data["offlineId"])
         # new_rows = [x for x in data["rows"] if "sourceId" in x and x["sourceId"] == -1]
         # data = {"changedRows": new_rows}

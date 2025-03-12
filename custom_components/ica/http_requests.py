@@ -55,7 +55,7 @@ def post(
     url: str,
     auth_key: str | None = None,
     data: Dict[str, Any] | None = None,
-    json_data: str | None = None,
+    json_data: Any | None = None,
 ):
     request_id = data.pop("request_id", None) if data else None
 

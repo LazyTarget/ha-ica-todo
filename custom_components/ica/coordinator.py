@@ -12,11 +12,17 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .icaapi_async import IcaAPIAsync
 from .icatypes import (
+    IcaAccountCurrentBonus,
+    IcaArticle,
+    IcaArticleOffer,
+    IcaBaseItem,
     IcaStore,
     IcaProductCategory,
     IcaRecipe,
     IcaShoppingListEntry,
     IcaShoppingList,
+    IcaStoreOffer,
+    OffersAndDiscountsForStore,
 )
 from .caching import CacheEntry
 from .const import DOMAIN, CONF_ICA_ID, CONF_SHOPPING_LISTS, CACHING_SECONDS_SHORT_TERM
@@ -41,7 +47,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         super().__init__(hass, logger, name="ICA", update_interval=update_interval)
         self.SCAN_INTERVAL = update_interval
         self._config_entry = config_entry
-        self.api = api
+        self.api: IcaAPIAsync = api
         self._hass = hass
         self._nRecipes: int = nRecipes
         self._stores: list[IcaStore] | None = None
@@ -51,32 +57,34 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
         config_entry_key = self._config_entry.data[CONF_ICA_ID]
 
-        self._ica_articles = CacheEntry(
+        self._ica_articles = CacheEntry[list[IcaArticle]](
             hass, "articles", partial(self.api.get_articles)
         )
-        self._ica_baseitems = CacheEntry(
+        self._ica_baseitems = CacheEntry[list[IcaBaseItem]](
             hass, f"{config_entry_key}.baseitems", partial(self.api.get_baseitems)
         )
-        self._ica_current_bonus = CacheEntry(
+        self._ica_current_bonus = CacheEntry[IcaAccountCurrentBonus](
             hass, f"{config_entry_key}.current_bonus", partial(self._get_current_bonus)
         )
-        self._ica_favorite_stores = CacheEntry(
+        self._ica_favorite_stores = CacheEntry[list[IcaStore]](
             hass,
             f"{config_entry_key}.favorite_stores",
             partial(self.api.get_favorite_stores),
         )
-        self._ica_shopping_lists = CacheEntry(
+        self._ica_shopping_lists = CacheEntry[list[IcaShoppingList]](
             hass,
             f"{config_entry_key}.shopping_lists",
             partial(self.async_get_shopping_lists),
             expiry_seconds=CACHING_SECONDS_SHORT_TERM,
         )
-        self._ica_favorite_stores_offers = CacheEntry(
+        self._ica_favorite_stores_offers = CacheEntry[
+            dict[str, OffersAndDiscountsForStore]
+        ](
             hass,
             f"{config_entry_key}.favorite_stores_offers",
             partial(self._get_offers),
         )
-        self._ica_favorite_stores_offers_full = CacheEntry(
+        self._ica_favorite_stores_offers_full = CacheEntry[list[IcaArticleOffer]](
             hass,
             f"{config_entry_key}.favorite_stores_offers_full",
             partial(self._search_offers),
@@ -162,7 +170,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         _LOGGER.info("Parsed info from '%s' to %s", summary, ti)
         return ti
 
-    def get_offer_info(self, offerId):
+    def get_offer_info(self, offerId) -> IcaStoreOffer:
         offers_per_store = self._ica_favorite_stores_offers.current_value()
         if not offers_per_store:
             return None
@@ -173,7 +181,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 return matches[0]
         return None
 
-    def get_offer_info_full(self, offerId):
+    def get_offer_info_full(self, offerId) -> IcaArticleOffer:
         if offers := self._ica_favorite_stores_offers_full.current_value():
             return (
                 matches[0]

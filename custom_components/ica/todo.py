@@ -168,12 +168,14 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
             )
 
         super().__init__(coordinator=coordinator)
+        # sourcery skip: remove-redundant-condition, swap-if-expression
+        self.coordinator = coordinator if not self.coordinator else coordinator
         self._config_entry = config_entry
         self._project_id = shopping_list_id
         self._attr_unique_id = f"{config_entry.entry_id}-{shopping_list_id}"
         self._attr_name = shopping_list_name
-        # self._attr_icon = "icon.png"
         self._attr_icon = "mdi:cart"
+        self._attr_todo_items: list[TodoItem] | None = None
 
     @property
     def name(self):
@@ -184,7 +186,6 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         """Handle updated data from the coordinator."""
         items = []
         if shopping_list := self.coordinator.get_shopping_list(self._project_id):
-            self._project_name = shopping_list["title"]
             for task in shopping_list["rows"]:
                 if task.get("offerId", None):
                     offer = self.coordinator.get_offer_info(task["offerId"])
@@ -209,7 +210,6 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                         due=due,
                     )
                 )
-            _LOGGER.debug("%s ITEMS: %s", self._project_name, items)
         self._attr_todo_items = items
         super()._handle_coordinator_update()
 
