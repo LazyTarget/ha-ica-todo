@@ -48,48 +48,123 @@ class AuthState(TypedDict):
 
 
 class Address(TypedDict):
-    Street: str | None
-    Zip: str | None
-    City: str | None
+    street: str | None
+    zip: str | None
+    city: str | None
 
 
 class Coordinate(TypedDict):
-    Latitude: float | None
-    Longitude: float | None
+    latitude: float | None
+    longitude: float | None
 
 
 class DayOpeningHours(TypedDict):
-    Title: str | None
-    Hours: str | None
+    title: str | None
+    hours: str | None
 
 
 class OpeningHours(TypedDict):
-    Today: str | None
-    RegularHours: list[DayOpeningHours] | None
-    SpecialHours: list[DayOpeningHours] | None
-    OtherOpeningHours: list[DayOpeningHours] | None
+    today: str | None
+    regularHours: list[DayOpeningHours] | None
+    specialHours: list[DayOpeningHours] | None
+    departmentHours: list[DayOpeningHours] | None
+    serviceOpeningHours: list[DayOpeningHours] | None
 
 
 class IcaStore(TypedDict):
-    Id: int | None
-    MarketingName: str | None
-    Address: Address | None
-    Phone: str | None
-    Coordinates: Coordinate | None
-    WebURL: str | None
-    FacebookUrl: str | None
-    FilterItems: list[int] | None
-    ProfileId: str | None
-    OpeningHours: OpeningHours | None
+    id: int
+    marketingName: str | None
+    address: Address | None
+    phone: str | None
+    coordinates: Coordinate | None
+    webURL: str | None
+    openingHours: OpeningHours | None
 
 
-class OfferArticle(TypedDict):
-    EanId: str | None
-    ArticleDescription: str | None
+class IcaArticleCategory(TypedDict):
+    articleGroupName: str | None
+    articleGroupId: int | None
+    expandedArticleGroupName: str | None
+    expandedArticleGroupId: int | None
 
 
+class ArticleOfferEan(TypedDict):
+    id: str | None # "eanId"
+    articleDescription: str | None
+    imageUrl: str | None
+
+
+class ArticleOfferStore(TypedDict):
+    id: str | None # "storeId"
+    referencePriceText: str | None
+    isValidInStore: bool | None
+    isValidOnline: bool | None
+
+
+class IcaOfferMechanics(TypedDict):
+    type: str | None  # Example "Standard"
+    quantity: float | None
+    unitSign: str | None
+    value1: str | None
+    value2: str | None
+    value3: str | None
+    value4: str | None
+
+
+class IcaStoreOffer(TypedDict):
+    id: str | None # "OfferId"
+    category: IcaArticleCategory | None
+    name: str | None # "ArticleName / OfferName"
+    brand: str | None
+    packageInformation: str | None
+    condition: str | None
+    restriction: str | None
+    refrencePriceText: str | None
+    isSelfScan: bool | None
+    isPersonal: bool | None
+    isUsed: bool | None
+    isValidInStore: bool | None
+    isValidOnline: bool | None
+    validFrom: str | None
+    validTo: str | None
+    requiresLoyaltyCard: bool | None
+    pictureUrl: str | None
+    listImageUrl: str | None
+    isProfileHighlight: bool | None
+    isStoreHighlight: bool | None
+    parsedMechanics: IcaOfferMechanics | None
+
+
+class IcaArticleOffer(TypedDict):
+    id: str | None # "OfferId"
+    category: IcaArticleCategory | None
+    name: str | None # "ArticleName / OfferName"
+    brand: str | None
+    packageInformation: str | None
+    customerInformation: str | None
+    condition: str | None
+    disclaimer: str | None
+    restriction: str | None
+    referenceInfo: str | None
+    isSelfScan: bool | None
+    isPersonal: bool | None
+    isUsed: bool | None
+    eans: list[ArticleOfferEan] | None
+    stores: list[ArticleOfferStore] | None
+    validFrom: str | None
+    validTo: str | None
+    requiresLoyaltyCard: bool | None
+    pictureUrl: str | None
+    mediumImageUrl: str | None
+    largeImageUrl: str | None
+    parsedMechanics: IcaOfferMechanics | None
+    
+
+
+# obsolete?
 class IcaOffer(TypedDict):
-    OfferId: str | None
+    # OfferId: str | None
+    id: str | None # "OfferId"
     StoreId: int | None
     StoreIds: list[int] | None
     ArticleGroupId: int | None
@@ -104,14 +179,23 @@ class IcaOffer(TypedDict):
     LoadedOnCard: bool
     OfferUsed: bool
     Expired: bool
-    Articles: list[OfferArticle] | None
+    #Articles: list[OfferArticle] | None
+
+
+class IcaShoppingListEntryRecipeRef(TypedDict):
+    id: int # "recipeId"
+    quantity: float
+    unit: str
 
 
 class IcaShoppingListEntry(TypedDict):
-    id: int | None # RowId
+    id: int | None # "RowId"
     offlineId: str | None
     productName: str
     quantity: float | None
+    unit: str | None
+    recipes: list[IcaShoppingListEntryRecipeRef] | None
+    recipeId: str | None
     isStrikedOver: bool
     internalOrder: int | None
     articleGroupId: int | None
@@ -122,15 +206,15 @@ class IcaShoppingListEntry(TypedDict):
 
 
 class IcaShoppingList(TypedDict):
-    Id: int | None
-    Title: str | None
-    CommentText: str | None
-    SortingStore: int | None
-    Rows: list[IcaShoppingListEntry] | None
-    LatestChange: str | None
-    OfflineId: str | None
-    IsPrivate: bool | None
-    IsSmartList: bool | None
+    id: int | None
+    offlineId: str | None
+    title: str | None
+    commentText: str | None
+    sortingStore: int | None
+    rows: list[IcaShoppingListEntry]
+    latestChange: str | None
+    isPrivate: bool | None
+    isSmartList: bool | None
 
 
 class IcaProductCategory(TypedDict):
