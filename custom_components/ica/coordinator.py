@@ -115,6 +115,9 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             await self._ica_shopping_lists.get_value(invalidate_cache) or []
         )
         for x in filter(lambda x: x["offlineId"] == list_id, selected_lists):
+            if invalidate_cache:
+                # Manually updated the ShoppingList data (not a full refresh), inform listeners...
+                self.async_update_listeners()
             return x
         return None
 

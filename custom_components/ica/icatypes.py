@@ -299,6 +299,7 @@ class IcaShoppingList(TypedDict):
 
 
 class IcaShoppingListSync(TypedDict):
+    offlineId: str  # offlineId of the ShoppingList
     changedShoppingListProperties: dict[str, any] | None
     createdRows: list[IcaShoppingListEntry] | None
     changedRows: list[IcaShoppingListEntry] | None
