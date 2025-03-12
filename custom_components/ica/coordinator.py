@@ -81,7 +81,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._ica_shopping_lists = CacheEntry[list[IcaShoppingList]](
             hass,
             f"{config_entry_key}.shopping_lists",
-            partial(self.async_get_shopping_lists),
+            partial(self._async_update_tracked_shopping_lists),
             expiry_seconds=CACHING_SECONDS_SHORT_TERM,
         )
         self._ica_favorite_stores_offers = CacheEntry[
@@ -97,7 +97,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             partial(self._search_offers),
         )
 
-    async def _get_shopping_lists(self) -> list[IcaShoppingList]:
+    async def _get_tracked_shopping_lists(self) -> list[IcaShoppingList]:
         api_data = await self.api.get_shopping_lists()
         if "shoppingLists" in api_data:
             y = api_data["shoppingLists"]
@@ -118,15 +118,21 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     async def async_get_shopping_list(
         self, list_id, invalidate_cache: bool = False
     ) -> IcaShoppingList:
+        selected_lists = await self.async_get_shopping_lists(invalidate_cache) or []
+        for x in filter(lambda x: x["offlineId"] == list_id, selected_lists):
+            return x
+        return None
+
+    async def async_get_shopping_lists(
+        self, invalidate_cache: bool = False
+    ) -> list[IcaShoppingList]:
         selected_lists = (
             await self._ica_shopping_lists.get_value(invalidate_cache) or []
         )
-        for x in filter(lambda x: x["offlineId"] == list_id, selected_lists):
-            if invalidate_cache:
-                # Manually updated the ShoppingList data (not a full refresh), inform listeners...
-                self.async_update_listeners()
-            return x
-        return None
+        if invalidate_cache:
+            # Updated Shopping list cache outside of regular `_async_update_data-loop`, inform listeners...
+            self.async_update_listeners()
+        return selected_lists
 
     def get_article_group(self, product_name) -> int:
         articles = self._ica_articles.current_value() or []
@@ -292,12 +298,14 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             _LOGGER.fatal("Exception when getting data. Err: %s", err)
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
-    async def async_get_shopping_lists(self) -> list[IcaShoppingList]:
+    async def _async_update_tracked_shopping_lists(self) -> list[IcaShoppingList]:
         """Return ICA shopping lists fetched at most once."""
 
         current = self._ica_shopping_lists.current_value() or []
         # updated = await self._ica_shopping_lists.get_value(invalidate_cache=refresh)
-        updated = await self._get_shopping_lists()
+        updated = await self._get_tracked_shopping_lists()
+        if not updated:
+            raise ValueError("Failed to get a valid shopping list from the API")
 
         # self._hass.bus.async_fire(
         #     f"{DOMAIN}_event",
