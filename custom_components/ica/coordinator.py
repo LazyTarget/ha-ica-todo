@@ -216,8 +216,10 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         offer_ids = []
 
         for store_id in offers_per_store:
-            if store_id not in [12226, 12045]:
+            if store_id in ["12226", "12045"]:
                 # Limit to these 2 for now...
+                # todo: remove / or set as config
+                _LOGGER.warning("Ignoring offers from store: %s", store_id)
                 continue
             store = offers_per_store[store_id]
             oids = [
@@ -229,7 +231,14 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         # _LOGGER.warning("StoreIds: %s :: %s", type(store_ids), store_ids)
         # _LOGGER.warning("OfferIds: %s :: %s", type(offer_ids), offer_ids)
 
+        if not offer_ids:
+            _LOGGER.warning("No offers to lookup, then avoid querying API")
+            return []
+
         full_offers = await self.api.search_offers(store_ids, offer_ids)
+        if not full_offers:
+            _LOGGER.warning("No existing offers found. Is this true??")
+            return []
 
         # # Fire event(s)
         # self._hass.bus.async_fire(
