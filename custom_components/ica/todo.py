@@ -168,7 +168,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
             )
 
         super().__init__(coordinator=coordinator)
-# sourcery skip: remove-redundant-condition, swap-if-expression
+        # sourcery skip: remove-redundant-condition, swap-if-expression
         self.coordinator = coordinator if not self.coordinator else coordinator
         self._config_entry = config_entry
         self._project_id = shopping_list_id
