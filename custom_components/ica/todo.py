@@ -369,6 +369,13 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
 
     async def async_delete_todo_items(self, uids: list[str]) -> None:
         """Delete a To-do item."""
+        sync = IcaShoppingListSync(
+            offlineId=self._project_id,
+            deletedRows=uids,
+        )
+        await self.coordinator.sync_shopping_list(sync)
+        return None
+
         # await asyncio.gather(
         #     *[self.coordinator.api.remove_from_list(task_id=uid) for uid in uids]
         # )
