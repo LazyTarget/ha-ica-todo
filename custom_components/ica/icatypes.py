@@ -47,6 +47,73 @@ class AuthState(TypedDict):
     user: JwtUserInfo | None
 
 
+class IcaBonusLevel(TypedDict):
+    levelId: int
+    pointValueFrom: int
+    pointValueTom: int
+    voucherValue: int
+
+
+class IcaVoucher(TypedDict):
+    title: str | None
+    subTite: str | None
+    description: str | None
+    reedemedDate: str | None  # Only for used
+    voucherCode: str | None  # example ["Monthly"]
+    voucherType: str | None  # example ["Common"]
+    sender: str | None  # example ["MonthlyBatch"]
+    voucherAmount: int | None
+
+
+class IcaVoucherList(TypedDict):
+    active: list[IcaVoucher] | None
+    used: list[IcaVoucher] | None
+
+
+class IcaBalanceDetail(TypedDict):
+    balanceDescription: str | None
+    pointValue: int
+    voucherValue: int
+    sender: str | None
+
+
+class IcaBalanceGroup(TypedDict):
+    balanceCode: int | None
+    balanceDescription: str | None
+    pointValue: int
+    voucherValue: int
+    detailedBalances: list[IcaBalanceDetail] | None
+
+
+class IcaAccountBalance(TypedDict):
+    showPreliminaryBonus: bool | None
+    preliminaryBonusText: str | None
+    voucherMonth: str | None
+    loyaltyMonth: str | None
+    totalVoucherValue: int | None
+    nextVoucherValue: int | None
+    remainingPointsIncludingBoost: int | None
+    remainingDays: int | None
+    title: str | None
+    groupedBalances: list[IcaBalanceGroup] | None
+
+
+class IcaDiscountSummary(TypedDict):
+    totalDiscount: int
+    numberOfPurchases: int
+
+
+class IcaAccountCurrentBonus(TypedDict):
+    stammisBoostPreamble: str | None
+    stammisBoostText: str | None
+    stammisBoostBonusLevelText: str | None
+    bonusLevels: list[IcaBonusLevel] | None
+    vouchers: list[IcaVoucherList] | None
+    accountBalance: IcaAccountBalance | None
+    discountSummary: IcaDiscountSummary | None
+    errorFetchingDiscount: bool | None
+
+
 class Address(TypedDict):
     street: str | None
     zip: str | None

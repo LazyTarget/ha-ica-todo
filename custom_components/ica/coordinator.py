@@ -12,6 +12,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .icaapi_async import IcaAPIAsync
 from .icatypes import (
+    IcaAccountCurrentBonus,
     IcaArticleOffer,
     IcaStore,
     IcaProductCategory,
@@ -60,7 +61,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._ica_baseitems = CacheEntry(
             hass, f"{config_entry_key}.baseitems", partial(self.api.get_baseitems)
         )
-        self._ica_current_bonus = CacheEntry(
+        self._ica_current_bonus = CacheEntry[IcaAccountCurrentBonus](
             hass, f"{config_entry_key}.current_bonus", partial(self._get_current_bonus)
         )
         self._ica_favorite_stores = CacheEntry[list[IcaStore]](

@@ -16,6 +16,7 @@ from .const import (
     API,
 )
 from .icatypes import (
+    IcaAccountCurrentBonus,
     IcaArticleOffer,
     IcaBaseItem,
     IcaShoppingListSync,
@@ -140,7 +141,7 @@ class IcaAPI:
         j = {"offerIds": offer_ids, "storeIds": store_ids}
         return post(self._session, url, self._auth_key, json_data=j)
 
-    def get_current_bonus(self):
+    def get_current_bonus(self) -> IcaAccountCurrentBonus:
         url = get_rest_url(MY_BONUS_ENDPOINT)
         return get(self._session, url, self._auth_key)
 
