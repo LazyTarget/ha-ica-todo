@@ -94,8 +94,7 @@ class IcaAPI:
 
     def sync_baseitems(self, items: list[IcaBaseItem]) -> list[IcaBaseItem]:
         url = get_rest_url(API.URLs.SYNC_MY_BASEITEMS_ENDPOINT)
-        j = items
-        return post(self._session, url, self._auth_key, json_data=j)
+        return post(self._session, url, self._auth_key, json_data=items)
 
     def lookup_barcode(self, identifier: str):
         url = str.format(
