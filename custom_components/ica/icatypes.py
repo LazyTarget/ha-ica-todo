@@ -58,7 +58,7 @@ class IcaVoucher(TypedDict):
     title: str | None
     subTite: str | None
     description: str | None
-    reedemedDate: str | None  # Only for used
+    redeemedDate: str | None  # Only for used
     voucherCode: str | None  # example ["Monthly"]
     voucherType: str | None  # example ["Common"]
     sender: str | None  # example ["MonthlyBatch"]
@@ -186,7 +186,7 @@ class IcaStoreOffer(TypedDict):
     packageInformation: str | None
     condition: str | None
     restriction: str | None
-    refrencePriceText: str | None
+    referencePriceText: str | None
     isSelfScan: bool | None
     isPersonal: bool | None
     isUsed: bool | None
