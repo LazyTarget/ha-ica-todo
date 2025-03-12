@@ -33,6 +33,9 @@ def get(
     auth_key: str | None = None,
     params: Dict[str, Any] | None = None,
 ):
+    _LOGGER.info(
+        "HTTP [GET] Req: %s%s", url, f" | Params: {str(params)}" if params else ""
+    )
     response = session.get(
         url, params=params, headers=create_headers(auth_key=auth_key)
     )
@@ -63,6 +66,7 @@ def post(
         auth_key=auth_key, with_content=bool(data), request_id=request_id
     )
 
+    _LOGGER.info("HTTP [POST] Req: %s", url)
     response = session.post(
         url,
         headers=headers,
@@ -93,6 +97,7 @@ def delete(
 
     headers = create_headers(auth_key=auth_key, request_id=request_id)
 
+    _LOGGER.info("HTTP [DELETE] Req: %s", url)
     response = session.delete(
         url,
         headers=headers,

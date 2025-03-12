@@ -273,7 +273,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
             # Get user specific data
             await self._ica_current_bonus.get_value(invalidate_cache=refresh)
-            await self._ica_shopping_lists.get_value(invalidate_cache=True)
+            await self._ica_shopping_lists.get_value(invalidate_cache=refresh)
 
             # Get store offers
             await self._ica_favorite_stores.get_value(invalidate_cache=refresh)

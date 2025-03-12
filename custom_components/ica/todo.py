@@ -289,23 +289,41 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         """Create a To-do item."""
         if item.status != TodoItemStatus.NEEDS_ACTION:
             raise ValueError("Only active tasks may be created.")
-        # shopping_list = self.coordinator.get_shopping_list(self._project_id)
-        shopping_list = await self.coordinator.async_get_shopping_list(
-            self._project_id, invalidate_cache=True
-        )
+
+        # # shopping_list = self.coordinator.get_shopping_list(self._project_id)
+        # shopping_list = await self.coordinator.async_get_shopping_list(
+        #     self._project_id, invalidate_cache=True
+        # )
 
         ti = self.coordinator.parse_summary(item.summary)
         ti["sourceId"] = -1
         ti["isStrikedOver"] = False
-        if "createdRows" not in shopping_list:
-            shopping_list["createdRows"] = []
-        shopping_list["createdRows"].append(ti)
+        ti["offlineId"] = str(uuid.uuid4())
+        # if "createdRows" not in shopping_list:
+        #     shopping_list["createdRows"] = []
+        # shopping_list["createdRows"].append(ti)
 
-        shopping_list["latestChange"] = (
+        sync = IcaShoppingListSync(
+            offlineId=self._project_id,
+            createdRows=[
+                # IcaShoppingListEntry(
+                #     offlineId=item.uid,
+                #     productName=item.summary,
+                #     isStrikedOver=item.status == TodoItemStatus.COMPLETED,
+                #     **ti
+                # )
+                IcaShoppingListEntry(ti)
+            ],
+        )
+        sync["latestChange"] = (
             f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
         )
-        await self.coordinator.api.sync_shopping_list(shopping_list)
-        await self.coordinator.async_refresh()
+        _LOGGER.warning("SYNC: %s", sync)
+        await self.coordinator.api.sync_shopping_list(sync)
+        # await self.coordinator.async_refresh()
+        await self.coordinator.async_get_shopping_list(
+            self._project_id, True
+        )  # Instead of `async_refresh`, this only refreshes Shopping Lists...
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
         """Update a To-do item."""
@@ -335,11 +353,15 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         #     }
         # )
 
+        sync["latestChange"] = (
+            f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
+        )
+        _LOGGER.warning("SYNC: %s", sync)
         await self.coordinator.api.sync_shopping_list(sync)
         # await self.coordinator.async_refresh()
         await self.coordinator.async_get_shopping_list(
             self._project_id, True
-        )  # Only refreshes Shopping Lists
+        )  # Instead of `async_refresh`, this only refreshes Shopping Lists...
 
     async def async_delete_todo_items(self, uids: list[str]) -> None:
         """Delete a To-do item."""
