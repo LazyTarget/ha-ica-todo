@@ -5,6 +5,7 @@ from .icatypes import (
     IcaArticleOffer,
     IcaBaseItem,
     IcaShoppingList,
+    IcaShoppingListSync,
     IcaStore,
     IcaProductCategory,
     IcaRecipe,
@@ -27,7 +28,7 @@ class IcaAPIAsync:
         self._credentials = credentials
         self._auth_state = auth_state
         self._api = None
-    
+
     def _init_api(self):
         return IcaAPI(self._credentials, self._auth_state)
 
@@ -121,17 +122,17 @@ class IcaAPIAsync:
         return await run_async(lambda: self._api.get_random_recipes(nRecipes))
 
     async def create_shopping_list(
-        self, offline_id: int, title: str, comment: str, storeSorting: bool = True
+        self, offline_id: int, title: str, comment: str, store_sorting: bool = True
     ):
         if not self._api:
             self._api = self._init_api()
         return await run_async(
             lambda: self._api.create_shopping_list(
-                offline_id, title, comment, storeSorting
+                offline_id, title, comment, store_sorting
             )
         )
 
-    async def sync_shopping_list(self, data: IcaShoppingList) -> IcaShoppingList:
+    async def sync_shopping_list(self, data: IcaShoppingListSync) -> IcaShoppingList:
         if not self._api:
             self._api = self._init_api()
         return await run_async(lambda: self._api.sync_shopping_list(data))

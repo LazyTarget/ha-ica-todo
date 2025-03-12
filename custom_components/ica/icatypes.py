@@ -72,7 +72,7 @@ class OpeningHours(TypedDict):
 
 
 class IcaStore(TypedDict):
-    id: int # "storeId"
+    id: int  # "storeId"
     marketingName: str | None
     address: Address | None
     phone: str | None
@@ -161,8 +161,8 @@ class IcaArticleOffer(TypedDict):
 
 
 class IcaBaseItem(TypedDict):
-    id: str # "offlineId"
-    text: str # Freetext or ArticleName
+    id: str  # "offlineId"
+    text: str  # Freetext or ArticleName
     articleId: int | None
     articleGroupId: int | None
     articleGroupIdExtended: int | None
@@ -229,6 +229,13 @@ class IcaShoppingList(TypedDict):
     latestChange: str | None
     isPrivate: bool | None
     isSmartList: bool | None
+
+
+class IcaShoppingListSync(TypedDict):
+    changedShoppingListProperties: dict[str, any] | None
+    createdRows: list[IcaShoppingListEntry] | None
+    changedRows: list[IcaShoppingListEntry] | None
+    deletedRows: list[IcaShoppingListEntry] | None
 
 
 class IcaProductCategory(TypedDict):

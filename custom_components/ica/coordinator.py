@@ -44,7 +44,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         super().__init__(hass, logger, name="ICA", update_interval=update_interval)
         self.SCAN_INTERVAL = update_interval
         self._config_entry = config_entry
-        self.api = api
+        self.api: IcaAPIAsync = api
         self._hass = hass
         self._nRecipes: int = nRecipes
         self._stores: list[IcaStore] | None = None

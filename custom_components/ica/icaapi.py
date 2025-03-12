@@ -18,6 +18,7 @@ from .const import (
 from .icatypes import (
     IcaArticleOffer,
     IcaBaseItem,
+    IcaShoppingListSync,
     IcaStore,
     IcaShoppingList,
     IcaProductCategory,
@@ -161,14 +162,14 @@ class IcaAPI:
         return get(self._session, url, self._auth_key)
 
     def create_shopping_list(
-        self, offline_id: int, title: str, comment: str, storeSorting: bool = True
+        self, offline_id: int, title: str, comment: str, store_sorting: bool = True
     ) -> IcaShoppingList:
         url = get_rest_url(MY_LISTS_ENDPOINT)
         data = {
             "offlineId": str(offline_id),
             "title": title,
             "commentText": comment,
-            "sortingStore": 1 if storeSorting else 0,
+            "sortingStore": 1 if store_sorting else 0,
             "rows": [],
             "latestChange": f"{datetime.utcnow().replace(microsecond=0).isoformat()}Z",
         }
@@ -176,7 +177,7 @@ class IcaAPI:
         # list_id = response["id"]
         return self.get_shopping_list(offline_id)
 
-    def sync_shopping_list(self, data: IcaShoppingList):
+    def sync_shopping_list(self, data: IcaShoppingListSync) -> IcaShoppingList:
         url = str.format(get_rest_url(MY_LIST_SYNC_ENDPOINT), data["offlineId"])
         # new_rows = [x for x in data["rows"] if "sourceId" in x and x["sourceId"] == -1]
         # data = {"changedRows": new_rows}
