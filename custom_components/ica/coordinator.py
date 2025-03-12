@@ -280,14 +280,15 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         current = self._ica_shopping_lists.current_value() or []
         # updated = await self._ica_shopping_lists.get_value(invalidate_cache=refresh)
         updated = await self._get_shopping_lists()
-        self._hass.bus.async_fire(
-            f"{DOMAIN}_event",
-            {
-                "type": "shopping_lists_loaded",
-                "uid": self._config_entry.data[CONF_ICA_ID],
-                "data": updated,
-            },
-        )
+
+        # self._hass.bus.async_fire(
+        #     f"{DOMAIN}_event",
+        #     {
+        #         "type": "shopping_lists_loaded",
+        #         "uid": self._config_entry.data[CONF_ICA_ID],
+        #         "data": updated,
+        #     },
+        # )
 
         for shopping_list in updated or []:
             old_rows = next(
