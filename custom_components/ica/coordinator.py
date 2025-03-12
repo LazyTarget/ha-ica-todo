@@ -65,7 +65,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             f"{config_entry_key}.favorite_stores",
             partial(self.api.get_favorite_stores),
         )
-        self._ica_shopping_lists = CacheEntry(
+        self._ica_shopping_lists = CacheEntry[list[IcaShoppingList]](
             hass,
             f"{config_entry_key}.shopping_lists",
             partial(self.async_get_shopping_lists),

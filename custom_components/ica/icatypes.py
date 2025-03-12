@@ -108,17 +108,17 @@ class IcaOffer(TypedDict):
 
 
 class IcaShoppingListEntry(TypedDict):
-    RowId: int | None
-    ProductName: str | None
-    Quantity: float | None
-    SourceId: int | None
-    IsStrikedOver: bool
-    InternalOrder: int | None
-    ArticleGroupId: int | None
-    ArticleGroupIdExtended: int | None
-    LatestChange: str | None
-    OfflineId: str | None
-    IsSmartItem: bool
+    id: int | None # RowId
+    offlineId: str | None
+    productName: str
+    quantity: float | None
+    isStrikedOver: bool
+    internalOrder: int | None
+    articleGroupId: int | None
+    articleGroupIdExtended: int | None
+    latestChange: str | None
+    sourceId: int | None
+    isSmartItem: bool | None
 
 
 class IcaShoppingList(TypedDict):
