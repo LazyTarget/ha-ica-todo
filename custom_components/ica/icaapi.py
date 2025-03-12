@@ -17,6 +17,7 @@ from .const import (
 )
 from .icatypes import (
     IcaAccountCurrentBonus,
+    IcaArticle,
     IcaArticleOffer,
     IcaBaseItem,
     IcaShoppingListSync,
@@ -102,7 +103,7 @@ class IcaAPI:
         )
         return get(self._session, url, self._auth_key)
 
-    def get_articles(self):
+    def get_articles(self) -> list[IcaArticle]:
         url = get_rest_url(API.URLs.ARTICLES_ENDPOINT)
         data = get(self._session, url, self._auth_key)
         return data["articles"] if data and "articles" in data else None

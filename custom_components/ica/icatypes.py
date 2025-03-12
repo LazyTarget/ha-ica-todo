@@ -312,6 +312,24 @@ class IcaProductCategory(TypedDict):
     LastSyncDate: str | None
 
 
+class IcaArticle(TypedDict):
+    id: int
+    name: str
+    pluralName: str | None
+    parentId: int | None
+    parentIdExtended: int | None
+    status: int | None
+    latestChange: str | None
+    maxiFormatCategoryId: str | None
+    maxiFormatCategoryName: str | None
+    kvantumFormatCategoryId: str | None
+    kvantumFormatCategoryName: str | None
+    supermarketFormatCategoryId: str | None
+    supermarketFormatCategoryName: str | None
+    naraFormatCategoryId: str | None
+    naraFormatCategoryName: str | None
+
+
 class IcaCommonArticle(TypedDict):
     Id: int | None
     ProductName: str | None

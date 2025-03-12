@@ -3,6 +3,7 @@ import asyncio
 from .icaapi import IcaAPI
 from .icatypes import (
     IcaAccountCurrentBonus,
+    IcaArticle,
     IcaArticleOffer,
     IcaBaseItem,
     IcaShoppingList,
@@ -68,7 +69,7 @@ class IcaAPIAsync:
             self._api = self._init_api()
         return await run_async(lambda: self._api.lookup_barcode(identifier))
 
-    async def get_articles(self):
+    async def get_articles(self) -> list[IcaArticle]:
         if not self._api:
             self._api = self._init_api()
         return await run_async(lambda: self._api.get_articles())
