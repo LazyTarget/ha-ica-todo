@@ -282,8 +282,9 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         shopping_list["latestChange"] = (
             f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
         )
-        await self.coordinator.api.sync_shopping_list(shopping_list)
-        await self.coordinator.async_refresh()
+        # await self.coordinator.api.sync_shopping_list(shopping_list)
+        await self.coordinator.sync_shopping_list(shopping_list)
+        # await self.coordinator.async_refresh()    # Omitted as the Coordinator updates state as per API response
 
     async def async_create_todo_item(self, item: TodoItem) -> None:
         """Create a To-do item."""
@@ -319,11 +320,13 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
             f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
         )
         _LOGGER.warning("SYNC: %s", sync)
-        await self.coordinator.api.sync_shopping_list(sync)
+        # await self.coordinator.api.sync_shopping_list(sync)
+        await self.coordinator.sync_shopping_list(sync)
         # await self.coordinator.async_refresh()
-        await self.coordinator.async_get_shopping_list(
-            self._project_id, True
-        )  # Instead of `async_refresh`, this only refreshes Shopping Lists...
+        # await self.coordinator.async_get_shopping_list(
+        #     self._project_id, True
+        # )  # Instead of `async_refresh`, this only refreshes Shopping Lists...
+        # Omitted update as the Coordinator updates state as per API response
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
         """Update a To-do item."""
@@ -357,11 +360,12 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
             f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
         )
         _LOGGER.warning("SYNC: %s", sync)
-        await self.coordinator.api.sync_shopping_list(sync)
+        # await self.coordinator.api.sync_shopping_list(sync)
+        await self.coordinator.sync_shopping_list(sync)
         # await self.coordinator.async_refresh()
-        await self.coordinator.async_get_shopping_list(
-            self._project_id, True
-        )  # Instead of `async_refresh`, this only refreshes Shopping Lists...
+        # await self.coordinator.async_get_shopping_list(
+        #     self._project_id, True
+        # )  # Instead of `async_refresh`, this only refreshes Shopping Lists...
 
     async def async_delete_todo_items(self, uids: list[str]) -> None:
         """Delete a To-do item."""

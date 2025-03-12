@@ -16,6 +16,7 @@ from .icatypes import (
     IcaArticle,
     IcaArticleOffer,
     IcaBaseItem,
+    IcaShoppingListSync,
     IcaStore,
     IcaProductCategory,
     IcaRecipe,
@@ -25,7 +26,13 @@ from .icatypes import (
     OffersAndDiscountsForStore,
 )
 from .caching import CacheEntry
-from .const import DOMAIN, CONF_ICA_ID, CONF_SHOPPING_LISTS, CACHING_SECONDS_SHORT_TERM
+from .const import (
+    DOMAIN,
+    CONF_ICA_ID,
+    CONF_SHOPPING_LISTS,
+    CACHING_SECONDS_SHORT_TERM,
+    ConflictMode,
+)
 from .utils import get_diffs
 
 _LOGGER = logging.getLogger(__name__)
@@ -324,6 +331,49 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             )
 
         return updated
+
+    async def sync_shopping_list(
+        self,
+        sync: IcaShoppingListSync,
+        conflict_mode: ConflictMode = ConflictMode.APPEND,
+        instant_submit: bool = True,
+    ) -> IcaShoppingList:
+        """Pushes the specified changes to ICA. Might apply some conflict logic on the before. In the future changes could be batched together before being sumbmitted."""
+        # todo: Apply conflict_mode logic
+        # todo: Batch changes before submitting after X seconds
+
+        # Push sync to API
+        updated_list = await self.api.sync_shopping_list(sync)
+
+        # todo: no need to await, just queue it in background...
+        await self._dynamically_update_shopping_list_cache(updated_list)
+        return updated_list
+
+    async def _dynamically_update_shopping_list_cache(
+        self, updated_list: IcaShoppingList
+    ) -> IcaShoppingList:
+        state = self._ica_shopping_lists.current_value().copy()
+        ma = list(
+            filter(
+                lambda i: i[1]["offlineId"] == updated_list["offlineId"],
+                enumerate(state),
+            )
+        )[:1]
+        index = ma[0][0] if ma else -1
+        if index >= 0:
+            state[index] = updated_list
+            await self._ica_shopping_lists.set_value(state)
+            _LOGGER.info("Dynamically updated Shopping list cache")
+            self.async_update_listeners()
+        else:
+            # Could not dynamically update state, invoke API request to get the new state...
+            updated_list = await self.async_get_shopping_list(
+                updated_list["offlineId"], invalidate_cache=True
+            )
+            _LOGGER.warning(
+                "Could not dynamically update Shopping List cache. Updated via API instead..."
+            )
+        return updated_list
 
     async def async_get_baseitems(self):
         """Return ICA favorite items (baseitems) fetched at most once."""
