@@ -72,7 +72,7 @@ class OpeningHours(TypedDict):
 
 
 class IcaStore(TypedDict):
-    id: int
+    id: int # "storeId"
     marketingName: str | None
     address: Address | None
     phone: str | None
@@ -158,6 +158,16 @@ class IcaArticleOffer(TypedDict):
     mediumImageUrl: str | None
     largeImageUrl: str | None
     parsedMechanics: IcaOfferMechanics | None
+
+
+class IcaBaseItem(TypedDict):
+    id: str # "offlineId"
+    text: str # Freetext or ArticleName
+    articleId: int | None
+    articleGroupId: int | None
+    articleGroupIdExtended: int | None
+    articleEan: str | None
+    sortOrder: int | None
 
 
 # obsolete?

@@ -3,6 +3,7 @@ import asyncio
 from .icaapi import IcaAPI
 from .icatypes import (
     IcaArticleOffer,
+    IcaBaseItem,
     IcaShoppingList,
     IcaStore,
     IcaProductCategory,
@@ -53,14 +54,14 @@ class IcaAPIAsync:
             )
         return await run_async(lambda: self._api.get_shopping_list(list_id))
 
-    async def get_baseitems(self):
+    async def get_baseitems(self) -> list[IcaBaseItem]:
         if not self._api:
             self._api = await run_async(
                 lambda: IcaAPI(self._credentials, self._auth_state)
             )
         return await run_async(lambda: self._api.get_baseitems())
 
-    async def sync_baseitems(self, items):
+    async def sync_baseitems(self, items: list[IcaBaseItem]) -> list[IcaBaseItem]:
         if not self._api:
             self._api = await run_async(
                 lambda: IcaAPI(self._credentials, self._auth_state)

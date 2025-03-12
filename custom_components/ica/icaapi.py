@@ -17,6 +17,7 @@ from .const import (
 )
 from .icatypes import (
     IcaArticleOffer,
+    IcaBaseItem,
     IcaStore,
     IcaShoppingList,
     IcaProductCategory,
@@ -84,11 +85,11 @@ class IcaAPI:
         url = str.format(get_rest_url(MY_LIST_ENDPOINT), list_id)
         return get(self._session, url, self._auth_key)
 
-    def get_baseitems(self):
+    def get_baseitems(self) -> list[IcaBaseItem]:
         url = get_rest_url(API.URLs.MY_BASEITEMS_ENDPOINT)
         return get(self._session, url, self._auth_key)
 
-    def sync_baseitems(self, items: list):
+    def sync_baseitems(self, items: list[IcaBaseItem]) -> list[IcaBaseItem]:
         url = get_rest_url(API.URLs.SYNC_MY_BASEITEMS_ENDPOINT)
         j = items
         return post(self._session, url, self._auth_key, json_data=j)
