@@ -352,6 +352,12 @@ class IcaBaseItemListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
     def __init__(self, coordinator: IcaCoordinator, config_entry: ConfigEntry) -> None:
         """Initialize IcaBaseItemListEntity."""
         super().__init__(coordinator=coordinator)
+        if config_entry.data.get(CONF_JSON_DATA_IN_DESC, False):
+            # Allow for setting description
+            self._attr_supported_features = (
+                self._attr_supported_features
+                | TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM
+            )
         # sourcery skip: remove-redundant-condition, swap-if-expression
         self.coordinator = coordinator if not self.coordinator else coordinator
         self._config_entry = config_entry
@@ -375,7 +381,11 @@ class IcaBaseItemListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                         summary=baseitem["text"],
                         uid=baseitem["id"],
                         status=TodoItemStatus.NEEDS_ACTION,
-                        description=baseitem.get("articleEan"),
+                        description=(
+                            baseitem.get("articleEan")
+                            if self._config_entry.data.get(CONF_JSON_DATA_IN_DESC)
+                            else None
+                        ),
                     )
                 )
         self._attr_todo_items = items
@@ -401,10 +411,17 @@ class IcaBaseItemListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         if item.summary and current["text"] != item.summary:
             current["text"] = item.summary
             changes += 1
+        if item.description and current["articleEan"] != item.description:
+            current["articleEan"] = item.description
+            changes += 1
         if changes:
             await self.coordinator.sync_baseitems(sync)
         else:
-            _LOGGER.warning("No changes were made to BaseItem. Persisted: %s. Value: %s", current, item)
+            _LOGGER.warning(
+                "No changes were made to BaseItem. Persisted: %s. Value: %s",
+                current,
+                item,
+            )
 
     async def async_delete_todo_items(self, uids: list[str]) -> None:
         """Delete a To-do item."""
