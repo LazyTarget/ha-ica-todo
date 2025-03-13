@@ -112,7 +112,7 @@ def setup_global_services(hass: HomeAssistant) -> None:
                 coordinator: IcaCoordinator = (
                     config_entry.coordinator or hass.data[DOMAIN][entry_id]
                 )
-                baseitems = await coordinator.async_add_baseitem(identifier)
+                baseitems = await coordinator.async_lookup_and_add_baseitem(identifier)
                 return {"baseitems": baseitems}
             return None
 

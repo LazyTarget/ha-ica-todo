@@ -44,12 +44,17 @@ async def async_setup_entry(
     """Set up the ICA shopping list platform config entry."""
     coordinator: IcaCoordinator = hass.data[DOMAIN][entry.entry_id]
     shopping_lists: list[IcaShoppingList] = await coordinator.async_get_shopping_lists()
-    async_add_entities(
+    shopping_list_entities = [
         IcaShoppingListEntity(
-            coordinator, entry, shopping_list["offlineId"], shopping_list["title"]
+            coordinator,
+            entry,
+            shopping_list["offlineId"],
+            shopping_list["title"],
         )
         for shopping_list in shopping_lists
-    )
+    ]
+    baseitem_list_entity = IcaBaseItemListEntity(coordinator, entry)
+    async_add_entities([baseitem_list_entity, *shopping_list_entities])
     async_register_services(hass, coordinator)
 
 
@@ -317,6 +322,93 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
             deletedRows=uids,
         )
         await self.coordinator.sync_shopping_list(sync)
+
+    # async def async_move_todo_item(self, uid: str, previous_uid: str | None) -> None:
+    #     """Move a To-do item."""
+    #     # await asyncio.gather(
+    #     #     *[self.coordinator.api.remove_from_list(task_id=uid) for uid in uids]
+    #     # )
+    #     shopping_list = self.coordinator.get_shopping_list(self._project_id)
+    #     await self.coordinator.api.sync_shopping_list(shopping_list)
+    #     await self.coordinator.async_refresh()
+
+    async def async_added_to_hass(self) -> None:
+        """When entity is added to hass update state from existing coordinator data."""
+        await super().async_added_to_hass()
+        self._handle_coordinator_update()
+
+
+class IcaBaseItemListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
+    """A list of Favorite Items in the ICA account."""
+
+    _attr_supported_features = (
+        TodoListEntityFeature.CREATE_TODO_ITEM
+        # | TodoListEntityFeature.UPDATE_TODO_ITEM
+        # | TodoListEntityFeature.DELETE_TODO_ITEM
+        # todo: Implement MOVE_TODO_ITEM? (ordering within the list)
+    )
+
+    def __init__(self, coordinator: IcaCoordinator, config_entry: ConfigEntry) -> None:
+        """Initialize IcaBaseItemListEntity."""
+        super().__init__(coordinator=coordinator)
+        # sourcery skip: remove-redundant-condition, swap-if-expression
+        self.coordinator = coordinator if not self.coordinator else coordinator
+        self._config_entry = config_entry
+        self._attr_unique_id = f"{config_entry.entry_id}-baseitems"
+        self._attr_name = f"{config_entry.title} Favorite Items"
+        self._attr_icon = "mdi:cart"
+        self._attr_todo_items: list[TodoItem] | None = None
+
+    @property
+    def name(self):
+        return self._attr_name
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        items = []
+        if baseitems := self.coordinator._ica_baseitems.current_value():
+            for baseitem in baseitems:
+                items.append(
+                    TodoItem(
+                        summary=baseitem["text"],
+                        uid=baseitem["id"],
+                        status=TodoItemStatus.NEEDS_ACTION,
+                        description=baseitem.get("articleEan"),
+                    )
+                )
+        self._attr_todo_items = items
+        super()._handle_coordinator_update()
+
+    async def async_create_todo_item(self, item: TodoItem) -> None:
+        """Create a To-do item."""
+        await self.coordinator.async_lookup_and_add_baseitem(item.summary)
+
+    # async def async_update_todo_item(self, item: TodoItem) -> None:
+    #     """Update a To-do item."""
+    #     sync = IcaShoppingListSync(
+    #         offlineId=self._project_id,
+    #         changedRows=[
+    #             IcaShoppingListEntry(
+    #                 offlineId=item.uid,
+    #                 isStrikedOver=item.status == TodoItemStatus.COMPLETED,
+    #                 productName=item.summary,
+    #             )
+    #         ],
+    #     )
+
+    #     sync["latestChange"] = (
+    #         f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
+    #     )
+    #     await self.coordinator.sync_shopping_list(sync)
+
+    # async def async_delete_todo_items(self, uids: list[str]) -> None:
+    #     """Delete a To-do item."""
+    #     sync = IcaShoppingListSync(
+    #         offlineId=self._project_id,
+    #         deletedRows=uids,
+    #     )
+    #     await self.coordinator.sync_shopping_list(sync)
 
     # async def async_move_todo_item(self, uid: str, previous_uid: str | None) -> None:
     #     """Move a To-do item."""
