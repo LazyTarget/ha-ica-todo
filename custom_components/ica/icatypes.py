@@ -285,6 +285,7 @@ class IcaShoppingListEntry(TypedDict):
     unit: str | None
     recipes: list[IcaShoppingListEntryRecipeRef] | None
     recipeId: str | None
+    offerId: str | None
     isStrikedOver: bool
     internalOrder: int | None
     articleGroupId: int | None

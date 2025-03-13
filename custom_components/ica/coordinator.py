@@ -339,7 +339,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         # Push sync to API
         updated_list = await self.api.sync_shopping_list(sync)
 
-        # todo: no need to await, just queue it in background...
+        # todo: no need to await?, just queue it in background...
         await self._dynamically_update_shopping_list_cache(updated_list)
         return updated_list
 

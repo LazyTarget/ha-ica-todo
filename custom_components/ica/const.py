@@ -103,12 +103,12 @@ IS_CHECKED: Final = "IsStrikedOver"
 
 
 class ConflictMode(StrEnum):
-    IGNORE = "ignore"
-    APPEND = "append"
-    MERGE = "merge"
+    APPEND = "APPEND"
+    MERGE = "MERGE"
+    IGNORE = "IGNORE"
 
 
-CONFLICT_MODES = [ConflictMode.IGNORE, ConflictMode.APPEND, ConflictMode.MERGE]
+CONFLICT_MODES = [ConflictMode.APPEND, ConflictMode.MERGE, ConflictMode.IGNORE]
 
 
 class IcaServices(StrEnum):
@@ -120,7 +120,7 @@ class IcaServices(StrEnum):
     GET_BASEITEMS = "get_baseitems"
     ADD_BASEITEM = "add_baseitem"
     # LOOKUP_BARCODE = "lookup_barcode"
-    Add_OFFER_TO_SHOPPING_LIST = "add_offer_to_shopping_list"
+    ADD_OFFERS_TO_SHOPPING_LIST = "add_offers_to_shopping_list"
 
 
 class API:

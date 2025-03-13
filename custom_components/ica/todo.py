@@ -20,14 +20,14 @@ from homeassistant.core import (
     SupportsResponse,
 )
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers import entity_platform
+from homeassistant.helpers import entity_platform, service
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, CONF_JSON_DATA_IN_DESC, IcaServices, CONFLICT_MODES
+from .const import DOMAIN, CONF_JSON_DATA_IN_DESC, ConflictMode, IcaServices, CONFLICT_MODES
 from .coordinator import IcaCoordinator
 from .icatypes import IcaShoppingList, IcaShoppingListEntry, IcaShoppingListSync
-from .utils import index_of
+from .utils import index_of, to_dict
 
 import logging
 
@@ -51,53 +51,71 @@ async def async_setup_entry(
     ]
     baseitem_list_entity = IcaBaseItemListEntity(coordinator, entry)
     async_add_entities([baseitem_list_entity, *shopping_list_entities])
-    async_register_services(hass, coordinator)
+
+    async_register_services(hass, coordinator, shopping_list_entities)
 
 
-def async_register_services(hass: HomeAssistant, coordinator: IcaCoordinator) -> None:
+def async_register_services(
+    hass: HomeAssistant,
+    coordinator: IcaCoordinator,
+    shopping_list_entities: list[TodoListEntity]) -> None:
     """Register services."""
+    shopping_list_entities = {value.entity_id: value for value in shopping_list_entities}
 
-    async def handle_add_offer_to_shopping_list(
+    async def handle_add_offers_to_shopping_list(
         entity: IcaShoppingListEntity, call: ServiceCall
-    ) -> None:
+    ):
         """Call will add an existing Offer to a ICA shopping list"""
-        offer_id = call.data["offer_id"]
-        conflict_mode = call.data.get("conflict_mode", CONFLICT_MODES[0])
-        offer = coordinator.get_offer_info_full(offer_id)
-        if not offer:
-            return
-        item = {
-            "internalOrder": 999,
-            "productName": offer["name"],
-            "isStrikedOver": False,
-            "sourceId": -1,
-            "articleGroupId": offer.get("category", {}).get("articleGroupId", 12),
-            "articleGroupIdExtended": offer.get("category", {}).get(
-                "expandedArticleGroupId", 12
-            ),
-            "offerId": offer_id,
-            "lastChange": (
-                datetime.datetime.now(datetime.timezone.utc)
-                .replace(microsecond=0)
-                .isoformat()
-                + "Z"
-            ),
-            "offlineId": str(uuid.uuid4()),
-        }
-        # _LOGGER.fatal("Item to add: %s", item)
-        result = await entity._async_create_todo_item_from_ica_shopping_list_item(
-            item, conflict_mode
-        )
-        return {"result": result, "item": item}
+        created_rows = []
+        offer_ids = call.data["offer_ids"]
+        conflict_mode = call.data.get("conflict_mode", ConflictMode.APPEND)
+        for offer_id in offer_ids:
+            offer = coordinator.get_offer_info_full(offer_id)
+            if not offer:
+                _LOGGER.warning("Offer not found: %s", offer_id)
+                continue
+            created_rows.append(IcaShoppingListEntry(
+                internalOrder = 999,
+                productName = offer["name"],
+                isStrikedOver = False,
+                sourceId = -1,
+                articleGroupId = offer.get("category", {}).get("articleGroupId", 12),
+                articleGroupIdExtended = offer.get("category", {}).get(
+                    "expandedArticleGroupId", 12
+                ),
+                offerId = offer_id,
+                latestChange = (
+                    datetime.datetime.now(datetime.timezone.utc)
+                    .replace(microsecond=0)
+                    .isoformat()
+                    + "Z"
+                ),
+                offlineId = str(uuid.uuid4()),
+            ))
+        return await entity.async_create_shopping_list_items(created_rows, conflict_mode=conflict_mode)
 
-    platform = entity_platform.async_get_current_platform()
-    platform.async_register_entity_service(
-        IcaServices.Add_OFFER_TO_SHOPPING_LIST,
-        {
-            vol.Required("offer_id"): cv.string,
+    # platform = entity_platform.async_get_current_platform()
+    # platform.async_register_entity_service(
+    #     IcaServices.ADD_OFFERS_TO_SHOPPING_LIST,
+    #     {
+    #         vol.Required("offer_ids"): vol.All(cv.ensure_list, [str]),
+    #         vol.Optional("conflict_mode"): vol.In(CONFLICT_MODES),
+    #     },
+    #     handle_add_offers_to_shopping_list,
+    #     supports_response=SupportsResponse.OPTIONAL,
+    # )
+    _LOGGER.warning("SHOP: %s", shopping_list_entities)
+    service.async_register_entity_service(
+        hass,
+        DOMAIN,
+        name=IcaServices.ADD_OFFERS_TO_SHOPPING_LIST,
+        schema={
+            vol.Required("offer_ids"): vol.All(cv.ensure_list, [str]),
             vol.Optional("conflict_mode"): vol.In(CONFLICT_MODES),
         },
-        handle_add_offer_to_shopping_list,
+        job_type=None,
+        entities=shopping_list_entities,
+        func=handle_add_offers_to_shopping_list,
         supports_response=SupportsResponse.OPTIONAL,
     )
 
@@ -283,15 +301,24 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         ti["sourceId"] = -1
         ti["isStrikedOver"] = False
         ti["offlineId"] = str(uuid.uuid4())
+        items = [IcaShoppingListEntry(ti)]
+        await self.async_create_shopping_list_items(items)
 
+    async def async_create_shopping_list_items(
+        self,
+        items: list[IcaShoppingListEntry],
+        conflict_mode: ConflictMode = ConflictMode.APPEND
+    ) -> IcaShoppingList:
+        """A non HA-native function that batches together mutiple item creations"""
         sync = IcaShoppingListSync(
             offlineId=self._project_id,
-            createdRows=[IcaShoppingListEntry(ti)],
+            createdRows=items,
+            changedShoppingListProperties={}
         )
-        sync["latestChange"] = (
+        sync["changedShoppingListProperties"]["latestChange"] = (
             f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
         )
-        await self.coordinator.sync_shopping_list(sync)
+        return await self.coordinator.sync_shopping_list(sync, conflict_mode=conflict_mode)
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
         """Update a To-do item."""
