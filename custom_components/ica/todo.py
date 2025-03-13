@@ -100,6 +100,9 @@ def async_register_services(
                         .isoformat()
                         + "Z"
                     ),
+                    productEan=offer.get("eans")[0].get("id")
+                    if offer.get("eans")
+                    else None,  # todo: get first ?
                     offlineId=str(uuid.uuid4()),
                 )
             )
