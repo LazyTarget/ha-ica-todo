@@ -47,7 +47,7 @@ def get(
     try:
         response.raise_for_status()
     except BaseException as ex:
-        _LOGGER.error("HTTP [GET] Resp: %s", response.text)
+        _LOGGER.error("HTTP [GET] Resp: %s -> %s", response.status_code, response.text)
         raise ex
 
     return response.ok
@@ -81,7 +81,7 @@ def post(
     try:
         response.raise_for_status()
     except BaseException as ex:
-        _LOGGER.error("HTTP [POST] Resp: %s", response.text)
+        _LOGGER.error("HTTP [POST] Resp: %s -> %s", response.status_code, response.text)
         raise ex
 
     return response.ok
@@ -106,7 +106,9 @@ def delete(
     try:
         response.raise_for_status()
     except BaseException as ex:
-        _LOGGER.error("HTTP [DELETE] Resp: %s", response.text)
+        _LOGGER.error(
+            "HTTP [DELETE] Resp: %s -> %s", response.status_code, response.text
+        )
         raise ex
 
     return response.ok

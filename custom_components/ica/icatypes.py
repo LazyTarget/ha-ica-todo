@@ -227,6 +227,14 @@ class IcaArticleOffer(TypedDict):
     parsedMechanics: IcaOfferMechanics | None
 
 
+class ProductLookup(TypedDict):
+    gtin: str  # "eanId / barcode"
+    name: str  # "articleName"
+    articleId: int | None
+    articleGroupId: int | None
+    expandedArticleGroupId: int | None
+
+
 class IcaBaseItem(TypedDict):
     id: str  # "offlineId"
     text: str  # Freetext or ArticleName

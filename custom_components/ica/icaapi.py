@@ -26,6 +26,7 @@ from .icatypes import (
     IcaProductCategory,
     IcaRecipe,
     OffersAndDiscountsForStore,
+    ProductLookup,
 )
 from .icatypes import AuthCredentials, AuthState
 from .authenticator import IcaAuthenticator
@@ -83,11 +84,17 @@ class IcaAPI:
         url = get_rest_url(API.URLs.SYNC_MY_BASEITEMS_ENDPOINT)
         return post(self._session, url, self._auth_key, json_data=items)
 
-    def lookup_barcode(self, identifier: str):
+    def lookup_barcode(self, identifier: str) -> ProductLookup | None:
         url = str.format(
             get_rest_url(API.URLs.PRODUCT_BARCODE_LOOKUP_ENDPOINT), identifier
         )
-        return get(self._session, url, self._auth_key)
+        try:
+            result = get(self._session, url, self._auth_key)
+        except requests.exceptions.HTTPError as err:
+            if err.response.status_code == 404:
+                return None
+            raise
+        return result
 
     def get_articles(self) -> list[IcaArticle]:
         url = get_rest_url(API.URLs.ARTICLES_ENDPOINT)

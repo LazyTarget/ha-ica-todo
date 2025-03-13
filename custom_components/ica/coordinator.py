@@ -392,7 +392,13 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
         item = await self.lookup_baseitem_per_identifier(identifier)
         if not item:
-            raise ValueError(f"Product ean '{identifier}' was not found")
+            _LOGGER.debug(
+                f"Product '{identifier}' was not found. Adding as a free text instead..."
+            )
+            item = IcaBaseItem(
+                id=str(uuid.uuid4()),
+                text=identifier,
+            )
 
         sync = self._ica_baseitems.current_value().copy()
         current_sort_order = int(sync[-1]["sortOrder"] if len(sync) > 0 else -1)
