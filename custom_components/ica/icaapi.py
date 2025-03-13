@@ -51,29 +51,16 @@ class IcaAPI:
     ) -> None:
         self._session = session or requests.Session()
         self._auth_state = auth_state
-
-        # _LOGGER.warning("IcaAPI ensure_login pre: %s", auth_state)
+        self._auth_key: str = (
+            auth_state["token"].get("access_token")
+            if auth_state and auth_state.get("token")
+            else None
+        )
         self._authenticator = IcaAuthenticator(credentials, auth_state, session)
-        # auth_state = authenticator.ensure_login()
-        # _LOGGER.warning("IcaAPI ensure_login post: %s", auth_state)
-        # self._user = auth_state["token"]
-        # self._auth_key = auth_state["token"]["access_token"]
-
-        # if user_token is None:
-        #     authenticator = IcaAuthenticator(user, psw, session)
-        #     _LOGGER.warning("Invoking full login: %s=%s", user, psw)
-        #     authenticator.do_full_login(user, psw)
-        #     self._user = authenticator._user
-        #     _LOGGER.warning("Caching user to API: %s", self._user)
-        # else:
-        #     self._user = user_token
-        #     _LOGGER.warning("Reusing user: %s", self._user)
-        # self._auth_key = self._user["access_token"]
 
     def ensure_login(self):
         auth_state = self._authenticator.ensure_login()
         self._auth_state = auth_state
-        self._user = auth_state["token"]
         self._auth_key = auth_state["token"]["access_token"]
 
     def get_authenticated_user(self):

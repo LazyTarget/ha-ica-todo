@@ -193,7 +193,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         for store_id in offers_per_store:
             store = offers_per_store[store_id]
             if matches := [o for o in store["offers"] if o["id"] == offerId]:
-                # _LOGGER.info("Matched offer: %s", matches)
                 return matches[0]
         return None
 
@@ -228,8 +227,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 # if o and o.get("isUsed", None) is not True
             ]
             offer_ids = sorted(list(set(offer_ids)) + list(set(oids)))
-        # _LOGGER.warning("StoreIds: %s :: %s", type(store_ids), store_ids)
-        # _LOGGER.warning("OfferIds: %s :: %s", type(offer_ids), offer_ids)
 
         if not offer_ids:
             _LOGGER.warning("No offers to lookup, then avoid querying API")
@@ -239,16 +236,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         if not full_offers:
             _LOGGER.warning("No existing offers found. Is this true??")
             return []
-
-        # # Fire event(s)
-        # self._hass.bus.async_fire(
-        #     f"{DOMAIN}_event",
-        #     {
-        #         "type": "active_offers",
-        #         "uid": self._config_entry.data[CONF_ICA_ID],
-        #         "data": full_offers,
-        #     },
-        # )
 
         baseitems = self._ica_baseitems.current_value()
         bi_eans = [
@@ -311,19 +298,9 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         """Return ICA shopping lists fetched at most once."""
 
         current = self._ica_shopping_lists.current_value() or []
-        # updated = await self._ica_shopping_lists.get_value(invalidate_cache=refresh)
         updated = await self._get_tracked_shopping_lists()
         if not updated:
             raise ValueError("Failed to get a valid shopping list from the API")
-
-        # self._hass.bus.async_fire(
-        #     f"{DOMAIN}_event",
-        #     {
-        #         "type": "shopping_lists_loaded",
-        #         "uid": self._config_entry.data[CONF_ICA_ID],
-        #         "data": updated,
-        #     },
-        # )
 
         for shopping_list in updated or []:
             old_rows = next(

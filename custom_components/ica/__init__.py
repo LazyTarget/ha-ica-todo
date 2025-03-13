@@ -58,7 +58,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "Failed to update config entry data with updated auth state"
             )
     else:
-        _LOGGER.info("Reusing stored authentication info")
+        _LOGGER.debug("Reusing stored authentication info")
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
@@ -67,6 +67,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     _LOGGER.debug("Final config entry data: %s", entry.data)
+    _LOGGER.info("ICA integration successfully setup!")
     return True
 
 
