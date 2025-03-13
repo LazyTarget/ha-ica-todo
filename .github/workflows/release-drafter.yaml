@@ -3,9 +3,7 @@ name: Release Drafter
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [main, master]
   pull_request:
     types: [opened, reopened, synchronize]
   workflow_dispatch:
@@ -32,7 +30,7 @@ jobs:
       - name: Create Release
         uses: release-drafter/release-drafter@v6
         with:
-          disable-releaser: github.ref != 'refs/heads/master'
+          disable-releaser: github.ref != 'refs/heads/main'
           # publish: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

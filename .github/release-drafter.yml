@@ -45,7 +45,7 @@ autolabeler:
       - '/feature\/.+/'
     body:
       - '/JIRA-[0-9]{1,4}/'
-commitish: refs/heads/master
+commitish: refs/heads/main
 template: |
   ## 🚀 Changes
 
