@@ -52,3 +52,11 @@ def index_of(source: list[dict], key, value) -> int:
         (index for index, item in enumerate(source) if item.get(key) == value),
         -1,
     )
+
+
+def try_parse_int(value: any) -> tuple[bool, int]:
+    """Try parsing a value as int. Return as a tuple."""
+    try:
+        return (True, int(value))
+    except ValueError:
+        return (False, 0)

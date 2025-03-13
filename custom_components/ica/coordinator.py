@@ -33,7 +33,7 @@ from .const import (
     CACHING_SECONDS_SHORT_TERM,
     ConflictMode,
 )
-from .utils import get_diffs, index_of
+from .utils import get_diffs, index_of, try_parse_int
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -389,12 +389,14 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
     async def async_lookup_and_add_baseitem(self, identifier: str) -> list[IcaBaseItem]:
         """Return a specific ICA recipe."""
-
-        item = await self.lookup_baseitem_per_identifier(identifier)
-        if not item:
-            _LOGGER.debug(
-                f"Product '{identifier}' was not found. Adding as a free text instead..."
-            )
+        (r, i) = try_parse_int(identifier)
+        if r and i:
+            # Successful parse
+            item = await self.lookup_baseitem_per_identifier(identifier)
+            if not item:
+                raise ValueError(f"Product with ean '{identifier}' was not found")
+        else:
+            # Not a valid Barcode was passed. Treat as a free text instead...
             item = IcaBaseItem(
                 id=str(uuid.uuid4()),
                 text=identifier,
