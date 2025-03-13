@@ -143,8 +143,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         TodoListEntityFeature.CREATE_TODO_ITEM
         | TodoListEntityFeature.UPDATE_TODO_ITEM
         | TodoListEntityFeature.DELETE_TODO_ITEM
-        | TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
-        | TodoListEntityFeature.SET_DUE_DATETIME_ON_ITEM
+        # todo: Implement MOVE_TODO_ITEM? (ordering within the list)
     )
 
     def __init__(
@@ -156,13 +155,9 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
     ) -> None:
         """Initialize IcaShoppingListEntity."""
         if config_entry.data.get(CONF_JSON_DATA_IN_DESC, False):
+            # Allow for setting description
             self._attr_supported_features = (
-                TodoListEntityFeature.CREATE_TODO_ITEM
-                | TodoListEntityFeature.UPDATE_TODO_ITEM
-                | TodoListEntityFeature.DELETE_TODO_ITEM
-                | TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
-                | TodoListEntityFeature.SET_DUE_DATETIME_ON_ITEM
-                # adds Description
+                self._attr_supported_features
                 | TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM
             )
 
@@ -238,8 +233,8 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         if item.get("productEan", None):
             result["productEan"] = item.get("productEan")
 
-        if item.get("recepies", None):
-            result["recepies"] = item.get("recepies")
+        if item.get("recipes", None):
+            result["recipes"] = item.get("recipes")
 
         if not result.keys():
             return None
