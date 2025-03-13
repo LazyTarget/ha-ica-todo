@@ -20,14 +20,20 @@ from homeassistant.core import (
     SupportsResponse,
 )
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers import entity_platform, service
+from homeassistant.helpers import service
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, CONF_JSON_DATA_IN_DESC, ConflictMode, IcaServices, CONFLICT_MODES
+from .const import (
+    DOMAIN,
+    CONF_JSON_DATA_IN_DESC,
+    ConflictMode,
+    IcaServices,
+    CONFLICT_MODES,
+)
 from .coordinator import IcaCoordinator
 from .icatypes import IcaShoppingList, IcaShoppingListEntry, IcaShoppingListSync
-from .utils import index_of, to_dict
+from .utils import index_of
 
 import logging
 
@@ -58,9 +64,12 @@ async def async_setup_entry(
 def async_register_services(
     hass: HomeAssistant,
     coordinator: IcaCoordinator,
-    shopping_list_entities: list[TodoListEntity]) -> None:
+    shopping_list_entities: list[TodoListEntity],
+) -> None:
     """Register services."""
-    shopping_list_entities = {value.entity_id: value for value in shopping_list_entities}
+    shopping_list_entities = {
+        value.entity_id: value for value in shopping_list_entities
+    }
 
     async def handle_add_offers_to_shopping_list(
         entity: IcaShoppingListEntity, call: ServiceCall
@@ -74,25 +83,29 @@ def async_register_services(
             if not offer:
                 _LOGGER.warning("Offer not found: %s", offer_id)
                 continue
-            created_rows.append(IcaShoppingListEntry(
-                internalOrder = 999,
-                productName = offer["name"],
-                isStrikedOver = False,
-                sourceId = -1,
-                articleGroupId = offer.get("category", {}).get("articleGroupId", 12),
-                articleGroupIdExtended = offer.get("category", {}).get(
-                    "expandedArticleGroupId", 12
-                ),
-                offerId = offer_id,
-                latestChange = (
-                    datetime.datetime.now(datetime.timezone.utc)
-                    .replace(microsecond=0)
-                    .isoformat()
-                    + "Z"
-                ),
-                offlineId = str(uuid.uuid4()),
-            ))
-        return await entity.async_create_shopping_list_items(created_rows, conflict_mode=conflict_mode)
+            created_rows.append(
+                IcaShoppingListEntry(
+                    internalOrder=999,
+                    productName=offer["name"],
+                    isStrikedOver=False,
+                    sourceId=-1,
+                    articleGroupId=offer.get("category", {}).get("articleGroupId", 12),
+                    articleGroupIdExtended=offer.get("category", {}).get(
+                        "expandedArticleGroupId", 12
+                    ),
+                    offerId=offer_id,
+                    latestChange=(
+                        datetime.datetime.now(datetime.timezone.utc)
+                        .replace(microsecond=0)
+                        .isoformat()
+                        + "Z"
+                    ),
+                    offlineId=str(uuid.uuid4()),
+                )
+            )
+        return await entity.async_create_shopping_list_items(
+            created_rows, conflict_mode=conflict_mode
+        )
 
     # platform = entity_platform.async_get_current_platform()
     # platform.async_register_entity_service(
@@ -307,18 +320,20 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
     async def async_create_shopping_list_items(
         self,
         items: list[IcaShoppingListEntry],
-        conflict_mode: ConflictMode = ConflictMode.APPEND
+        conflict_mode: ConflictMode = ConflictMode.APPEND,
     ) -> IcaShoppingList:
         """A non HA-native function that batches together mutiple item creations"""
         sync = IcaShoppingListSync(
             offlineId=self._project_id,
             createdRows=items,
-            changedShoppingListProperties={}
+            changedShoppingListProperties={},
         )
         sync["changedShoppingListProperties"]["latestChange"] = (
             f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
         )
-        return await self.coordinator.sync_shopping_list(sync, conflict_mode=conflict_mode)
+        return await self.coordinator.sync_shopping_list(
+            sync, conflict_mode=conflict_mode
+        )
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
         """Update a To-do item."""
