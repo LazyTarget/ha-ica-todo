@@ -33,7 +33,7 @@ from .const import (
     CACHING_SECONDS_SHORT_TERM,
     ConflictMode,
 )
-from .utils import get_diffs
+from .utils import get_diffs, index_of
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -347,13 +347,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self, updated_list: IcaShoppingList
     ) -> IcaShoppingList:
         state = self._ica_shopping_lists.current_value().copy()
-        ma = list(
-            filter(
-                lambda i: i[1]["offlineId"] == updated_list["offlineId"],
-                enumerate(state),
-            )
-        )[:1]
-        index = ma[0][0] if ma else -1
+        index = index_of(state, "offlineId", updated_list["offlineId"])
         if index >= 0:
             state[index] = updated_list
             await self._ica_shopping_lists.set_value(state)
