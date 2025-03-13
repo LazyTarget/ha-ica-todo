@@ -397,10 +397,8 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         baseitems.append(item)
         _LOGGER.info("ITEM: %s", item)
         response = await self.api.sync_baseitems(baseitems)
-
-        # todo: Manually update cache with the 'response' variable
-        await self._ica_baseitems.refresh()
-
+        if response:
+            self._ica_baseitems.set_value(response)
         return response
 
     async def async_get_articles(self):
