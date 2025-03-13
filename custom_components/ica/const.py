@@ -101,7 +101,14 @@ ITEM_LIST: Final = "Rows"
 ITEM_NAME: Final = "ProductName"
 IS_CHECKED: Final = "IsStrikedOver"
 
-CONFLICT_MODES = ["ignore", "append", "merge"]
+
+class ConflictMode(StrEnum):
+    IGNORE = "ignore"
+    APPEND = "append"
+    MERGE = "merge"
+
+
+CONFLICT_MODES = [ConflictMode.IGNORE, ConflictMode.APPEND, ConflictMode.MERGE]
 
 
 class IcaServices(StrEnum):

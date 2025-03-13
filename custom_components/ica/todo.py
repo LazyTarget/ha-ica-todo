@@ -26,7 +26,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, CONF_JSON_DATA_IN_DESC, IcaServices, CONFLICT_MODES
 from .coordinator import IcaCoordinator
-from .icatypes import IcaShoppingList
+from .icatypes import IcaShoppingList, IcaShoppingListEntry, IcaShoppingListSync
 
 import logging
 
@@ -63,7 +63,6 @@ def async_register_services(hass: HomeAssistant, coordinator: IcaCoordinator) ->
         offer_id = call.data["offer_id"]
         conflict_mode = call.data.get("conflict_mode", CONFLICT_MODES[0])
         offer = coordinator.get_offer_info_full(offer_id)
-        # _LOGGER.fatal("Offer to add: %s", offer)
         if not offer:
             return
         item = {
@@ -251,8 +250,6 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         self, row_item, conflict_mode
     ):
         """Create a To-do item."""
-        # if item.status != TodoItemStatus.NEEDS_ACTION:
-        #     raise ValueError("Only active tasks may be created.")
         shopping_list = await self.coordinator.async_get_shopping_list(
             self._project_id, invalidate_cache=True
         )
@@ -282,75 +279,49 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         shopping_list["latestChange"] = (
             f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
         )
-        await self.coordinator.api.sync_shopping_list(shopping_list)
-        await self.coordinator.async_refresh()
+        await self.coordinator.sync_shopping_list(shopping_list)
 
     async def async_create_todo_item(self, item: TodoItem) -> None:
         """Create a To-do item."""
-        if item.status != TodoItemStatus.NEEDS_ACTION:
-            raise ValueError("Only active tasks may be created.")
-        # shopping_list = self.coordinator.get_shopping_list(self._project_id)
-        shopping_list = await self.coordinator.async_get_shopping_list(
-            self._project_id, invalidate_cache=True
-        )
-
         ti = self.coordinator.parse_summary(item.summary)
         ti["sourceId"] = -1
         ti["isStrikedOver"] = False
-        if "createdRows" not in shopping_list:
-            shopping_list["createdRows"] = []
-        shopping_list["createdRows"].append(ti)
+        ti["offlineId"] = str(uuid.uuid4())
 
-        shopping_list["latestChange"] = (
+        sync = IcaShoppingListSync(
+            offlineId=self._project_id,
+            createdRows=[IcaShoppingListEntry(ti)],
+        )
+        sync["latestChange"] = (
             f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
         )
-        await self.coordinator.api.sync_shopping_list(shopping_list)
-        await self.coordinator.async_refresh()
+        await self.coordinator.sync_shopping_list(sync)
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
         """Update a To-do item."""
-        # shopping_list = self.coordinator.get_shopping_list(self._project_id)
-        shopping_list = await self.coordinator.async_get_shopping_list(
-            self._project_id, invalidate_cache=True
+        sync = IcaShoppingListSync(
+            offlineId=self._project_id,
+            changedRows=[
+                IcaShoppingListEntry(
+                    offlineId=item.uid,
+                    isStrikedOver=item.status == TodoItemStatus.COMPLETED,
+                    productName=item.summary,
+                )
+            ],
         )
 
-        if "changedRows" not in shopping_list:
-            shopping_list["changedRows"] = []
-
-        shopping_list["changedRows"].append(
-            {
-                "offlineId": item.uid,
-                "isStrikedOver": item.status == TodoItemStatus.COMPLETED,
-                "sourceId": -1,
-            }
+        sync["latestChange"] = (
+            f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
         )
-        # if item.status is not None:
-        #    if item.status == TodoItemStatus.COMPLETED:
-        #        await self.coordinator.api.close_task(task_id=uid)
-        #    else:
-        #        await self.coordinator.api.reopen_task(task_id=uid)
-
-        await self.coordinator.api.sync_shopping_list(shopping_list)
-        await self.coordinator.async_refresh()
+        await self.coordinator.sync_shopping_list(sync)
 
     async def async_delete_todo_items(self, uids: list[str]) -> None:
         """Delete a To-do item."""
-        # await asyncio.gather(
-        #     *[self.coordinator.api.remove_from_list(task_id=uid) for uid in uids]
-        # )
-        # shopping_list = self.coordinator.get_shopping_list(self._project_id)
-        shopping_list = await self.coordinator.async_get_shopping_list(
-            self._project_id, invalidate_cache=True
+        sync = IcaShoppingListSync(
+            offlineId=self._project_id,
+            deletedRows=uids,
         )
-
-        if "deletedRows" not in shopping_list:
-            shopping_list["deletedRows"] = []
-
-        # shopping_list["DeletedRows"].extend(list(deleted_ids))
-        shopping_list["deletedRows"].extend(uids)
-
-        await self.coordinator.api.sync_shopping_list(shopping_list)
-        await self.coordinator.async_refresh()
+        await self.coordinator.sync_shopping_list(sync)
 
     # async def async_move_todo_item(self, uid: str, previous_uid: str | None) -> None:
     #     """Move a To-do item."""

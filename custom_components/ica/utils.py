@@ -44,3 +44,11 @@ def get_diffs(a, b, key: str = "id"):
             )
 
     return diffs
+
+
+def index_of(source: list[dict], key, value) -> int:
+    """Return the index of the item with the given KeyValue pairing or -1 if not found."""
+    return next(
+        (index for index, item in enumerate(source) if item.get(key) == value),
+        -1,
+    )

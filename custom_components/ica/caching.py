@@ -87,9 +87,14 @@ class CacheEntry(Generic[_DataT]):
     async def refresh(self):
         """Refreshes state using the value_factory"""
         # Invoke value factory (example: API)
-        self._value = await self._value_factory()
+        value = await self._value_factory()
+        return await self.set_value(value)
+
+    async def set_value(self, value: _DataT):
+        """Sets the cached value (and persists to file)"""
+        self._value = value
         self._timestamp = dt.datetime.now(dt.timezone.utc)
-        self._logger.debug("Loaded from factory: %s", self._value)
+        self._logger.info("Persisting value in cache entry: %s = %s", self._key, value)
 
         if self._file:
             # Persist new value to file
