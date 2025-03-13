@@ -27,6 +27,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN, CONF_JSON_DATA_IN_DESC, IcaServices, CONFLICT_MODES
 from .coordinator import IcaCoordinator
 from .icatypes import IcaShoppingList, IcaShoppingListEntry, IcaShoppingListSync
+from .utils import index_of
 
 import logging
 
@@ -344,7 +345,7 @@ class IcaBaseItemListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
     _attr_supported_features = (
         TodoListEntityFeature.CREATE_TODO_ITEM
         # | TodoListEntityFeature.UPDATE_TODO_ITEM
-        # | TodoListEntityFeature.DELETE_TODO_ITEM
+        | TodoListEntityFeature.DELETE_TODO_ITEM
         # todo: Implement MOVE_TODO_ITEM? (ordering within the list)
     )
 
@@ -402,13 +403,19 @@ class IcaBaseItemListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
     #     )
     #     await self.coordinator.sync_shopping_list(sync)
 
-    # async def async_delete_todo_items(self, uids: list[str]) -> None:
-    #     """Delete a To-do item."""
-    #     sync = IcaShoppingListSync(
-    #         offlineId=self._project_id,
-    #         deletedRows=uids,
-    #     )
-    #     await self.coordinator.sync_shopping_list(sync)
+    async def async_delete_todo_items(self, uids: list[str]) -> None:
+        """Delete a To-do item."""
+        sync = self.coordinator._ica_baseitems.current_value().copy()
+        if not sync:
+            return None
+        changes = 0
+        for uid in uids:
+            index = index_of(sync, "id", uid)
+            if index >= 0:
+                del sync[index]
+                changes = changes + 1
+        if changes:
+            await self.coordinator.sync_baseitems(sync)
 
     # async def async_move_todo_item(self, uid: str, previous_uid: str | None) -> None:
     #     """Move a To-do item."""
