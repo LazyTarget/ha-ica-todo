@@ -33,7 +33,7 @@ from .const import (
     CACHING_SECONDS_SHORT_TERM,
     ConflictMode,
 )
-from .utils import get_diffs, index_of
+from .utils import get_diffs, index_of, try_parse_int
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -363,36 +363,59 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             )
         return updated_list
 
+    def get_baseitems(self):
+        """Return ICA favorite items (baseitems) fetched at most once."""
+        return self._ica_baseitems.current_value()
+
     async def async_get_baseitems(self):
         """Return ICA favorite items (baseitems) fetched at most once."""
         return await self._ica_baseitems.get_value()
 
-    async def async_add_baseitem(self, identifier: str) -> IcaRecipe:
+    async def lookup_baseitem_per_identifier(
+        self, identifier: str
+    ) -> IcaBaseItem | None:
         """Return a specific ICA recipe."""
-
         product = await self.api.lookup_barcode(identifier)
         if not product:
-            raise ValueError(f"Product ean '{identifier}' was not found")
-
-        baseitems = self._ica_baseitems.current_value()
-
-        current_sort_order = int(
-            baseitems[-1]["sortOrder"] if len(baseitems) > 0 else -1
+            return None
+        return IcaBaseItem(
+            id=str(uuid.uuid4()),
+            text=product["name"],
+            articleId=product["articleId"],
+            articleGroupId=product["articleGroupId"],
+            articleGroupIdExtended=product["expandedArticleGroupId"],
+            articleEan=product["gtin"],
         )
-        item = {
-            "id": str(uuid.uuid4()),
-            "text": product["name"],
-            "articleId": product["articleId"],
-            "articleGroupId": product["articleGroupId"],
-            "articleGroupIdExtended": product["expandedArticleGroupId"],
-            "articleEan": product["gtin"],
-            "sortOrder": current_sort_order + 1,
-        }
-        baseitems.append(item)
+
+    async def async_lookup_and_add_baseitem(self, identifier: str) -> list[IcaBaseItem]:
+        """Return a specific ICA recipe."""
+        (r, i) = try_parse_int(identifier)
+        if r and i:
+            # Successful parse
+            item = await self.lookup_baseitem_per_identifier(identifier)
+            if not item:
+                raise ValueError(f"Product with ean '{identifier}' was not found")
+        else:
+            # Not a valid Barcode was passed. Treat as a free text instead...
+            item = IcaBaseItem(
+                id=str(uuid.uuid4()),
+                text=identifier,
+            )
+
+        sync = self._ica_baseitems.current_value().copy()
+        current_sort_order = int(sync[-1]["sortOrder"] if len(sync) > 0 else -1)
+        item["sortOrder"] = current_sort_order + 1
+        sync.append(item)
         _LOGGER.info("ITEM: %s", item)
-        response = await self.api.sync_baseitems(baseitems)
+        return await self.sync_baseitems(sync)
+
+    async def sync_baseitems(self, items: list[IcaBaseItem]) -> list[IcaBaseItem]:
+        """Updates the account baseitems."""
+        response = await self.api.sync_baseitems(items)
         if response:
-            self._ica_baseitems.set_value(response)
+            await self._ica_baseitems.set_value(response)
+            _LOGGER.info("Dynamically updated BaseItems cache")
+            self.async_update_listeners()
         return response
 
     async def async_get_articles(self):

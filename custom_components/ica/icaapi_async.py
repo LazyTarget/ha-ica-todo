@@ -12,6 +12,7 @@ from .icatypes import (
     IcaProductCategory,
     IcaRecipe,
     OffersAndDiscountsForStore,
+    ProductLookup,
 )
 from .icatypes import AuthCredentials, AuthState
 
@@ -49,7 +50,7 @@ class IcaAPIAsync:
     async def sync_baseitems(self, items: list[IcaBaseItem]) -> list[IcaBaseItem]:
         return await run_async(lambda: self._api.sync_baseitems(items))
 
-    async def lookup_barcode(self, identifier):
+    async def lookup_barcode(self, identifier) -> ProductLookup | None:
         return await run_async(lambda: self._api.lookup_barcode(identifier))
 
     async def get_articles(self) -> list[IcaArticle]:

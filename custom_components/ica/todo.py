@@ -27,15 +27,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN, CONF_JSON_DATA_IN_DESC, IcaServices, CONFLICT_MODES
 from .coordinator import IcaCoordinator
 from .icatypes import IcaShoppingList, IcaShoppingListEntry, IcaShoppingListSync
+from .utils import index_of
 
 import logging
 
 _LOGGER = logging.getLogger(__name__)
-
-# #GET_RECIPE_SERVICE_SCHEMA = vol.Schema(
-# GET_RECIPE_SERVICE_SCHEMA = cv._make_entity_service_schema(
-
-# )
 
 
 async def async_setup_entry(
@@ -44,12 +40,17 @@ async def async_setup_entry(
     """Set up the ICA shopping list platform config entry."""
     coordinator: IcaCoordinator = hass.data[DOMAIN][entry.entry_id]
     shopping_lists: list[IcaShoppingList] = await coordinator.async_get_shopping_lists()
-    async_add_entities(
+    shopping_list_entities = [
         IcaShoppingListEntity(
-            coordinator, entry, shopping_list["offlineId"], shopping_list["title"]
+            coordinator,
+            entry,
+            shopping_list["offlineId"],
+            shopping_list["title"],
         )
         for shopping_list in shopping_lists
-    )
+    ]
+    baseitem_list_entity = IcaBaseItemListEntity(coordinator, entry)
+    async_add_entities([baseitem_list_entity, *shopping_list_entities])
     async_register_services(hass, coordinator)
 
 
@@ -318,14 +319,107 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         )
         await self.coordinator.sync_shopping_list(sync)
 
-    # async def async_move_todo_item(self, uid: str, previous_uid: str | None) -> None:
-    #     """Move a To-do item."""
-    #     # await asyncio.gather(
-    #     #     *[self.coordinator.api.remove_from_list(task_id=uid) for uid in uids]
-    #     # )
-    #     shopping_list = self.coordinator.get_shopping_list(self._project_id)
-    #     await self.coordinator.api.sync_shopping_list(shopping_list)
-    #     await self.coordinator.async_refresh()
+    async def async_added_to_hass(self) -> None:
+        """When entity is added to hass update state from existing coordinator data."""
+        await super().async_added_to_hass()
+        self._handle_coordinator_update()
+
+
+class IcaBaseItemListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
+    """A list of Favorite Items in the ICA account."""
+
+    _attr_supported_features = (
+        TodoListEntityFeature.CREATE_TODO_ITEM
+        | TodoListEntityFeature.UPDATE_TODO_ITEM
+        | TodoListEntityFeature.DELETE_TODO_ITEM
+        # todo: Implement MOVE_TODO_ITEM? (ordering within the list)
+    )
+
+    def __init__(self, coordinator: IcaCoordinator, config_entry: ConfigEntry) -> None:
+        """Initialize IcaBaseItemListEntity."""
+        super().__init__(coordinator=coordinator)
+        if config_entry.data.get(CONF_JSON_DATA_IN_DESC, False):
+            # Allow for setting description
+            self._attr_supported_features = (
+                self._attr_supported_features
+                | TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM
+            )
+        # sourcery skip: remove-redundant-condition, swap-if-expression
+        self.coordinator = coordinator if not self.coordinator else coordinator
+        self._config_entry = config_entry
+        self._attr_unique_id = f"{config_entry.entry_id}-baseitems"
+        self._attr_name = "ICA Favorite Items"
+        self._attr_icon = "mdi:cart"
+        self._attr_todo_items: list[TodoItem] | None = None
+
+    @property
+    def name(self):
+        return self._attr_name
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        items = [
+            TodoItem(
+                summary=baseitem["text"],
+                uid=baseitem["id"],
+                status=TodoItemStatus.NEEDS_ACTION,
+                description=(
+                    baseitem.get("articleEan")
+                    if self._config_entry.data.get(CONF_JSON_DATA_IN_DESC)
+                    else None
+                ),
+            )
+            for baseitem in self.coordinator.get_baseitems()
+        ]
+        self._attr_todo_items = items
+        super()._handle_coordinator_update()
+
+    async def async_create_todo_item(self, item: TodoItem) -> None:
+        """Create a To-do item."""
+        await self.coordinator.async_lookup_and_add_baseitem(item.summary)
+
+    async def async_update_todo_item(self, item: TodoItem) -> None:
+        """Update a To-do item."""
+        if item.status == TodoItemStatus.COMPLETED:
+            # Completed items are to be removed directly
+            return await self.async_delete_todo_items([item.uid])
+
+        sync = self.coordinator.get_baseitems().copy()
+        if not sync:
+            return None
+        index = index_of(sync, "id", item.uid)
+
+        changes = 0
+        current = sync[index]
+        if item.summary and current["text"] != item.summary:
+            current["text"] = item.summary
+            changes += 1
+        if item.description and current["articleEan"] != item.description:
+            current["articleEan"] = item.description
+            changes += 1
+        if changes:
+            await self.coordinator.sync_baseitems(sync)
+        else:
+            _LOGGER.warning(
+                "No changes were made to BaseItem. Persisted: %s. Value: %s",
+                current,
+                item,
+            )
+
+    async def async_delete_todo_items(self, uids: list[str]) -> None:
+        """Delete a To-do item."""
+        sync = self.coordinator.get_baseitems().copy()
+        if not sync:
+            return None
+        changes = 0
+        for uid in uids:
+            index = index_of(sync, "id", uid)
+            if index >= 0:
+                del sync[index]
+                changes = changes + 1
+        if changes:
+            await self.coordinator.sync_baseitems(sync)
 
     async def async_added_to_hass(self) -> None:
         """When entity is added to hass update state from existing coordinator data."""
