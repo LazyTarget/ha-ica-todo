@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 
 class EmptyLogger(logging.Logger):
@@ -54,7 +55,7 @@ def index_of(source: list[dict], key, value) -> int:
     )
 
 
-def try_parse_int(value: any) -> tuple[bool, int]:
+def try_parse_int(value: Any) -> tuple[bool, int]:
     """Try parsing a value as int. Return as a tuple."""
     try:
         return (True, int(value))
