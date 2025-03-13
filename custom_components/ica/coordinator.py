@@ -363,6 +363,10 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             )
         return updated_list
 
+    def get_baseitems(self):
+        """Return ICA favorite items (baseitems) fetched at most once."""
+        return self._ica_baseitems.current_value()
+
     async def async_get_baseitems(self):
         """Return ICA favorite items (baseitems) fetched at most once."""
         return await self._ica_baseitems.get_value()

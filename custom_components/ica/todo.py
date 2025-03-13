@@ -344,7 +344,7 @@ class IcaBaseItemListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
 
     _attr_supported_features = (
         TodoListEntityFeature.CREATE_TODO_ITEM
-        # | TodoListEntityFeature.UPDATE_TODO_ITEM
+        | TodoListEntityFeature.UPDATE_TODO_ITEM
         | TodoListEntityFeature.DELETE_TODO_ITEM
         # todo: Implement MOVE_TODO_ITEM? (ordering within the list)
     )
@@ -368,7 +368,7 @@ class IcaBaseItemListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         items = []
-        if baseitems := self.coordinator._ica_baseitems.current_value():
+        if baseitems := self.coordinator.get_baseitems():
             for baseitem in baseitems:
                 items.append(
                     TodoItem(
@@ -385,27 +385,30 @@ class IcaBaseItemListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         """Create a To-do item."""
         await self.coordinator.async_lookup_and_add_baseitem(item.summary)
 
-    # async def async_update_todo_item(self, item: TodoItem) -> None:
-    #     """Update a To-do item."""
-    #     sync = IcaShoppingListSync(
-    #         offlineId=self._project_id,
-    #         changedRows=[
-    #             IcaShoppingListEntry(
-    #                 offlineId=item.uid,
-    #                 isStrikedOver=item.status == TodoItemStatus.COMPLETED,
-    #                 productName=item.summary,
-    #             )
-    #         ],
-    #     )
+    async def async_update_todo_item(self, item: TodoItem) -> None:
+        """Update a To-do item."""
+        if item.status == TodoItemStatus.COMPLETED:
+            # Completed items are removed directly
+            return await self.async_delete_todo_items([item.uid])
 
-    #     sync["latestChange"] = (
-    #         f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
-    #     )
-    #     await self.coordinator.sync_shopping_list(sync)
+        sync = self.coordinator.get_baseitems().copy()
+        if not sync:
+            return None
+        index = index_of(sync, "id", item.uid)
+
+        changes = 0
+        current = sync[index]
+        if item.summary and current["text"] != item.summary:
+            current["text"] = item.summary
+            changes += 1
+        if changes:
+            await self.coordinator.sync_baseitems(sync)
+        else:
+            _LOGGER.warning("No changes were made to BaseItem. Persisted: %s. Value: %s", current, item)
 
     async def async_delete_todo_items(self, uids: list[str]) -> None:
         """Delete a To-do item."""
-        sync = self.coordinator._ica_baseitems.current_value().copy()
+        sync = self.coordinator.get_baseitems().copy()
         if not sync:
             return None
         changes = 0
