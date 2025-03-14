@@ -2,7 +2,6 @@
 
 import datetime
 import json
-from typing import Any
 import voluptuous as vol
 import uuid
 
@@ -32,7 +31,12 @@ from .const import (
     CONFLICT_MODES,
 )
 from .coordinator import IcaCoordinator
-from .icatypes import IcaShoppingList, IcaShoppingListEntry, IcaShoppingListSync
+from .icatypes import (
+    IcaShoppingList,
+    IcaShoppingListEntry,
+    IcaShoppingListSync,
+    ServiceCallResponse,
+)
 from .utils import index_of
 
 import logging
@@ -73,7 +77,7 @@ def async_register_services(
 
     async def handle_add_offers_to_shopping_list(
         entity: IcaShoppingListEntity, call: ServiceCall
-    ):
+    ) -> ServiceCallResponse[IcaShoppingList]:
         """Call will add an existing Offer to a ICA shopping list"""
         created_rows = []
         offer_ids = call.data["offer_ids"]
@@ -108,9 +112,13 @@ def async_register_services(
                     offlineId=str(uuid.uuid4()),
                 )
             )
-        return await entity.async_create_shopping_list_items(
+
+        if not created_rows:
+            return ServiceCallResponse[IcaShoppingList](success=False, data=None)
+        updated_list = await entity.async_create_shopping_list_items(
             created_rows, conflict_mode=conflict_mode
         )
+        return ServiceCallResponse[IcaShoppingList](success=True, data=updated_list)
 
     # platform = entity_platform.async_get_current_platform()
     # platform.async_register_entity_service(
@@ -122,7 +130,6 @@ def async_register_services(
     #     handle_add_offers_to_shopping_list,
     #     supports_response=SupportsResponse.OPTIONAL,
     # )
-    _LOGGER.warning("SHOP: %s", shopping_list_entities)
     service.async_register_entity_service(
         hass,
         DOMAIN,
@@ -153,24 +160,6 @@ def async_register_services(
     #             vol.Required("recipe_id"): cv.string
     #         }),
     #         supports_response=SupportsResponse.ONLY)
-
-
-def _task_api_data(item: TodoItem) -> dict[str, Any]:
-    """Convert a TodoItem to the set of add or update arguments."""
-    item_data: dict[str, Any] = {}
-    if summary := item.summary:
-        item_data["content"] = summary
-    if due := item.due:
-        if isinstance(due, datetime.datetime):
-            item_data["due"] = {
-                "date": due.date().isoformat(),
-                "datetime": due.isoformat(),
-            }
-        else:
-            item_data["due"] = {"date": due.isoformat()}
-    if description := item.description:
-        item_data["description"] = description
-    return item_data
 
 
 class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):

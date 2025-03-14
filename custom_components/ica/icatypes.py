@@ -1,4 +1,6 @@
-from typing import TypedDict
+from typing import TypedDict, Generic, TypeVar, Any
+
+_DataT = TypeVar("_DataT", default=dict[str, Any])
 
 
 class AuthCredentials(TypedDict):
@@ -383,3 +385,8 @@ class IcaRecipe(TypedDict):
     Difficulty: str | None
     CookingTime: str | None
     Portions: int | None
+
+
+class ServiceCallResponse(Generic[_DataT], TypedDict):
+    success: bool
+    data: _DataT | None
