@@ -181,6 +181,7 @@ class IcaOfferMechanics(TypedDict):
 
 
 class IcaStoreOffer(TypedDict):
+    # From Offerdiscounts for specific store
     id: str | None  # "OfferId"
     category: IcaArticleCategory | None
     name: str | None  # "ArticleName / OfferName"
@@ -205,6 +206,7 @@ class IcaStoreOffer(TypedDict):
 
 
 class IcaArticleOffer(TypedDict):
+    # From SearchOffers (based on StoreId and OfferIds)
     id: str | None  # "OfferId"
     category: IcaArticleCategory | None
     name: str | None  # "ArticleName / OfferName"
@@ -227,6 +229,10 @@ class IcaArticleOffer(TypedDict):
     mediumImageUrl: str | None
     largeImageUrl: str | None
     parsedMechanics: IcaOfferMechanics | None
+
+
+class IcaOfferDetails(IcaStoreOffer, IcaArticleOffer):
+    my_custom_prop: str | None
 
 
 class ProductLookup(TypedDict):

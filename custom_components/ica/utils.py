@@ -32,18 +32,16 @@ def get_diffs(a, b, key: str = "id"):
         old = a[row_id]
         new = b[row_id]
         props = []
-        for key in new:
-            d = new.get(key, None) != old.get(key, None)
+        for k in new:
+            d = new.get(k, None) != old.get(k, None)
             if d:
-                props.append(key)
-
+                props.append(k)
         if props:
             o = {value: old.get(value, None) for value in props}
             n = {value: new.get(value, None) for value in props}
             diffs.append(
                 {"op": "~", key: row_id, "changed_props": props, "old": o, "new": n}
             )
-
     return diffs
 
 
@@ -61,3 +59,12 @@ def try_parse_int(value: Any) -> tuple[bool, int]:
         return (True, int(value))
     except ValueError:
         return (False, 0)
+
+
+if __name__ == "__main__":
+    print("Testing `get_diffs(old, new)`")
+    o = [{"id": 1, "name": "OLD"}, {"id": 3, "name": "gone!"}]
+    n = [{"id": 1, "name": "FOO"}, {"id": 2, "name": "BAR"}]
+    print(o)
+    print(n)
+    print(get_diffs(o, n))
