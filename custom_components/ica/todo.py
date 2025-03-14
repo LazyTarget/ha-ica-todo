@@ -100,9 +100,11 @@ def async_register_services(
                         .isoformat()
                         + "Z"
                     ),
-                    productEan=offer.get("eans")[0].get("id")
-                    if offer.get("eans")
-                    else None,  # todo: get first ?
+                    productEan=offer.get("eans")[0].get(
+                        "id"
+                    )  # todo: How to handle if multiple?
+                    if len(offer.get("eans", [])) == 1
+                    else None,
                     offlineId=str(uuid.uuid4()),
                 )
             )

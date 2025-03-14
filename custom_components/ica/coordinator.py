@@ -266,7 +266,8 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                                 },
                             },
                         )
-                        # todo: Add service that takes offerId and adds to a target todo-list
+                        # todo: Add service that takes offerId and adds to a target todo-list. UPDATE: Done!
+                        # todo: Do this lookup also outside of this CacheEntry
 
         return full_offers
 
