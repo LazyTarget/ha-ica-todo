@@ -395,7 +395,7 @@ class IcaBaseItemListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         self.coordinator = coordinator if not self.coordinator else coordinator
         self._config_entry = config_entry
         self._attr_unique_id = f"{config_entry.entry_id}-baseitems"
-        self._attr_name = "ICA Favorite Items"
+        self._attr_name = "ICA Favorite Articles"
         self._attr_icon = "mdi:cart"
         self._attr_todo_items: list[TodoItem] | None = None
 

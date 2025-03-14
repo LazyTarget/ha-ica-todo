@@ -43,11 +43,18 @@ add_baseitem:
         text:
 
 add_offers_to_shopping_list:
-  target:
-    entity:
-      integration: ica
-      domain: todo
   fields:
+    entity_id:
+      name: "Shopping list entity"
+      description: "The shopping list entity to add to"
+      selector:
+        entity:
+          filter:
+            integration: ica
+            domain: todo
+          exclude_entities:
+            - todo.ica_favorite_articles
+          multiple: false
     offer_ids:
       name: "OfferIds"
       description: "The offer id(s) to add to a shopping list"
