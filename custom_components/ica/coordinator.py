@@ -268,28 +268,38 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             _LOGGER.warning("No existing offers found. Is this true??")
             return []
 
+        target = current.copy()
         new_offers: list[IcaOfferDetails] = []
         for f in full_offers:
-            current_offer = current.get(f["id"]) or IcaOfferDetails()
+            current_offer = target.get(f["id"]) or IcaOfferDetails()
             store_offer = store_offers.get(f["id"]) or IcaStoreOffer()
 
             offer = current_offer.copy()
             offer.update(store_offer)
             offer.update(f)
-            current[offer["id"]] = offer
+            target[offer["id"]] = offer
             if not current_offer:
                 new_offers.append(offer)
 
         if new_offers:
             # Got new offers, prepare for publish of change event
-            old = []
-            diffs = get_diffs(old, new_offers)
+            # old = {k: v for k, v in target.items()}
+            # new = {o["id"]: o for o in new_offers}
+            old = current
+            new = target
+
+            ce2 = CacheEntry(
+                self._hass, "offers-event-data-diff-base2", partial(lambda i: None)
+            )
+            await ce2.set_value({"old": old, "new": new})
+
+            diffs = get_diffs(old, new)
             _LOGGER.info("OFFER DIFFS: %s", diffs)
             event_data = {
                 "type": "offers_changed",
                 "uid": self._config_entry.data[CONF_ICA_ID],
                 "pre_count": pre_count,
-                "post_count": len(current),
+                "post_count": len(target),
                 "new_offers": new_offers,
                 "diffs": diffs,
             }
@@ -301,7 +311,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 f"{DOMAIN}_event",
                 event_data,
             )
-        return current
+        return target
 
     async def _search_offers(self):
         offers_per_store = self._ica_favorite_stores_offers.current_value()

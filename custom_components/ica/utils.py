@@ -1,4 +1,5 @@
 import logging
+import json
 from typing import Any
 
 
@@ -25,8 +26,14 @@ def get_diffs(a, b, key: str = "id"):
     diffs.extend([{"op": "-", key: row_id, "old": a[row_id]} for row_id in removed])
 
     a_set = set(a)
+    # aa = {k: v for k,v in a.items()}
+    # aa_set = set(a.keys())
     b_set = set(b)
+    # bb = {x[key]: x for x in b}
+    # bb = b.keys()
+    # bb_set = set(bb)
     remaining = a_set.intersection(b_set)
+    # remaining = aa_set.intersection(bb_set)
 
     for row_id in remaining:
         old = a[row_id]
@@ -63,8 +70,15 @@ def try_parse_int(value: Any) -> tuple[bool, int]:
 
 if __name__ == "__main__":
     print("Testing `get_diffs(old, new)`")
-    o = [{"id": 1, "name": "OLD"}, {"id": 3, "name": "gone!"}]
-    n = [{"id": 1, "name": "FOO"}, {"id": 2, "name": "BAR"}]
+    # o = [{"id": 1, "name": "OLD"}, {"id": 3, "name": "gone!"}]
+    # n = [{"id": 1, "name": "FOO"}, {"id": 2, "name": "BAR"}]
+
+    j = open(
+        "C:\HomeAssistant\config\.storage\ica.offers_event_data_diff_base2.json", "r"
+    ).read()
+    doc = json.loads(j)
+    o = doc["value"]["old"]
+    n = doc["value"]["new"]
     print(o)
     print(n)
     print(get_diffs(o, n))
