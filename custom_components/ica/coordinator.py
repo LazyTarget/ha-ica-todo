@@ -273,26 +273,20 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             if not current_offer:
                 new_offers.append(offer)
 
-        # if new_offers:
-        # Got new offers, prepare for publish of change event
-        # old = {k: v for k, v in target.items()}
-        # new = {o["id"]: o for o in new_offers}
-        old = current
-        new = target
-
+        # Prepare for publish of change event
         ce2 = CacheEntry(
             self._hass, "offers-event-data-diff-base3", partial(lambda i: None)
         )
-        await ce2.set_value({"old": old, "new": new})
+        await ce2.set_value({"old": current, "new": target})
 
-        diffs = get_diffs(old, new)
+        diffs = get_diffs(current, target)
         _LOGGER.info("OFFER DIFFS: %s", diffs)
         event_data = {
             "type": "offers_changed",
             "uid": self._config_entry.data[CONF_ICA_ID],
             "pre_count": pre_count,
             "post_count": len(target),
-            "new_offers": new_offers,
+            # "new_offers": new_offers,
             "diffs": diffs,
         }
         ce = CacheEntry(self._hass, "offers-event-data", partial(lambda i: None))
@@ -301,6 +295,24 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             f"{DOMAIN}_event",
             event_data,
         )
+
+        # Notify new offers
+        if new_offers:
+            event_data = {
+                "type": "new_offers",
+                "uid": self._config_entry.data[CONF_ICA_ID],
+                "pre_count": pre_count,
+                "post_count": len(target),
+                "new_offers": new_offers,
+            }
+            self._hass.bus.async_fire(
+                IcaEvents.NEW_OFFERS,
+                event_data,
+            )
+            # print to file for debugging purposes
+            await CacheEntry(
+                self._hass, "new_offers", partial(lambda _: None)
+            ).set_value(event_data)
 
         _LOGGER.warning(
             "Updated offer details! pre_count: %s, post_count: %s",
@@ -417,11 +429,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 (lst["rows"] for lst in current if lst["id"] == shopping_list["id"]),
                 [],
             )
-            if not old_rows:
-                continue
-            old_rows = old_rows[0]
             new_rows = shopping_list["rows"]
-
             diffs = get_diffs(old_rows, new_rows)
             self._hass.bus.async_fire(
                 f"{DOMAIN}_event",
