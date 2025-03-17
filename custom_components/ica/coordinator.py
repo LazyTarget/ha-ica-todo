@@ -1,6 +1,6 @@
 """DataUpdateCoordinator for the Todoist component."""
 
-from datetime import timedelta
+from datetime import timedelta, datetime
 import re
 import logging
 import uuid
@@ -216,15 +216,12 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     async def _update_offer_details(
         self, invalidate_cache: bool = True, store_ids: list[str] = None
     ) -> dict[str, IcaOfferDetails]:
+        now = datetime.now()
         current = (
             self._ica_offers.current_value() or {}
         )  # Get current value without refreshing. Possible infinite loop
+        target = current.copy()
         pre_count = len(current)
-        _LOGGER.warning(
-            "Updating offer details! :) current length: %s, invalidate:%s",
-            len(current),
-            invalidate_cache,
-        )
 
         if store_ids is None:
             offers_per_store = await self._ica_favorite_stores_offers.get_value(
@@ -237,7 +234,17 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             offers_per_store = await self.api.get_offers(store_ids)
             _LOGGER.debug("Fetched offers for stores: %s", store_ids)
 
-        # todo: Remove obsolete offers... (+30 days from expiration?)
+        # Remove obsolete offers... (+30 days from expiration)
+        for offer_id in current:
+            offer = current[offer_id]
+            offer_due = (
+                datetime.fromisoformat(offer["validTo"]) + timedelta(days=30)
+                if offer.get("validTo")
+                else datetime.max
+            )
+            if offer_due < now:
+                _LOGGER.info("Removing obsolete offer: %s", offer)
+                del target[offer_id]
 
         # Look up the "active" offers that was retrieved
         store_ids = list(offers_per_store.keys())
@@ -268,7 +275,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             _LOGGER.warning("No existing offers found. Is this true??")
             return []
 
-        target = current.copy()
         new_offers: list[IcaOfferDetails] = []
         for f in full_offers:
             current_offer = target.get(f["id"]) or IcaOfferDetails()
@@ -281,36 +287,40 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             if not current_offer:
                 new_offers.append(offer)
 
-        if new_offers:
-            # Got new offers, prepare for publish of change event
-            # old = {k: v for k, v in target.items()}
-            # new = {o["id"]: o for o in new_offers}
-            old = current
-            new = target
+        # if new_offers:
+        # Got new offers, prepare for publish of change event
+        # old = {k: v for k, v in target.items()}
+        # new = {o["id"]: o for o in new_offers}
+        old = current
+        new = target
 
-            ce2 = CacheEntry(
-                self._hass, "offers-event-data-diff-base2", partial(lambda i: None)
-            )
-            await ce2.set_value({"old": old, "new": new})
+        ce2 = CacheEntry(
+            self._hass, "offers-event-data-diff-base3", partial(lambda i: None)
+        )
+        await ce2.set_value({"old": old, "new": new})
 
-            diffs = get_diffs(old, new)
-            _LOGGER.info("OFFER DIFFS: %s", diffs)
-            event_data = {
-                "type": "offers_changed",
-                "uid": self._config_entry.data[CONF_ICA_ID],
-                "pre_count": pre_count,
-                "post_count": len(target),
-                "new_offers": new_offers,
-                "diffs": diffs,
-            }
+        diffs = get_diffs(old, new)
+        _LOGGER.info("OFFER DIFFS: %s", diffs)
+        event_data = {
+            "type": "offers_changed",
+            "uid": self._config_entry.data[CONF_ICA_ID],
+            "pre_count": pre_count,
+            "post_count": len(target),
+            "new_offers": new_offers,
+            "diffs": diffs,
+        }
+        ce = CacheEntry(self._hass, "offers-event-data", partial(lambda i: None))
+        await ce.set_value(event_data)
+        self._hass.bus.async_fire(
+            f"{DOMAIN}_event",
+            event_data,
+        )
 
-            ce = CacheEntry(self._hass, "offers-event-data", partial(lambda i: None))
-            await ce.set_value(event_data)
-
-            self._hass.bus.async_fire(
-                f"{DOMAIN}_event",
-                event_data,
-            )
+        _LOGGER.warning(
+            "Updated offer details! pre_count: %s, post_count: %s",
+            pre_count,
+            len(target),
+        )
         return target
 
     async def _search_offers(self):
