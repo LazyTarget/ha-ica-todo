@@ -123,6 +123,10 @@ class IcaServices(StrEnum):
     ADD_OFFERS_TO_SHOPPING_LIST = "add_offers_to_shopping_list"
 
 
+class IcaEvents(StrEnum):
+    NEW_OFFERS = f"{DOMAIN}_new_offers"
+
+
 class API:
     class AppRegistration:
         APP_REGISTRATION_ENDPOINT: Final = "register"

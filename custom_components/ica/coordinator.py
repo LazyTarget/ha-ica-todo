@@ -33,6 +33,7 @@ from .const import (
     CONF_SHOPPING_LISTS,
     CACHING_SECONDS_SHORT_TERM,
     ConflictMode,
+    IcaEvents,
 )
 from .utils import get_diffs, index_of, try_parse_int
 
@@ -193,28 +194,12 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         _LOGGER.info("Parsed info from '%s' to %s", summary, ti)
         return ti
 
-    def get_offer_info(self, offerId) -> IcaStoreOffer:
-        offers_per_store = self._ica_favorite_stores_offers.current_value()
-        if not offers_per_store:
-            return None
-        for store_id in offers_per_store:
-            store = offers_per_store[store_id]
-            if matches := [o for o in store["offers"] if o["id"] == offerId]:
-                return matches[0]
-        return None
-
-    def get_offer_info_full(self, offerId) -> IcaArticleOffer:
-        if offers := self._ica_favorite_stores_offers_full.current_value():
-            return (
-                matches[0]
-                if (matches := [o for o in offers if o["id"] == offerId])
-                else None
-            )
-        else:
-            return None
+    def get_offer_info(self, offer_id) -> IcaOfferDetails | None:
+        offers = self._ica_offers.current_value()
+        return offers.get(offer_id, None)
 
     async def _update_offer_details(
-        self, invalidate_cache: bool = True, store_ids: list[str] = None
+        self, store_ids: list[str] = None
     ) -> dict[str, IcaOfferDetails]:
         now = datetime.now()
         current = (
@@ -223,16 +208,17 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         target = current.copy()
         pre_count = len(current)
 
-        if store_ids is None:
-            offers_per_store = await self._ica_favorite_stores_offers.get_value(
-                invalidate_cache
-            )
-            if not offers_per_store:
-                _LOGGER.warning("Failed to get offers from favorite stores!")
-                return current
-        else:
-            offers_per_store = await self.api.get_offers(store_ids)
-            _LOGGER.debug("Fetched offers for stores: %s", store_ids)
+        if not store_ids:
+            # No passed store_ids then use the favorite stores
+            stores = await self.async_get_favorite_stores()
+            store_ids = [s["id"] for s in stores]
+
+        offers_per_store = await self.api.get_offers(store_ids)
+        _LOGGER.debug("Fetched offers for stores: %s", store_ids)
+
+        if not offers_per_store:
+            _LOGGER.warning("Failed to get offers from stores!")
+            return current
 
         # Remove obsolete offers... (+30 days from expiration)
         for offer_id in current:
