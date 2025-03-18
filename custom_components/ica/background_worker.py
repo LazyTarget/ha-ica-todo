@@ -55,6 +55,13 @@ class BackgroundWorker:
             # self.fire_event(event_type, event_data)
         self._schedule_next_send()
 
+    async def fire_or_queue_event(self, event_type, event_data) -> None:
+        _LOGGER.fatal("ICA - FIRE/QUEUE: %s", event_type)
+        if self._config_entry.state == ConfigEntryState.LOADED:
+            self.fire_event(event_type, event_data)
+        else:
+            await self._queue.put((event_type, event_data))
+
     async def queue_event(self, event_type, event_data) -> None:
         _LOGGER.fatal("ICA - QUEUING: %s", event_type)
         await self._queue.put((event_type, event_data))

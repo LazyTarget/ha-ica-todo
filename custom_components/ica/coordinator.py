@@ -296,7 +296,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             self._hass, "offers-event-data", partial(lambda _: None)
         ).set_value(event_data)
         if diffs:
-            await self.queue_event(f"{DOMAIN}_event", event_data)
+            await self._worker.fire_or_queue_event(f"{DOMAIN}_event", event_data)
 
         # WIP
         # limited = {k:v for k, v in list(target.items())[:5]}
@@ -306,7 +306,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             "uid": self._config_entry.data[CONF_ICA_ID],
             "new_offers": limited,
         }
-        await self.queue_event(IcaEvents.NEW_OFFERS, event_data)
+        await self._worker.fire_or_queue_event(IcaEvents.NEW_OFFERS, event_data)
 
         # print to file for debugging purposes
         await CacheEntry(
@@ -322,7 +322,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 "post_count": len(target),
                 "new_offers": new_offers,
             }
-            await self.queue_event(IcaEvents.NEW_OFFERS, event_data)
+            await self._worker.fire_or_queue_event(IcaEvents.NEW_OFFERS, event_data)
             # print to file for debugging purposes
             await CacheEntry(
                 self._hass, "new_offers", partial(lambda _: None)
@@ -334,10 +334,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             len(target),
         )
         return target
-
-    async def queue_event(self, event_type, event_data) -> None:
-        _LOGGER.fatal("ICA - QUEUE EVENT: %s", event_type)
-        await self._worker.queue_event(event_type, event_data)
 
     async def _search_offers(self):
         offers_per_store = self._ica_favorite_stores_offers.current_value()
@@ -388,7 +384,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                             offer.get("id", None),
                         )
 
-                        self._hass.bus.async_fire(
+                        await self._worker.fire_or_queue_event(
                             f"{DOMAIN}_event",
                             {
                                 "type": "baseitem_offer_found",
@@ -430,7 +426,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 invalidate_cache=refresh
             )
 
-            await self.queue_event(
+            await self._worker.fire_or_queue_event(
                 "ica_event",
                 {
                     "type": "async_update_data",
@@ -458,7 +454,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             )
             new_rows = shopping_list["rows"]
             diffs = get_diffs(old_rows, new_rows)
-            self._hass.bus.async_fire(
+            await self._worker.fire_or_queue_event(
                 f"{DOMAIN}_event",
                 {
                     "type": "shopping_list_updated",
@@ -589,7 +585,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         current_bonus = await self.api.get_current_bonus()
 
         # Fire event
-        self._hass.bus.async_fire(
+        await self._worker.fire_or_queue_event(
             f"{DOMAIN}_event",
             {
                 "type": "current_bonus_loaded",
