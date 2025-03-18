@@ -275,7 +275,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
         # Prepare for publish of change event
         ce2 = CacheEntry(
-            self._hass, "offers-event-data-diff-base3", partial(lambda i: None)
+            self._hass, "offers-event-data-diff-base3", partial(lambda _: None)
         )
         await ce2.set_value({"old": current, "new": target})
 
@@ -289,12 +289,26 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             # "new_offers": new_offers,
             "diffs": diffs,
         }
-        ce = CacheEntry(self._hass, "offers-event-data", partial(lambda i: None))
-        await ce.set_value(event_data)
-        self._hass.bus.async_fire(
-            f"{DOMAIN}_event",
-            event_data,
-        )
+        await CacheEntry(
+            self._hass, "offers-event-data", partial(lambda _: None)
+        ).set_value(event_data)
+        if diffs:
+            self.queue_event(f"{DOMAIN}_event", event_data)
+
+        # WIP
+        # limited = {k:v for k, v in list(target.items())[:5]}
+        limited = dict(list(target.items())[:5])
+        event_data = {
+            "type": "new_offers_WIP",
+            "uid": self._config_entry.data[CONF_ICA_ID],
+            "new_offers": limited,
+        }
+        self.queue_event(IcaEvents.NEW_OFFERS, event_data)
+
+        # print to file for debugging purposes
+        await CacheEntry(
+            self._hass, "new_offers_wip", partial(lambda _: None)
+        ).set_value(event_data)
 
         # Notify new offers
         if new_offers:
@@ -305,10 +319,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 "post_count": len(target),
                 "new_offers": new_offers,
             }
-            self._hass.bus.async_fire(
-                IcaEvents.NEW_OFFERS,
-                event_data,
-            )
+            self.queue_event(IcaEvents.NEW_OFFERS, event_data)
             # print to file for debugging purposes
             await CacheEntry(
                 self._hass, "new_offers", partial(lambda _: None)
@@ -320,6 +331,18 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             len(target),
         )
         return target
+
+    def queue_event(self, event_type, event_data) -> None:
+        name = f"{DOMAIN} - {event_type}"
+        self._config_entry.async_create_task(
+            self._hass, self.fire_event(event_type, event_data), name=name
+        )
+
+    async def fire_event(self, event_type, event_data) -> None:
+        self._hass.bus.async_fire(
+            event_type,
+            event_data,
+        )
 
     async def _search_offers(self):
         offers_per_store = self._ica_favorite_stores_offers.current_value()

@@ -83,7 +83,7 @@ def async_register_services(
         offer_ids = call.data["offer_ids"]
         conflict_mode = call.data.get("conflict_mode", ConflictMode.APPEND)
         for offer_id in offer_ids:
-            offer = coordinator.get_offer_info_full(offer_id)
+            offer = coordinator.get_offer_info(offer_id)
             if not offer:
                 _LOGGER.warning("Offer not found: %s", offer_id)
                 continue
