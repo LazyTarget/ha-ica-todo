@@ -26,6 +26,7 @@ from .icatypes import (
     IcaStoreOffer,
     OffersAndDiscountsForStore,
 )
+from .background_worker import BackgroundWorker
 from .caching import CacheEntry
 from .const import (
     DOMAIN,
@@ -50,6 +51,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         logger: logging.Logger,
         update_interval: timedelta,
         api: IcaAPIAsync,
+        background_worker: BackgroundWorker,
         nRecipes: int = 0,
     ) -> None:
         """Initialize the ICA coordinator."""
@@ -63,6 +65,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._productCategories: list[IcaProductCategory] | None = None
         self._icaBaseItems: list | None = None
         self._icaRecipes: list[IcaRecipe] | None = None
+        self._worker: BackgroundWorker = background_worker
 
         config_entry_key = self._config_entry.data[CONF_ICA_ID]
 
@@ -293,7 +296,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             self._hass, "offers-event-data", partial(lambda _: None)
         ).set_value(event_data)
         if diffs:
-            self.queue_event(f"{DOMAIN}_event", event_data)
+            await self.queue_event(f"{DOMAIN}_event", event_data)
 
         # WIP
         # limited = {k:v for k, v in list(target.items())[:5]}
@@ -303,7 +306,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             "uid": self._config_entry.data[CONF_ICA_ID],
             "new_offers": limited,
         }
-        self.queue_event(IcaEvents.NEW_OFFERS, event_data)
+        await self.queue_event(IcaEvents.NEW_OFFERS, event_data)
 
         # print to file for debugging purposes
         await CacheEntry(
@@ -319,7 +322,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 "post_count": len(target),
                 "new_offers": new_offers,
             }
-            self.queue_event(IcaEvents.NEW_OFFERS, event_data)
+            await self.queue_event(IcaEvents.NEW_OFFERS, event_data)
             # print to file for debugging purposes
             await CacheEntry(
                 self._hass, "new_offers", partial(lambda _: None)
@@ -332,17 +335,9 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         )
         return target
 
-    def queue_event(self, event_type, event_data) -> None:
-        name = f"{DOMAIN} - {event_type}"
-        self._config_entry.async_create_task(
-            self._hass, self.fire_event(event_type, event_data), name=name
-        )
-
-    async def fire_event(self, event_type, event_data) -> None:
-        self._hass.bus.async_fire(
-            event_type,
-            event_data,
-        )
+    async def queue_event(self, event_type, event_data) -> None:
+        _LOGGER.fatal("ICA - QUEUE EVENT: %s", event_type)
+        await self._worker.queue_event(event_type, event_data)
 
     async def _search_offers(self):
         offers_per_store = self._ica_favorite_stores_offers.current_value()
@@ -433,6 +428,15 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             await self._ica_favorite_stores_offers.get_value(invalidate_cache=refresh)
             await self._ica_favorite_stores_offers_full.get_value(
                 invalidate_cache=refresh
+            )
+
+            await self.queue_event(
+                "ica_event",
+                {
+                    "type": "async_update_data",
+                    "time": str(datetime.now()),
+                    "state": str(self._config_entry.state),
+                },
             )
 
         except Exception as err:

@@ -1,0 +1,68 @@
+import asyncio
+import logging
+from collections.abc import Callable
+from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.helpers.event import async_call_later
+
+_LOGGER = logging.getLogger(__name__)
+
+
+class BackgroundWorker:
+    """Handles automatic caching for a data provider."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        config_entry: ConfigEntry,
+        send_interval: int = 60,
+    ) -> None:
+        # Example: CacheEntry(hass, f"{self._config_entry.data[CONF_ICA_ID]}.baseitems")
+        self._hass: HomeAssistant = hass
+        self._send_interval: int = send_interval
+        self._config_entry = config_entry
+        self._shutdown: bool = False
+        self._queue: asyncio.Queue[tuple[str, dict[str, any]]] = asyncio.Queue()
+        self._queue_send_remover: Callable[[], None] | None = None
+        self._schedule_next_send()
+
+    def _schedule_next_send(self) -> None:
+        """Schedule the next send."""
+        if not self._shutdown:
+            if self._queue_send_remover:
+                self._queue_send_remover()
+            self._queue_send_remover = async_call_later(
+                self._hass, self._send_interval, self._async_send_queue
+            )
+
+    async def _async_send_queue(self, _) -> None:
+        _LOGGER.fatal(
+            "ICA - SENDING QUEUE: empty=%s, loaded=%s",
+            self._queue.empty(),
+            self._config_entry.state == ConfigEntryState.LOADED,
+        )
+        while not self._queue.empty():
+            (event_type, event_data) = self._queue.get_nowait()
+            _LOGGER.fatal(
+                "ICA - ADDING EXECUTOR JOB: %s, length=%s",
+                event_type,
+                len(str(event_data)),
+            )
+            await self._hass.async_add_executor_job(
+                self.fire_event, event_type, event_data
+            )
+
+            # self.fire_event(event_type, event_data)
+        self._schedule_next_send()
+
+    async def queue_event(self, event_type, event_data) -> None:
+        _LOGGER.fatal("ICA - QUEUING: %s", event_type)
+        await self._queue.put((event_type, event_data))
+
+    def fire_event(self, event_type, event_data) -> None:
+        _LOGGER.fatal("ICA - FIRING EVENT: %s", event_type)
+        _LOGGER.warning("Event data: %s", event_data)
+        self._hass.bus.fire(
+            event_type,
+            event_data,
+        )
