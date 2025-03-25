@@ -78,7 +78,7 @@ def setup_global_services(hass: HomeAssistant) -> None:
                 coordinator: IcaCoordinator = (
                     config_entry.coordinator or hass.data[DOMAIN][entry_id]
                 )
-                items = await coordinator.async_get_baseitems()
+                items = await coordinator.async_get_baseitems(invalidate_cache=True)
                 return {"items": items}
             return None
 

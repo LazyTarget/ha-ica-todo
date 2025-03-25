@@ -265,6 +265,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             return []
 
         new_offers: list[IcaOfferDetails] = []
+        limited: list[IcaOfferDetails] = []
         for f in full_offers:
             current_offer = target.get(f["id"]) or IcaOfferDetails()
             store_offer = store_offers.get(f["id"]) or IcaStoreOffer()
@@ -275,6 +276,8 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             target[offer["id"]] = offer
             if not current_offer:
                 new_offers.append(offer)
+            if len(limited) < 5:
+                limited.append(offer)
 
         # Prepare for publish of change event
         ce2 = CacheEntry(
@@ -300,7 +303,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
         # WIP
         # limited = {k:v for k, v in list(target.items())[:5]}
-        limited = dict(list(target.items())[:5])
+        # limited = dict(list(target.items())[:5])
         event_data = {
             "type": "new_offers_WIP",
             "uid": self._config_entry.data[CONF_ICA_ID],
@@ -508,9 +511,9 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         """Return ICA favorite items (baseitems) fetched at most once."""
         return self._ica_baseitems.current_value()
 
-    async def async_get_baseitems(self):
+    async def async_get_baseitems(self, invalidate_cache: bool = False):
         """Return ICA favorite items (baseitems) fetched at most once."""
-        return await self._ica_baseitems.get_value()
+        return await self._ica_baseitems.get_value(invalidate_cache)
 
     async def lookup_baseitem_per_identifier(
         self, identifier: str
