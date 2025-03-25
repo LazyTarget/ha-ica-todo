@@ -208,9 +208,9 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         if shopping_list := self.coordinator.get_shopping_list(self._project_id):
             for task in shopping_list["rows"]:
                 if task.get("offerId", None):
-                    offer = self.coordinator.get_offer_info(task["offerId"])
-                    task["offer"] = offer
-                    task["due"] = offer.get("validTo", None) if offer else None
+                    if offer := self.coordinator.get_offer_info(task["offerId"]):
+                        task["offer"] = offer
+                        task["due"] = offer.get("validTo", None) if offer else None
                 due = (
                     datetime.datetime.fromisoformat(task["due"])
                     if task.get("due", None)
@@ -406,7 +406,7 @@ class IcaBaseItemListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                     else None
                 ),
             )
-            for baseitem in self.coordinator.get_baseitems()
+            for baseitem in self.coordinator.get_baseitems() or []
         ]
         self._attr_todo_items = items
         super()._handle_coordinator_update()

@@ -198,7 +198,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         return ti
 
     def get_offer_info(self, offer_id) -> IcaOfferDetails | None:
-        offers = self._ica_offers.current_value()
+        offers = self._ica_offers.current_value() or {}
         return offers.get(offer_id, None)
 
     async def _update_offer_details(
@@ -439,7 +439,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
     async def _async_update_data(self) -> None:
         """Fetch data from the ICA API."""
-        self.refresh_data()
+        await self.refresh_data()
 
     async def _async_update_tracked_shopping_lists(self) -> list[IcaShoppingList]:
         """Return ICA shopping lists fetched at most once."""
