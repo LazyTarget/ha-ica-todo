@@ -1,0 +1,165 @@
+blueprint:
+  name: ICA Auto add favorite offers
+  description: "**Version 0.1**\n
+    ICA Auto add favorite offers:\n
+    This automation can help automatically add new offers to your ICA shopping list.\n
+    [See the source on Github:](https://github.com/LazyTarget/ha-ica-todo/blob/main/custom_components/ica/blueprints/ica_auto_add_favorite_offers.yaml)\n"
+  domain: automation
+  source_url: https://github.com/LazyTarget/ha-ica-todo/blob/main/custom_components/ica/blueprints/ica_auto_add_favorite_offers.yaml
+  author: LazyTarget
+  input:
+    ica_integration:
+      name: ICA Account
+      description: The ICA account to get favorite items from
+      selector:
+        config_entry:
+          integration: ica
+
+    shopping_todo_list:
+      name: ICA Shopping List
+      description: The ICA shopping list to add the offers to
+      selector:
+        entity:
+          filter:
+            domain: todo
+            integration: ica
+
+    filter_stores:
+      name: Filter by ICA Store(s)
+      description: >
+        Enter `store_id` to filter on particular ICA store. Otherwise leave empty to omit filter.
+
+        Example value: `[194, 195]`
+      selector:
+        text:
+          multiple: true
+
+    include_names:
+      name: Names to match against
+      description: >
+        Enter `offer_name` or `article_name` to include offers on. Otherwise leave empty to omit includes.
+
+
+        Example value: `[Majs Green Giant, Palsternacka 500g Klass 1 ICA]`
+      selector:
+        text:
+          multiple: true
+
+triggers:
+  trigger: event
+  event_type: ica_new_offers
+
+mode: queued
+max: 5
+
+variables:
+  filter_stores: !input filter_stores
+  include_names: !input include_names
+
+conditions:
+  condition: template
+  value_template: "{{ trigger.event.data.type == \"new_offers\" or trigger.event.data.type == \"new_offers_WIP\" }}"
+
+actions:
+  - variables:
+      offers: "{{ trigger.event.data.new_offers | list }}"
+      offer_length: "{{offers | count | int(0)}}"
+      matches: []
+    alias: Arrange Offers
+
+  - variables:
+      offers: |
+        {%- if filter_stores -%}
+          {%- set result = namespace(items=[]) -%}
+          {%- for o in offers | rejectattr("stores", "undefined") -%}
+              {%- set matched_stores = o["stores"] | selectattr("id", "in", filter_stores | map('int') | list) | list -%}
+              {%- if matched_stores | count > 0 -%}
+                {%- set result.items = result.items + [o] -%}
+              {%- endif -%}
+          {%- endfor -%}
+          {{result.items}}
+        {%- else -%}
+          {{offers}}
+        {%- endif -%}
+      offer_length: "{{offers | count | int(0)}}"
+    alias: Limit Offers to the chosen stores
+
+  - action: ica.get_baseitems
+    metadata: {}
+    data:
+      integration: !input ica_integration
+    response_variable: ica_baseitems
+
+  - variables:
+      baseitems: |
+        {{ ica_baseitems["items"] }}
+      baseitems_eans: >
+        {{ baseitems | rejectattr("articleEan", "undefined") |
+        map(attribute="articleEan") | list }}
+    alias: Arrange 'Favorite items'
+
+  - variables:
+      include_names: >
+        {% set result = namespace(names=include_names or []) %}
+
+        {%- for b in baseitems | selectattr("articleEan", "undefined") |
+        rejectattr("text", "in", result.names) -%}
+          {%- set result.names = result.names + [b.text] -%}
+        {%- endfor -%}
+
+        {{result.names}}
+    alias: Expand 'include_names' with Favorite items without an "EAN"
+
+  - variables:
+      baseitems_eans: |
+        {% set p = namespace(id=baseitems_eans or []) %} {%- for x in p.id -%}
+          {%- if x.index('0') == 0 -%}
+            {%- set p.id = p.id + [x.lstrip('0')] -%}
+          {%- endif -%}
+        {%- endfor -%} {{p.id}}
+    alias: Expand 'baseitems_eans' with EANs without '0'-prefix
+
+  - variables:
+      matches: |
+        {%- if include_names -%}
+          {%- set result = namespace(id=matches or []) -%}
+          {%- for o in offers | rejectattr("id", "in", result.id) -%}
+              {%- set matched_eanArticles = o["eans"] | selectattr("articleDescription", "in", include_names) | list -%}
+              {%- if matched_eanArticles | count > 0 -%}
+                {%- set result.id = result.id + [o.id] -%}
+              {%- elif o["name"] in include_names -%}
+                {%- set result.id = result.id + [o.id] -%}
+              {%- endif -%}
+          {%- endfor -%}
+          {{result.id}}
+        {%- else -%}
+          {{matches}}
+        {%- endif -%}
+    alias: Append to matches, for Offers by Name or ArticleName
+
+  - variables:
+      matches: >
+        {%- set result = namespace(id=matches or []) -%} {%- for o in offers |
+        rejectattr("eans", "undefined") | rejectattr("id", "in", result.id) -%}
+            {%- set matched_eans = o["eans"] | selectattr("id", "in", baseitems_eans) | list -%}
+            {%- if matched_eans | count > 0 -%}
+              {%- set result.id = result.id + [o.id] -%}
+            {%- endif -%}
+        {%- endfor -%}
+
+        {{result.id}}
+    alias: Append to matches, for Offers by "Favorite article ean(s)"
+
+  - alias: If has matches, then add to Todo-list
+    if:
+      - alias: If has matches
+        condition: template
+        value_template: "{{ (matches or []) | count > 0 }}"
+    then:
+      - action: ica.add_offers_to_shopping_list
+        metadata: {}
+        data:
+          offer_ids: "{{ matches }}"
+          conflict_mode: APPEND
+          entity_id: !input shopping_todo_list
+        enabled: true
