@@ -1,6 +1,6 @@
 """DataUpdateCoordinator for the Todoist component."""
 
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 import re
 import logging
 import uuid
@@ -240,11 +240,11 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         offer_ids = []
         store_offers: dict[str, IcaStoreOffer] = {}
         for store_id in offers_per_store:
-            if store_id in ["12226", "12045"]:
-                # Limit to these 2 for now...
-                # todo: remove / or set as config
-                _LOGGER.warning("Ignoring offers from store: %s", store_id)
-                continue
+            # if store_id in ["12226", "12045"]:
+            #     # Limit to these 2 for now...
+            #     # todo: remove / or set as config
+            #     _LOGGER.warning("Ignoring offers from store: %s", store_id)
+            #     continue
             store = offers_per_store[store_id]
             oids = [
                 o["id"]
@@ -253,7 +253,9 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             ]
             offer_ids = sorted(list(set(offer_ids)) + list(set(oids)))
             for o in store["offers"]:
-                store_offers[o["id"]] = o
+                c = store_offers.get(o["id"]) or IcaStoreOffer()
+                c.update(o)
+                store_offers[o["id"]] = c
 
         if not offer_ids:
             _LOGGER.warning("No offers to lookup, then avoid querying API")
@@ -280,47 +282,55 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 limited.append(offer)
 
         # Prepare for publish of change event
-        ce2 = CacheEntry(
-            self._hass, "offers-event-data-diff-base3", partial(lambda _: None)
-        )
-        await ce2.set_value({"old": current, "new": target})
-
-        diffs = get_diffs(current, target)
-        _LOGGER.info("OFFER DIFFS: %s", diffs)
-        event_data = {
-            "type": "offers_changed",
-            "uid": self._config_entry.data[CONF_ICA_ID],
-            "pre_count": pre_count,
-            "post_count": len(target),
-            # "new_offers": new_offers,
-            "diffs": diffs,
-        }
         await CacheEntry(
-            self._hass, "offers-event-data", partial(lambda _: None)
-        ).set_value(event_data)
+            self._hass, "offers_changed--base-data", partial(lambda _: None)
+        ).set_value(
+            {
+                "timestamp": str(datetime.now(timezone.utc)),
+                "old": current,
+                "new": target,
+            }
+        )
+
+        diffs = get_diffs(current, target, include_values=False)
+        _LOGGER.debug("OFFERS DIFFS: %s", diffs)
         if diffs:
+            event_data = {
+                "type": "offers_changed",
+                "uid": self._config_entry.data[CONF_ICA_ID],
+                "timestamp": str(datetime.now(timezone.utc)),
+                "pre_count": pre_count,
+                "post_count": len(target),
+                # "new_offers": new_offers,
+                "diffs": diffs,
+            }
+            await CacheEntry(
+                self._hass, "offers_changed--diffs", partial(lambda _: None)
+            ).set_value(event_data)
             await self._worker.fire_or_queue_event(f"{DOMAIN}_event", event_data)
 
-        # WIP
-        # limited = {k:v for k, v in list(target.items())[:5]}
-        # limited = dict(list(target.items())[:5])
-        event_data = {
-            "type": "new_offers_WIP",
-            "uid": self._config_entry.data[CONF_ICA_ID],
-            "new_offers": limited,
-        }
-        await self._worker.fire_or_queue_event(IcaEvents.NEW_OFFERS, event_data)
+        # # WIP
+        # # limited = {k:v for k, v in list(target.items())[:5]}
+        # # limited = dict(list(target.items())[:5])
+        # event_data = {
+        #     "type": "new_offers_WIP",
+        #     "uid": self._config_entry.data[CONF_ICA_ID],
+        #     "timestamp": str(datetime.datetime.now(datetime.timezone.utc)),
+        #     "new_offers": limited,
+        # }
+        # await self._worker.fire_or_queue_event(IcaEvents.NEW_OFFERS, event_data)
 
-        # print to file for debugging purposes
-        await CacheEntry(
-            self._hass, "new_offers_wip", partial(lambda _: None)
-        ).set_value(event_data)
+        # # print to file for debugging purposes
+        # await CacheEntry(
+        #     self._hass, "new_offers_wip", partial(lambda _: None)
+        # ).set_value(event_data)
 
         # Notify new offers
         if new_offers:
             event_data = {
                 "type": "new_offers",
                 "uid": self._config_entry.data[CONF_ICA_ID],
+                "timestamp": str(datetime.now(timezone.utc)),
                 "pre_count": pre_count,
                 "post_count": len(target),
                 "new_offers": new_offers,
@@ -328,7 +338,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             await self._worker.fire_or_queue_event(IcaEvents.NEW_OFFERS, event_data)
             # print to file for debugging purposes
             await CacheEntry(
-                self._hass, "new_offers", partial(lambda _: None)
+                self._hass, "offers_changed--new-offers", partial(lambda _: None)
             ).set_value(event_data)
 
         _LOGGER.warning(

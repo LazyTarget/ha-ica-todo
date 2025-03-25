@@ -14,7 +14,7 @@ def to_dict(list_source, key: str = "id"):
     return {value[key]: value for value in list_source} if list_source else {}
 
 
-def get_diffs(a, b, key: str = "id"):
+def get_diffs(a, b, key: str = "id", include_values: bool = True):
     if isinstance(a, list):
         a = to_dict(a, key)
     if isinstance(b, list):
@@ -44,11 +44,14 @@ def get_diffs(a, b, key: str = "id"):
             if d:
                 props.append(k)
         if props:
-            o = {value: old.get(value, None) for value in props}
-            n = {value: new.get(value, None) for value in props}
-            diffs.append(
-                {"op": "~", key: row_id, "changed_props": props, "old": o, "new": n}
-            )
+            if include_values:
+                o = {value: old.get(value, None) for value in props}
+                n = {value: new.get(value, None) for value in props}
+                diffs.append(
+                    {"op": "~", key: row_id, "changed_props": props, "old": o, "new": n}
+                )
+            else:
+                diffs.append({"op": "~", key: row_id, "changed_props": props})
     return diffs
 
 
