@@ -403,31 +403,26 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
         return full_offers
 
-    async def _async_update_data(
-        self, refresh: bool | None = None
-    ) -> None:  # list[IcaShoppingListEntry]:
-        """Fetch data from the ICA API."""
+    async def refresh_data(self, invalidate_cache: bool | None = None) -> None:
+        """Fetch data from the ICA API (if necessary)."""
         self._icaRecipes = None
         try:
             # Get common ICA data first
-            await self._ica_articles.get_value(invalidate_cache=refresh)
-            await self._ica_baseitems.get_value(invalidate_cache=refresh)
+            await self._ica_articles.get_value(invalidate_cache)
+            await self._ica_baseitems.get_value(invalidate_cache)
 
             # Get user specific data
-            await self._ica_current_bonus.get_value(invalidate_cache=refresh)
-            await self._ica_shopping_lists.get_value(invalidate_cache=refresh)
+            await self._ica_current_bonus.get_value(invalidate_cache)
+            await self._ica_shopping_lists.get_value(invalidate_cache)
 
             # Get store offers
-            await self._ica_favorite_stores.get_value(invalidate_cache=refresh)
+            await self._ica_favorite_stores.get_value(invalidate_cache)
 
-            await (
-                self._ica_offers.get_value()
-            )  # to replace other _ica_favorite_stores_offers_full
+            # this will replace `_ica_favorite_stores_offers_full`
+            await self._ica_offers.get_value(invalidate_cache)
 
-            await self._ica_favorite_stores_offers.get_value(invalidate_cache=refresh)
-            await self._ica_favorite_stores_offers_full.get_value(
-                invalidate_cache=refresh
-            )
+            await self._ica_favorite_stores_offers.get_value(invalidate_cache)
+            await self._ica_favorite_stores_offers_full.get_value(invalidate_cache)
 
             await self._worker.fire_or_queue_event(
                 "ica_event",
@@ -441,6 +436,10 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         except Exception as err:
             _LOGGER.fatal("Exception when getting data. Err: %s", err)
             raise UpdateFailed(f"Error communicating with API: {err}") from err
+
+    async def _async_update_data(self) -> None:
+        """Fetch data from the ICA API."""
+        self.refresh_data()
 
     async def _async_update_tracked_shopping_lists(self) -> list[IcaShoppingList]:
         """Return ICA shopping lists fetched at most once."""
