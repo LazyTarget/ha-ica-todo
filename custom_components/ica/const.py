@@ -101,6 +101,8 @@ ITEM_LIST: Final = "Rows"
 ITEM_NAME: Final = "ProductName"
 IS_CHECKED: Final = "IsStrikedOver"
 
+DEFAULT_ARTICLE_GROUP_ID: Final = 12
+
 
 class ConflictMode(StrEnum):
     APPEND = "APPEND"

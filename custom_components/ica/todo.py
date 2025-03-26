@@ -29,6 +29,7 @@ from .const import (
     ConflictMode,
     IcaServices,
     CONFLICT_MODES,
+    DEFAULT_ARTICLE_GROUP_ID,
 )
 from .coordinator import IcaCoordinator
 from .icatypes import (
@@ -104,8 +105,10 @@ def async_register_services(
                     productName=offer["name"],
                     isStrikedOver=False,
                     sourceId=-1,
-                    articleGroupId=cat.get("articleGroupId", 12),
-                    articleGroupIdExtended=cat.get("expandedArticleGroupId", 12),
+                    articleGroupId=cat.get("articleGroupId", DEFAULT_ARTICLE_GROUP_ID),
+                    articleGroupIdExtended=cat.get(
+                        "expandedArticleGroupId", DEFAULT_ARTICLE_GROUP_ID
+                    ),
                     offerId=offer_id,
                     latestChange=(
                         datetime.datetime.now(datetime.timezone.utc)

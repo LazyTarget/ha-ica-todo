@@ -33,6 +33,7 @@ from .const import (
     CACHING_SECONDS_SHORT_TERM,
     ConflictMode,
     IcaEvents,
+    DEFAULT_ARTICLE_GROUP_ID,
 )
 from .utils import get_diffs, index_of, try_parse_int
 
@@ -137,14 +138,14 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     def get_article_group(self, product_name) -> int:
         articles = self._ica_articles.current_value() or []
         if not articles:
-            return 12  # Unspecified
+            return DEFAULT_ARTICLE_GROUP_ID  # Unspecified
 
         product_name = product_name.casefold()
         for x in filter(
             lambda x: x.get("name", "").casefold() == product_name, articles
         ):
-            return x.get("parentId") or 12
-        return 12  # Unspecified
+            return x.get("parentId") or DEFAULT_ARTICLE_GROUP_ID
+        return DEFAULT_ARTICLE_GROUP_ID  # Unspecified
 
         # articleGroups = {
         #     "välling": 9,
@@ -154,7 +155,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         #     "toapapper": 11,
         #     "blöjor": 11,
         # }
-        # return articleGroups.get(str.lower(productName), 12)
+        # return articleGroups.get(str.lower(productName), DEFAULT_ARTICLE_GROUP_ID)
 
     def parse_summary(self, summary):
         r = re.search(
@@ -343,7 +344,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
     async def _async_update_tracked_shopping_lists(self) -> list[IcaShoppingList]:
         """Return ICA shopping lists fetched at most once."""
-
         current = self._ica_shopping_lists.current_value() or []
         updated = await self._get_tracked_shopping_lists()
         if not updated:
@@ -425,8 +425,10 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             id=str(uuid.uuid4()),
             text=product["name"],
             articleId=product["articleId"],
-            articleGroupId=product["articleGroupId"],
-            articleGroupIdExtended=product["expandedArticleGroupId"],
+            articleGroupId=product.get("articleGroupId", DEFAULT_ARTICLE_GROUP_ID),
+            articleGroupIdExtended=product.get(
+                "expandedArticleGroupId", DEFAULT_ARTICLE_GROUP_ID
+            ),
             articleEan=product["gtin"],
         )
 
@@ -439,7 +441,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             if not item:
                 raise ValueError(f"Product with ean '{identifier}' was not found")
         else:
-            # Not a valid Barcode was passed. Treat as a free text instead...
+            # Not a valid Barcode was passed. Treat as a free-text instead...
             item = IcaBaseItem(
                 id=str(uuid.uuid4()),
                 text=identifier,
