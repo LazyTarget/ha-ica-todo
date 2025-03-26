@@ -1,4 +1,6 @@
-from typing import TypedDict
+from typing import TypedDict, Generic, TypeVar, Any
+
+_DataT = TypeVar("_DataT", default=dict[str, Any])
 
 
 class AuthCredentials(TypedDict):
@@ -179,6 +181,7 @@ class IcaOfferMechanics(TypedDict):
 
 
 class IcaStoreOffer(TypedDict):
+    # From Offerdiscounts for specific store
     id: str | None  # "OfferId"
     category: IcaArticleCategory | None
     name: str | None  # "ArticleName / OfferName"
@@ -203,6 +206,7 @@ class IcaStoreOffer(TypedDict):
 
 
 class IcaArticleOffer(TypedDict):
+    # From SearchOffers (based on StoreId and OfferIds)
     id: str | None  # "OfferId"
     category: IcaArticleCategory | None
     name: str | None  # "ArticleName / OfferName"
@@ -225,6 +229,10 @@ class IcaArticleOffer(TypedDict):
     mediumImageUrl: str | None
     largeImageUrl: str | None
     parsedMechanics: IcaOfferMechanics | None
+
+
+class IcaOfferDetails(IcaStoreOffer, IcaArticleOffer):
+    """Describes everything about an ICA offer"""
 
 
 class ProductLookup(TypedDict):
@@ -285,6 +293,8 @@ class IcaShoppingListEntry(TypedDict):
     unit: str | None
     recipes: list[IcaShoppingListEntryRecipeRef] | None
     recipeId: str | None
+    offerId: str | None
+    productEan: str | None
     isStrikedOver: bool
     internalOrder: int | None
     articleGroupId: int | None
@@ -311,7 +321,7 @@ class IcaShoppingListSync(TypedDict):
     changedShoppingListProperties: dict[str, any] | None
     createdRows: list[IcaShoppingListEntry] | None
     changedRows: list[IcaShoppingListEntry] | None
-    deletedRows: list[IcaShoppingListEntry] | None
+    deletedRows: list[str] | None  # list of offlineIds
 
 
 class IcaProductCategory(TypedDict):
@@ -381,3 +391,8 @@ class IcaRecipe(TypedDict):
     Difficulty: str | None
     CookingTime: str | None
     Portions: int | None
+
+
+class ServiceCallResponse(Generic[_DataT], TypedDict):
+    success: bool
+    data: _DataT | None

@@ -1,4 +1,5 @@
 import logging
+import json
 from typing import Any
 
 
@@ -13,7 +14,7 @@ def to_dict(list_source, key: str = "id"):
     return {value[key]: value for value in list_source} if list_source else {}
 
 
-def get_diffs(a, b, key: str = "id"):
+def get_diffs(a, b, key: str = "id", include_values: bool = True):
     if isinstance(a, list):
         a = to_dict(a, key)
     if isinstance(b, list):
@@ -25,25 +26,33 @@ def get_diffs(a, b, key: str = "id"):
     diffs.extend([{"op": "-", key: row_id, "old": a[row_id]} for row_id in removed])
 
     a_set = set(a)
+    # aa = {k: v for k,v in a.items()}
+    # aa_set = set(a.keys())
     b_set = set(b)
+    # bb = {x[key]: x for x in b}
+    # bb = b.keys()
+    # bb_set = set(bb)
     remaining = a_set.intersection(b_set)
+    # remaining = aa_set.intersection(bb_set)
 
     for row_id in remaining:
         old = a[row_id]
         new = b[row_id]
         props = []
-        for key in new:
-            d = new.get(key, None) != old.get(key, None)
+        for k in new:
+            d = new.get(k, None) != old.get(k, None)
+            # todo: ignore changes in ordering when list. ICA quite oftenly change or send inconsistent sorting in the Ean-property
             if d:
-                props.append(key)
-
+                props.append(k)
         if props:
-            o = {value: old.get(value, None) for value in props}
-            n = {value: new.get(value, None) for value in props}
-            diffs.append(
-                {"op": "~", key: row_id, "changed_props": props, "old": o, "new": n}
-            )
-
+            if include_values:
+                o = {value: old.get(value, None) for value in props}
+                n = {value: new.get(value, None) for value in props}
+                diffs.append(
+                    {"op": "~", key: row_id, "changed_props": props, "old": o, "new": n}
+                )
+            else:
+                diffs.append({"op": "~", key: row_id, "changed_props": props})
     return diffs
 
 
@@ -61,3 +70,19 @@ def try_parse_int(value: Any) -> tuple[bool, int]:
         return (True, int(value))
     except ValueError:
         return (False, 0)
+
+
+if __name__ == "__main__":
+    print("Testing `get_diffs(old, new)`")
+    # o = [{"id": 1, "name": "OLD"}, {"id": 3, "name": "gone!"}]
+    # n = [{"id": 1, "name": "FOO"}, {"id": 2, "name": "BAR"}]
+
+    j = open(
+        "C:\HomeAssistant\config\.storage\ica.offers_event_data_diff_base2.json", "r"
+    ).read()
+    doc = json.loads(j)
+    o = doc["value"]["old"]
+    n = doc["value"]["new"]
+    print(o)
+    print(n)
+    print(get_diffs(o, n))

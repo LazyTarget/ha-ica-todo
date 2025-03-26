@@ -2,7 +2,6 @@
 
 import datetime
 import json
-from typing import Any
 import voluptuous as vol
 import uuid
 
@@ -20,13 +19,25 @@ from homeassistant.core import (
     SupportsResponse,
 )
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers import entity_platform
+from homeassistant.helpers import service
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, CONF_JSON_DATA_IN_DESC, IcaServices, CONFLICT_MODES
+from .const import (
+    DOMAIN,
+    CONF_JSON_DATA_IN_DESC,
+    ConflictMode,
+    IcaServices,
+    CONFLICT_MODES,
+    DEFAULT_ARTICLE_GROUP_ID,
+)
 from .coordinator import IcaCoordinator
-from .icatypes import IcaShoppingList, IcaShoppingListEntry, IcaShoppingListSync
+from .icatypes import (
+    IcaShoppingList,
+    IcaShoppingListEntry,
+    IcaShoppingListSync,
+    ServiceCallResponse,
+)
 from .utils import index_of
 
 import logging
@@ -51,53 +62,93 @@ async def async_setup_entry(
     ]
     baseitem_list_entity = IcaBaseItemListEntity(coordinator, entry)
     async_add_entities([baseitem_list_entity, *shopping_list_entities])
-    async_register_services(hass, coordinator)
+
+    async_register_services(hass, coordinator, shopping_list_entities)
 
 
-def async_register_services(hass: HomeAssistant, coordinator: IcaCoordinator) -> None:
+def async_register_services(
+    hass: HomeAssistant,
+    coordinator: IcaCoordinator,
+    shopping_list_entities: list[TodoListEntity],
+) -> None:
     """Register services."""
+    shopping_list_entities = {
+        value.entity_id: value for value in shopping_list_entities
+    }
 
-    async def handle_add_offer_to_shopping_list(
+    async def handle_add_offers_to_shopping_list(
         entity: IcaShoppingListEntity, call: ServiceCall
-    ) -> None:
+    ) -> ServiceCallResponse[IcaShoppingList]:
         """Call will add an existing Offer to a ICA shopping list"""
-        offer_id = call.data["offer_id"]
-        conflict_mode = call.data.get("conflict_mode", CONFLICT_MODES[0])
-        offer = coordinator.get_offer_info_full(offer_id)
-        if not offer:
-            return
-        item = {
-            "internalOrder": 999,
-            "productName": offer["name"],
-            "isStrikedOver": False,
-            "sourceId": -1,
-            "articleGroupId": offer.get("category", {}).get("articleGroupId", 12),
-            "articleGroupIdExtended": offer.get("category", {}).get(
-                "expandedArticleGroupId", 12
-            ),
-            "offerId": offer_id,
-            "lastChange": (
-                datetime.datetime.now(datetime.timezone.utc)
-                .replace(microsecond=0)
-                .isoformat()
-                + "Z"
-            ),
-            "offlineId": str(uuid.uuid4()),
-        }
-        # _LOGGER.fatal("Item to add: %s", item)
-        result = await entity._async_create_todo_item_from_ica_shopping_list_item(
-            item, conflict_mode
-        )
-        return {"result": result, "item": item}
+        created_rows = []
+        offer_ids = call.data["offer_ids"]
+        conflict_mode = call.data.get("conflict_mode", ConflictMode.APPEND)
+        for offer_id in offer_ids:
+            if not offer_id or ("," in offer_id):
+                _LOGGER.warning("Invalid `offer_id` passed: %s", offer_id)
+                continue
+            offer = coordinator.get_offer_info(offer_id)
+            if not offer:
+                _LOGGER.warning("Offer not found: %s", offer_id)
+                continue
+            cat = offer.get("category", {})
+            ean = (
+                offer.get("eans")[0].get(
+                    "id"
+                )  # todo: How to handle if multiple?. Best would be to add the Ean that was triggered...
+                if len(offer.get("eans", [])) == 1
+                else None
+            )
+            created_rows.append(
+                IcaShoppingListEntry(
+                    internalOrder=999,
+                    productName=offer["name"],
+                    isStrikedOver=False,
+                    sourceId=-1,
+                    articleGroupId=cat.get("articleGroupId", DEFAULT_ARTICLE_GROUP_ID),
+                    articleGroupIdExtended=cat.get(
+                        "expandedArticleGroupId", DEFAULT_ARTICLE_GROUP_ID
+                    ),
+                    offerId=offer_id,
+                    latestChange=(
+                        datetime.datetime.now(datetime.timezone.utc)
+                        .replace(microsecond=0)
+                        .isoformat()
+                        + "Z"
+                    ),
+                    productEan=ean,
+                    offlineId=str(uuid.uuid4()),
+                )
+            )
 
-    platform = entity_platform.async_get_current_platform()
-    platform.async_register_entity_service(
-        IcaServices.Add_OFFER_TO_SHOPPING_LIST,
-        {
-            vol.Required("offer_id"): cv.string,
+        if not created_rows:
+            return ServiceCallResponse[IcaShoppingList](success=False, data=None)
+        updated_list = await entity.async_create_shopping_list_items(
+            created_rows, conflict_mode=conflict_mode
+        )
+        return ServiceCallResponse[IcaShoppingList](success=True, data=updated_list)
+
+    # platform = entity_platform.async_get_current_platform()
+    # platform.async_register_entity_service(
+    #     IcaServices.ADD_OFFERS_TO_SHOPPING_LIST,
+    #     {
+    #         vol.Required("offer_ids"): vol.All(cv.ensure_list, [str]),
+    #         vol.Optional("conflict_mode"): vol.In(CONFLICT_MODES),
+    #     },
+    #     handle_add_offers_to_shopping_list,
+    #     supports_response=SupportsResponse.OPTIONAL,
+    # )
+    service.async_register_entity_service(
+        hass,
+        DOMAIN,
+        name=IcaServices.ADD_OFFERS_TO_SHOPPING_LIST,
+        schema={
+            vol.Required("offer_ids"): vol.All(cv.ensure_list, [str]),
             vol.Optional("conflict_mode"): vol.In(CONFLICT_MODES),
         },
-        handle_add_offer_to_shopping_list,
+        job_type=None,
+        entities=shopping_list_entities,
+        func=handle_add_offers_to_shopping_list,
         supports_response=SupportsResponse.OPTIONAL,
     )
 
@@ -117,24 +168,6 @@ def async_register_services(hass: HomeAssistant, coordinator: IcaCoordinator) ->
     #             vol.Required("recipe_id"): cv.string
     #         }),
     #         supports_response=SupportsResponse.ONLY)
-
-
-def _task_api_data(item: TodoItem) -> dict[str, Any]:
-    """Convert a TodoItem to the set of add or update arguments."""
-    item_data: dict[str, Any] = {}
-    if summary := item.summary:
-        item_data["content"] = summary
-    if due := item.due:
-        if isinstance(due, datetime.datetime):
-            item_data["due"] = {
-                "date": due.date().isoformat(),
-                "datetime": due.isoformat(),
-            }
-        else:
-            item_data["due"] = {"date": due.isoformat()}
-    if description := item.description:
-        item_data["description"] = description
-    return item_data
 
 
 class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
@@ -183,9 +216,9 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         if shopping_list := self.coordinator.get_shopping_list(self._project_id):
             for task in shopping_list["rows"]:
                 if task.get("offerId", None):
-                    offer = self.coordinator.get_offer_info(task["offerId"])
-                    task["offer"] = offer
-                    task["due"] = offer.get("validTo", None) if offer else None
+                    if offer := self.coordinator.get_offer_info(task["offerId"]):
+                        task["offer"] = offer
+                        task["due"] = offer.get("validTo", None) if offer else None
                 due = (
                     datetime.datetime.fromisoformat(task["due"])
                     if task.get("due", None)
@@ -283,15 +316,26 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         ti["sourceId"] = -1
         ti["isStrikedOver"] = False
         ti["offlineId"] = str(uuid.uuid4())
+        items = [IcaShoppingListEntry(ti)]
+        await self.async_create_shopping_list_items(items)
 
+    async def async_create_shopping_list_items(
+        self,
+        items: list[IcaShoppingListEntry],
+        conflict_mode: ConflictMode = ConflictMode.APPEND,
+    ) -> IcaShoppingList:
+        """A non HA-native function that batches together mutiple item creations"""
         sync = IcaShoppingListSync(
             offlineId=self._project_id,
-            createdRows=[IcaShoppingListEntry(ti)],
+            createdRows=items,
+            changedShoppingListProperties={},
         )
-        sync["latestChange"] = (
+        sync["changedShoppingListProperties"]["latestChange"] = (
             f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
         )
-        await self.coordinator.sync_shopping_list(sync)
+        return await self.coordinator.sync_shopping_list(
+            sync, conflict_mode=conflict_mode
+        )
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
         """Update a To-do item."""
@@ -348,7 +392,7 @@ class IcaBaseItemListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         self.coordinator = coordinator if not self.coordinator else coordinator
         self._config_entry = config_entry
         self._attr_unique_id = f"{config_entry.entry_id}-baseitems"
-        self._attr_name = "ICA Favorite Items"
+        self._attr_name = "ICA Favorite Articles"
         self._attr_icon = "mdi:cart"
         self._attr_todo_items: list[TodoItem] | None = None
 
@@ -370,7 +414,7 @@ class IcaBaseItemListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                     else None
                 ),
             )
-            for baseitem in self.coordinator.get_baseitems()
+            for baseitem in self.coordinator.get_baseitems() or []
         ]
         self._attr_todo_items = items
         super()._handle_coordinator_update()

@@ -74,13 +74,13 @@
           }
         }
       },
-      "add_offer_to_shopping_list": {
-        "name": "Add a offer to list",
+      "add_offers_to_shopping_list": {
+        "name": "Adds offer(s) to shopping list",
         "description": "Adds a current offer to a shopping list",
         "fields": {
-          "offer_id": {
-            "name": "OfferId",
-            "description": "The offer id to add to a shopping list"
+          "offer_ids": {
+            "name": "OfferIds",
+            "description": "The offer id(s) to add to a shopping list"
           },
           "conflict_mode": {
             "name": "Conflict mode",

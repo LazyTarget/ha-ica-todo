@@ -42,27 +42,35 @@ add_baseitem:
       selector:
         text:
 
-add_offer_to_shopping_list:
-  target:
-    entity:
-      integration: ica
-      domain: todo
+add_offers_to_shopping_list:
   fields:
-    offer_id:
-      name: "OfferId"
-      description: "The offer id to add to a shopping list"
-      example: "2000681790"
-      default: ''
+    entity_id:
+      name: "Shopping list entity"
+      description: "The shopping list entity to add to"
+      required: true
+      selector:
+        entity:
+          filter:
+            integration: ica
+            domain: todo
+          exclude_entities:
+            - todo.ica_favorite_articles
+          multiple: false
+    offer_ids:
+      name: "OfferIds"
+      description: "The offer id(s) to add to a shopping list"
+      example: "2000681790, 2000698334"
       required: true
       selector:
         text:
+          multiple: true
     conflict_mode:
       name: "Conflict mode"
       description: "What do to if the item already exists"
-      default: 'ignore'
+      default: 'APPEND'
       selector:
         select:
           options:
-            - "ignore"
-            - "append"
-            - "merge"
+            - "APPEND"
+            - "MERGE"
+            - "IGNORE"
