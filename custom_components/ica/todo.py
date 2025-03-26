@@ -84,7 +84,7 @@ def async_register_services(
         offer_ids = call.data["offer_ids"]
         conflict_mode = call.data.get("conflict_mode", ConflictMode.APPEND)
         for offer_id in offer_ids:
-            if not offer_id or offer_id.find(","):
+            if not offer_id or ("," in offer_id):
                 _LOGGER.warning("Invalid `offer_id` passed: %s", offer_id)
                 continue
             offer = coordinator.get_offer_info(offer_id)

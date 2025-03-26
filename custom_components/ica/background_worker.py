@@ -9,7 +9,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class BackgroundWorker:
-    """Handles automatic caching for a data provider."""
+    """Handles a queue for sending Home Assistant events."""
 
     def __init__(
         self,
@@ -43,14 +43,15 @@ class BackgroundWorker:
         await self._async_send_queue(None)
 
     async def _async_send_queue(self, _) -> None:
-        _LOGGER.fatal(
+        """Sends the existing items in the queue."""
+        _LOGGER.debug(
             "ICA - SENDING QUEUE: empty=%s, loaded=%s",
             self._queue.empty(),
             self._config_entry.state == ConfigEntryState.LOADED,
         )
         while not self._queue.empty():
             (event_type, event_data) = self._queue.get_nowait()
-            _LOGGER.fatal(
+            _LOGGER.debug(
                 "ICA - ADDING EXECUTOR JOB: %s, length=%s",
                 event_type,
                 len(str(event_data)),
@@ -63,18 +64,21 @@ class BackgroundWorker:
         self._schedule_next_send()
 
     async def fire_or_queue_event(self, event_type, event_data) -> None:
-        _LOGGER.fatal("ICA - FIRE/QUEUE: %s", event_type)
+        """Queues or fires an event immediately as long as the integration is fully loaded."""
+        _LOGGER.debug("ICA - FIRE/QUEUE: %s", event_type)
         if self._config_entry.state == ConfigEntryState.LOADED:
             self.fire_event(event_type, event_data)
         else:
             await self._queue.put((event_type, event_data))
 
     async def queue_event(self, event_type, event_data) -> None:
-        _LOGGER.fatal("ICA - QUEUING: %s", event_type)
+        """Queues a event to be fired in the next send interval."""
+        _LOGGER.debug("ICA - QUEUING: %s", event_type)
         await self._queue.put((event_type, event_data))
 
     def fire_event(self, event_type, event_data) -> None:
-        _LOGGER.fatal("ICA - FIRING EVENT: %s", event_type)
+        """Immediately tells Home Assistant to fire an event."""
+        _LOGGER.info("ICA - FIRING EVENT: %s", event_type)
         _LOGGER.warning("Event data: %s", event_data)
         self._hass.bus.fire(
             event_type,

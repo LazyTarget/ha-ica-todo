@@ -232,7 +232,7 @@ class IcaArticleOffer(TypedDict):
 
 
 class IcaOfferDetails(IcaStoreOffer, IcaArticleOffer):
-    my_custom_prop: str | None
+    """Describes everything about an ICA offer"""
 
 
 class ProductLookup(TypedDict):
