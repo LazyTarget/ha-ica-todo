@@ -335,6 +335,8 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 "post_count": len(target),
                 "new_offers": new_offers,
             }
+            # todo: notify: Auto add automation if new ean's have been added to an offer?
+            # todo: ...and remove if no longer exists?
             await self._worker.fire_or_queue_event(IcaEvents.NEW_OFFERS, event_data)
             # print to file for debugging purposes
             await CacheEntry(
