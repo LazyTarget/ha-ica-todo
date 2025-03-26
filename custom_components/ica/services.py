@@ -7,7 +7,7 @@ import homeassistant.helpers.config_validation as cv
 
 from .coordinator import IcaCoordinator
 from .const import DOMAIN, IcaServices
-from .icatypes import IcaBaseItem, ServiceCallResponse
+from .icatypes import IcaBaseItem, IcaRecipe, ServiceCallResponse
 
 import logging
 
@@ -136,7 +136,9 @@ def setup_global_services(hass: HomeAssistant) -> None:
     # Non-entity based Services
     if not hass.services.has_service(DOMAIN, IcaServices.GET_RECIPE):
 
-        async def handle_get_recipe(call: ServiceCall) -> None:
+        async def handle_get_recipe(
+            call: ServiceCall,
+        ) -> ServiceCallResponse[IcaRecipe]:
             """Call will query ICA api after a specific Recipe"""
             config_entry: ConfigEntry = hass.config_entries.async_entries(DOMAIN)[0]
             coordinator: IcaCoordinator = (
@@ -145,7 +147,7 @@ def setup_global_services(hass: HomeAssistant) -> None:
 
             recipe_id = call.data["recipe_id"]
             recipe = await coordinator.async_get_recipe(recipe_id)
-            return recipe
+            return ServiceCallResponse[IcaRecipe](success=bool(recipe), data=recipe)
 
         hass.services.async_register(
             DOMAIN,

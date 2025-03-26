@@ -139,9 +139,15 @@ class IcaAPI:
         url = get_rest_url(MY_BONUS_ENDPOINT)
         return get(self._session, url, self._auth_key)
 
-    def get_recipe(self, recipe_id: int) -> IcaRecipe:
+    def get_recipe(self, recipe_id: int) -> IcaRecipe | None:
         url = str.format(get_rest_url(RECIPE_ENDPOINT), recipe_id)
-        return get(self._session, url, self._auth_key)
+        try:
+            result = get(self._session, url, self._auth_key)
+        except requests.exceptions.HTTPError as err:
+            if err.response.status_code == 404:
+                return None
+            raise
+        return result
 
     def get_random_recipes(self, nRecipes: int = 5) -> list[IcaRecipe]:
         if nRecipes < 1:

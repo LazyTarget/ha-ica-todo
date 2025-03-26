@@ -492,7 +492,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         )
         return current_bonus
 
-    async def async_get_recipe(self, recipe_id: int) -> IcaRecipe:
+    async def async_get_recipe(self, recipe_id: int) -> IcaRecipe | None:
         """Return a specific ICA recipe."""
         return await self.api.get_recipe(recipe_id)
 
