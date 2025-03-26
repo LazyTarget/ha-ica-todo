@@ -355,17 +355,17 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 [],
             )
             new_rows = shopping_list["rows"]
-            diffs = get_diffs(old_rows, new_rows)
-            await self._worker.fire_or_queue_event(
-                f"{DOMAIN}_event",
-                {
-                    "type": "shopping_list_updated",
-                    "uid": self._config_entry.data[CONF_ICA_ID],
-                    "shopping_list_id": shopping_list["id"],
-                    "shopping_list_name": shopping_list["title"],
-                    "diffs": diffs,
-                },
-            )
+            if diffs := get_diffs(old_rows, new_rows):
+                await self._worker.fire_or_queue_event(
+                    f"{DOMAIN}_event",
+                    {
+                        "type": "shopping_list_updated",
+                        "uid": self._config_entry.data[CONF_ICA_ID],
+                        "shopping_list_id": shopping_list["id"],
+                        "shopping_list_name": shopping_list["title"],
+                        "diffs": diffs,
+                    },
+                )
         return updated
 
     async def sync_shopping_list(
