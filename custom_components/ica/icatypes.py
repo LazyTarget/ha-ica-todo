@@ -395,4 +395,4 @@ class IcaRecipe(TypedDict):
 
 class ServiceCallResponse(Generic[_DataT], TypedDict):
     success: bool
-    data: _DataT | None
+    data: _DataT | None = None

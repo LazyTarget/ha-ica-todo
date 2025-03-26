@@ -7,6 +7,7 @@ import homeassistant.helpers.config_validation as cv
 
 from .coordinator import IcaCoordinator
 from .const import DOMAIN, IcaServices
+from .icatypes import IcaBaseItem, ServiceCallResponse
 
 import logging
 
@@ -31,7 +32,7 @@ ADD_BASEITEM_SCHEMA = vol.Schema(
 def setup_global_services(hass: HomeAssistant) -> None:
     if not hass.services.has_service(DOMAIN, IcaServices.REFRESH_ALL):
 
-        async def handle_refresh_all(call: ServiceCall) -> None:
+        async def handle_refresh_all(call: ServiceCall):
             """Call will force the coordinator to refresh all data"""
             c = 0
             for config_entry in hass.config_entries.async_entries(DOMAIN):
@@ -59,7 +60,9 @@ def setup_global_services(hass: HomeAssistant) -> None:
 
     if not hass.services.has_service(DOMAIN, IcaServices.GET_BASEITEMS):
 
-        async def handle_get_baseitems(call: ServiceCall) -> None:
+        async def handle_get_baseitems(
+            call: ServiceCall,
+        ) -> ServiceCallResponse[list[IcaBaseItem]]:
             """Call will query ICA api after the user's favorite items"""
             config_entry: ConfigEntry | None
             for entry_id in call.data["integration"]:
@@ -78,8 +81,10 @@ def setup_global_services(hass: HomeAssistant) -> None:
                 coordinator: IcaCoordinator = (
                     config_entry.coordinator or hass.data[DOMAIN][entry_id]
                 )
-                items = await coordinator.async_get_baseitems(invalidate_cache=True)
-                return {"items": items}
+                baseitems = await coordinator.async_get_baseitems(invalidate_cache=True)
+                return ServiceCallResponse[list[IcaBaseItem]](
+                    success=bool(baseitems), data=baseitems or []
+                )
             return None
 
         hass.services.async_register(
@@ -92,7 +97,9 @@ def setup_global_services(hass: HomeAssistant) -> None:
 
     if not hass.services.has_service(DOMAIN, IcaServices.ADD_BASEITEM):
 
-        async def handle_add_baseitem(call: ServiceCall) -> None:
+        async def handle_add_baseitem(
+            call: ServiceCall,
+        ) -> ServiceCallResponse[list[IcaBaseItem]]:
             """Call will add item to the user's favorite items"""
             identifier = call.data["identifier"]
             config_entry: ConfigEntry | None
@@ -113,8 +120,10 @@ def setup_global_services(hass: HomeAssistant) -> None:
                     config_entry.coordinator or hass.data[DOMAIN][entry_id]
                 )
                 baseitems = await coordinator.async_lookup_and_add_baseitem(identifier)
-                return {"baseitems": baseitems}
-            return None
+                return ServiceCallResponse[list[IcaBaseItem]](
+                    success=bool(baseitems), data=baseitems or []
+                )
+            return ServiceCallResponse[list[IcaBaseItem]](success=False)
 
         hass.services.async_register(
             DOMAIN,

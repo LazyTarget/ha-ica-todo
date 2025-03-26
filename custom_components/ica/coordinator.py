@@ -214,7 +214,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             return current
 
         # Remove obsolete offers... (+30 days from expiration)
-        for offer_id in current:
+        for offer_id in list(current):
             offer = current[offer_id]
             offer_due = (
                 datetime.fromisoformat(offer["validTo"]) + timedelta(days=30)
