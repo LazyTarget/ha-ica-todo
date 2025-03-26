@@ -83,20 +83,29 @@ def async_register_services(
         offer_ids = call.data["offer_ids"]
         conflict_mode = call.data.get("conflict_mode", ConflictMode.APPEND)
         for offer_id in offer_ids:
+            if not offer_id or offer_id.find(","):
+                _LOGGER.warning("Invalid `offer_id` passed: %s", offer_id)
+                continue
             offer = coordinator.get_offer_info(offer_id)
             if not offer:
                 _LOGGER.warning("Offer not found: %s", offer_id)
                 continue
+            cat = offer.get("category", {})
+            ean = (
+                offer.get("eans")[0].get(
+                    "id"
+                )  # todo: How to handle if multiple?. Best would be to add the Ean that was triggered...
+                if len(offer.get("eans", [])) == 1
+                else None
+            )
             created_rows.append(
                 IcaShoppingListEntry(
                     internalOrder=999,
                     productName=offer["name"],
                     isStrikedOver=False,
                     sourceId=-1,
-                    articleGroupId=offer.get("category", {}).get("articleGroupId", 12),
-                    articleGroupIdExtended=offer.get("category", {}).get(
-                        "expandedArticleGroupId", 12
-                    ),
+                    articleGroupId=cat.get("articleGroupId", 12),
+                    articleGroupIdExtended=cat.get("expandedArticleGroupId", 12),
                     offerId=offer_id,
                     latestChange=(
                         datetime.datetime.now(datetime.timezone.utc)
@@ -104,11 +113,7 @@ def async_register_services(
                         .isoformat()
                         + "Z"
                     ),
-                    productEan=offer.get("eans")[0].get(
-                        "id"
-                    )  # todo: How to handle if multiple?
-                    if len(offer.get("eans", [])) == 1
-                    else None,
+                    productEan=ean,
                     offlineId=str(uuid.uuid4()),
                 )
             )
