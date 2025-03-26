@@ -14,7 +14,6 @@ from .icaapi_async import IcaAPIAsync
 from .icatypes import (
     IcaAccountCurrentBonus,
     IcaArticle,
-    IcaArticleOffer,
     IcaBaseItem,
     IcaOfferDetails,
     IcaShoppingListSync,
@@ -24,7 +23,6 @@ from .icatypes import (
     IcaShoppingListEntry,
     IcaShoppingList,
     IcaStoreOffer,
-    OffersAndDiscountsForStore,
 )
 from .background_worker import BackgroundWorker
 from .caching import CacheEntry
@@ -73,7 +71,10 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             hass, "articles", partial(self.api.get_articles)
         )
         self._ica_baseitems = CacheEntry[list[IcaBaseItem]](
-            hass, f"{config_entry_key}.baseitems", partial(self.api.get_baseitems)
+            hass,
+            f"{config_entry_key}.baseitems",
+            partial(self.api.get_baseitems),
+            expiry_seconds=CACHING_SECONDS_SHORT_TERM,
         )
         self._ica_current_bonus = CacheEntry[IcaAccountCurrentBonus](
             hass, f"{config_entry_key}.current_bonus", partial(self._get_current_bonus)
@@ -89,23 +90,11 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             partial(self._async_update_tracked_shopping_lists),
             expiry_seconds=CACHING_SECONDS_SHORT_TERM,
         )
-        self._ica_favorite_stores_offers = CacheEntry[
-            dict[str, OffersAndDiscountsForStore]
-        ](
-            hass,
-            f"{config_entry_key}.favorite_stores_offers",
-            partial(self._get_offers),
-        )
-        self._ica_favorite_stores_offers_full = CacheEntry[list[IcaArticleOffer]](
-            hass,
-            f"{config_entry_key}.favorite_stores_offers_full",
-            partial(self._search_offers),
-        )
         self._ica_offers = CacheEntry[dict[str, IcaOfferDetails]](
             hass,
             f"{config_entry_key}.offers",
             partial(self._update_offer_details),
-            expiry_seconds=CACHING_SECONDS_SHORT_TERM,
+            # FOR-DEBUGGING: expiry_seconds=CACHING_SECONDS_SHORT_TERM,
         )
 
     async def _get_tracked_shopping_lists(self) -> list[IcaShoppingList]:
@@ -240,11 +229,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         offer_ids = []
         store_offers: dict[str, IcaStoreOffer] = {}
         for store_id in offers_per_store:
-            # if store_id in ["12226", "12045"]:
-            #     # Limit to these 2 for now...
-            #     # todo: remove / or set as config
-            #     _LOGGER.warning("Ignoring offers from store: %s", store_id)
-            #     continue
             store = offers_per_store[store_id]
             oids = [
                 o["id"]
@@ -309,22 +293,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             ).set_value(event_data)
             await self._worker.fire_or_queue_event(f"{DOMAIN}_event", event_data)
 
-        # # WIP
-        # # limited = {k:v for k, v in list(target.items())[:5]}
-        # # limited = dict(list(target.items())[:5])
-        # event_data = {
-        #     "type": "new_offers_WIP",
-        #     "uid": self._config_entry.data[CONF_ICA_ID],
-        #     "timestamp": str(datetime.datetime.now(datetime.timezone.utc)),
-        #     "new_offers": limited,
-        # }
-        # await self._worker.fire_or_queue_event(IcaEvents.NEW_OFFERS, event_data)
-
-        # # print to file for debugging purposes
-        # await CacheEntry(
-        #     self._hass, "new_offers_wip", partial(lambda _: None)
-        # ).set_value(event_data)
-
         # Notify new offers
         if new_offers:
             event_data = {
@@ -350,71 +318,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         )
         return target
 
-    async def _search_offers(self):
-        offers_per_store = self._ica_favorite_stores_offers.current_value()
-        if not offers_per_store:
-            return None
-
-        store_ids = list(offers_per_store.keys())
-        offer_ids = []
-
-        for store_id in offers_per_store:
-            if store_id in ["12226", "12045"]:
-                # Limit to these 2 for now...
-                # todo: remove / or set as config
-                _LOGGER.warning("Ignoring offers from store: %s", store_id)
-                continue
-            store = offers_per_store[store_id]
-            oids = [
-                o["id"]
-                for o in store["offers"]
-                # if o and o.get("isUsed", None) is not True
-            ]
-            offer_ids = sorted(list(set(offer_ids)) + list(set(oids)))
-
-        if not offer_ids:
-            _LOGGER.warning("No offers to lookup, then avoid querying API")
-            return []
-
-        full_offers = await self.api.search_offers(store_ids, offer_ids)
-        if not full_offers:
-            _LOGGER.warning("No existing offers found. Is this true??")
-            return []
-
-        baseitems = self._ica_baseitems.current_value()
-        bi_eans = [
-            i["articleEan"] for i in baseitems if i and i.get("articleEan", None)
-        ]
-        _LOGGER.warning("Favorite eans: %s", bi_eans)
-
-        for offer in full_offers:
-            if eans := offer.get("eans", None):
-                for ean in eans:
-                    ean_id = ean["id"]
-                    if ean_id in bi_eans or f"0{ean_id}" in bi_eans:
-                        _LOGGER.fatal(
-                            "Offer on Favorite! EAN=%s, Name=%s, OfferId=%s",
-                            ean_id,
-                            offer.get("name", None),
-                            offer.get("id", None),
-                        )
-
-                        await self._worker.fire_or_queue_event(
-                            f"{DOMAIN}_event",
-                            {
-                                "type": "baseitem_offer_found",
-                                "uid": self._config_entry.data[CONF_ICA_ID],
-                                "data": {
-                                    "bi_ean": ean_id,
-                                    "offer": offer,
-                                },
-                            },
-                        )
-                        # todo: Add service that takes offerId and adds to a target todo-list. UPDATE: Done!
-                        # todo: Do this lookup also outside of this CacheEntry
-
-        return full_offers
-
     async def refresh_data(self, invalidate_cache: bool | None = None) -> None:
         """Fetch data from the ICA API (if necessary)."""
         self._icaRecipes = None
@@ -429,22 +332,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
             # Get store offers
             await self._ica_favorite_stores.get_value(invalidate_cache)
-
-            # this will replace `_ica_favorite_stores_offers_full`
             await self._ica_offers.get_value(invalidate_cache)
-
-            await self._ica_favorite_stores_offers.get_value(invalidate_cache)
-            await self._ica_favorite_stores_offers_full.get_value(invalidate_cache)
-
-            await self._worker.fire_or_queue_event(
-                "ica_event",
-                {
-                    "type": "async_update_data",
-                    "time": str(datetime.now()),
-                    "state": str(self._config_entry.state),
-                },
-            )
-
         except Exception as err:
             _LOGGER.fatal("Exception when getting data. Err: %s", err)
             raise UpdateFailed(f"Error communicating with API: {err}") from err
@@ -586,13 +474,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     async def async_get_favorite_stores(self) -> list[IcaStore]:
         """Return ICA favorite stores."""
         return await self._ica_favorite_stores.get_value()
-
-    async def _get_offers(self):
-        """Return ICA offers at favorite stores."""
-        # Get dependency
-        stores = await self.async_get_favorite_stores()
-
-        return await self.api.get_offers([s["id"] for s in stores])
 
     async def _get_current_bonus(self):
         """Returns ICA bonus information"""
