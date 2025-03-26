@@ -35,6 +35,13 @@ class BackgroundWorker:
                 self._hass, self._send_interval, self._async_send_queue
             )
 
+    async def shutdown(self) -> None:
+        """Stops the background worker."""
+        if self._queue_send_remover:
+            self._queue_send_remover()
+        self._shutdown = True
+        await self._async_send_queue(None)
+
     async def _async_send_queue(self, _) -> None:
         _LOGGER.fatal(
             "ICA - SENDING QUEUE: empty=%s, loaded=%s",
