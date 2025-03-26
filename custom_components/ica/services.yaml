@@ -47,6 +47,7 @@ add_offers_to_shopping_list:
     entity_id:
       name: "Shopping list entity"
       description: "The shopping list entity to add to"
+      required: true
       selector:
         entity:
           filter:
@@ -59,7 +60,6 @@ add_offers_to_shopping_list:
       name: "OfferIds"
       description: "The offer id(s) to add to a shopping list"
       example: "2000681790, 2000698334"
-      default: ''
       required: true
       selector:
         text:

@@ -41,6 +41,7 @@ def get_diffs(a, b, key: str = "id", include_values: bool = True):
         props = []
         for k in new:
             d = new.get(k, None) != old.get(k, None)
+            # todo: ignore changes in ordering when list. ICA quite oftenly change or send inconsistent sorting in the Ean-property
             if d:
                 props.append(k)
         if props:
