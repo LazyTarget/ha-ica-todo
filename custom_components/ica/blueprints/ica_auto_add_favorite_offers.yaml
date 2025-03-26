@@ -1,6 +1,6 @@
 blueprint:
   name: ICA Auto add favorite offers
-  description: "**Version 0.2.3**\n
+  description: "**Version 0.2.4**\n
     ICA Auto add favorite offers:\n
     This automation can help automatically add new offers to your ICA shopping list.\n
     [See the source on Github:](https://github.com/LazyTarget/ha-ica-todo/blob/main/custom_components/ica/blueprints/ica_auto_add_favorite_offers.yaml)\n"
@@ -54,6 +54,11 @@ blueprint:
     new_matching_offers_action:
       name: Action to execute when found new matching offers
       description: Action to execute when found new matching offers
+      default:
+        - action: notify.persistent_notification
+          metadata: {}
+          data:
+            message: "[Default] offer names: {{matched_offers | map(attribute='name') | join(' | ') }}"
       selector:
         action: {}
 
@@ -109,10 +114,8 @@ actions:
         response_variable: ica_baseitems
 
       - variables:
-          baseitems: |
-            {{ ica_baseitems["items"] }}
           baseitems_eans: >
-            {{ baseitems | rejectattr("articleEan", "undefined") |
+            {{ ica_baseitems["items"] | rejectattr("articleEan", "undefined") |
             map(attribute="articleEan") | list }}
         alias: Arrange 'Favorite items'
 
@@ -120,8 +123,9 @@ actions:
           include_names: >
             {% set result = namespace(names=include_names or []) %}
 
-            {%- for b in baseitems | selectattr("articleEan", "undefined") |
-            rejectattr("text", "in", result.names) -%}
+            {%- for b in ica_baseitems["items"] 
+              | selectattr("articleEan", "undefined") 
+              | rejectattr("text", "in", result.names) -%}
               {%- set result.names = result.names + [b.text] -%}
             {%- endfor -%}
 
