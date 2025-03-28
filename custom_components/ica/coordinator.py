@@ -4,6 +4,7 @@ from datetime import timedelta, datetime, timezone
 import re
 import logging
 import uuid
+import requests
 from functools import partial
 
 from homeassistant.core import HomeAssistant
@@ -334,6 +335,22 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             # Get store offers
             await self._ica_favorite_stores.get_value(invalidate_cache)
             await self._ica_offers.get_value(invalidate_cache)
+
+        except requests.exceptions.HTTPError as err:
+            if err.response.status_code == 401:
+                _LOGGER.warning("Got 401 response during data update. Err: %s", err)
+
+                # Initiate re-login
+                _LOGGER.info("Refershing login")
+                self.api.ensure_login(refresh=True)
+
+                # Queue a new data refresh after successful login
+                _LOGGER.debug(
+                    "Login seems to have been successfully refreshed, queuing new data update"
+                )
+                await self.async_request_refresh()
+                return None
+            raise
         except Exception as err:
             _LOGGER.fatal("Exception when getting data. Err: %s", err)
             raise UpdateFailed(f"Error communicating with API: {err}") from err
