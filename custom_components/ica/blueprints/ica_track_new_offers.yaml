@@ -151,7 +151,7 @@ actions:
           baseitems_eans: |
             {% set p = namespace(id=baseitems_eans or []) %}
             {%- for x in p.id -%}
-              {%- if x.index('0') == 0 -%}
+            {%- if x.startswith('0') -%}
                 {%- set p.id = p.id + [x.lstrip('0')] -%}
               {%- endif -%}
             {%- endfor -%}
