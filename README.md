@@ -1,7 +1,7 @@
 # ha-ica-todo
 
 ICA integration for Home assistant. 
-Forked from https://github.com/dennisgranasen/ha-ica-todo
+Forked from https://github.com/dennisgranasen/ha-ica-todo. But very much rewritten since...
 
 NOTE: Currently under development and might be unstable!
 
@@ -19,22 +19,25 @@ NOTE: Currently under development and might be unstable!
 - [ ] Translate strings [se, en]
 - [ ] Implement config flows step for Reauth / refresh tokens
 - [ ] Update config entry with token, if doing full auth
+- [x] Implement Blueprint automation for tracking new offers
 
 **Shopping lists**
 - [x] Categorize added items into the correct article group!
 - [ ] Time limited offers to be automatically added (if exists under favorites)
 - [ ] Checking off items should sync between store-lists (including time limited offers)
 - [ ] Adding items to Trello checklist should create them in the "Master"-list
+- [ ] Adding items to a shopping list  should sync them to Trello checklist too?
 - [ ] User should use the "store"-list when shopping, which should contain existing offers for that store, and the wanted items from "Master"-list
 - [ ] Adding items to the "Master"-list should calculate the sum of quantities and update accordingly
 - [ ] Allow for (scheduled) notification, when favorite item(s) are on discount/offer
 
 **Barcode/QR/Bower**
 - [ ] Check API possibilities for scanning/shopping items with the phone?
-- [ ] Check if can integrate with Bower recycling
+- [ ] Check if can integrate with the 'Bower recycling app'
 
 **Recipes**
 - [ ] Able to export Ica recipe into Trello
+- [ ] Find recipes that match ingredients that are currently on offer (or in a shopping list)
 
 **Docs**
 - [ ] Document installation/configuration
