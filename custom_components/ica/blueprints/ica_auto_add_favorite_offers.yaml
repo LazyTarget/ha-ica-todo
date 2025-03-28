@@ -1,7 +1,7 @@
 ---
 blueprint:
   name: ICA Auto add favorite offers
-  description: "**Version 0.2.6**\n
+  description: "**Version 0.2.7**\n
     ICA Auto add favorite offers:\n
     This automation can help automatically add new offers to your ICA shopping list.\n
     [See the source on GitHub:](https://github.com/LazyTarget/ha-ica-todo/blob/main/custom_components/ica/blueprints/ica_auto_add_favorite_offers.yaml)\n"
@@ -15,19 +15,6 @@ blueprint:
       selector:
         config_entry:
           integration: ica
-
-    shopping_todo_list:
-      name: ICA Shopping List
-      description: >
-        The ICA shopping list to add the offers to. 
-
-        EDIT: This will be obsolete and removed. To be replaced with the `new_matching_offers_action` input. 
-        Which gives the option to add more conditionals or formatting before adding to Shopping list.
-      selector:
-        entity:
-          filter:
-            domain: todo
-            integration: ica
 
     filter_stores:
       name: Filter by ICA Store(s)
