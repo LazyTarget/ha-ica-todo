@@ -1,17 +1,20 @@
 ---
 blueprint:
-  name: ICA Auto add favorite offers
-  description: "**Version 0.2.7**\n
-    ICA Auto add favorite offers:\n
-    This automation can help automatically add new offers to your ICA shopping list.\n
-    [See the source on GitHub:](https://github.com/LazyTarget/ha-ica-todo/blob/main/custom_components/ica/blueprints/ica_auto_add_favorite_offers.yaml)\n"
+  name: ICA - Track new offers
+  description: "**Version 0.3**\n
+    This automation will be triggered when new ICA offers have been detected, so that you can get a notification or automatically add to your ICA shopping list.\n
+    The tracked offers can be filtered by Store, OfferName or ArticleName\n. This automation also looks through your account's favorite items and matches names/ean(s)\n
+    \n
+    [See the source on GitHub:](https://github.com/LazyTarget/ha-ica-todo/blob/main/custom_components/ica/blueprints/ica_track_new_offers.yaml)\n"
   domain: automation
-  source_url: https://github.com/LazyTarget/ha-ica-todo/blob/main/custom_components/ica/blueprints/ica_auto_add_favorite_offers.yaml
+  source_url: https://github.com/LazyTarget/ha-ica-todo/blob/main/custom_components/ica/blueprints/ica_track_new_offers.yaml
   author: LazyTarget
   input:
     ica_integration:
       name: ICA Account
       description: The ICA account to get favorite items from
+      # default: ''
+      # todo: make optional, to disable Baseitems matching
       selector:
         config_entry:
           integration: ica
@@ -40,10 +43,10 @@ blueprint:
         text:
           multiple: true
 
-    new_matching_offers_action:
-      name: Action to execute when found new matching offers
+    actions:
+      name: Actions to execute
       description: >
-        Action to execute when found new matching offers.
+        Actions to execute when the automation triggers with new matching offers.
 
 
         The following variables are available to use:
@@ -51,8 +54,12 @@ blueprint:
         - `matched_offers` - Contains a list of the offers that were found.
 
 
-        - `matched_offer_ids` - Contains a list of the ids of the offers that were found. 
-          This can easily be forwarded to the `ica.add_offers_to_shopping_list` service, just make sure you specify the target To-do list entity.
+        - `matched_offer_ids` - Contains a list of the ids of the offers that were found.
+
+
+        To add the tracked offers to your shopping list, simply call the service `ica.add_offers_to_shopping_list` and specify the target To-do list entity and pass the variable `matched_offer_ids`.
+
+        The field `conflict_mode` can be set to determine the handling of when an item/offer already exists in the shopping list.
       default:
         - action: notify.persistent_notification
           metadata: {}
@@ -118,6 +125,14 @@ actions:
         condition: template
         value_template: "{{ (offers | default([]) | count) > 0 }}"
     then:
+      # - variables:
+      #     ica_integration: !input ica_integration
+      # - alias: If ICA integration was passed, then fetch Base items and include in filters
+      #   if:
+      #     - alias: If has ICA integration
+      #       condition: template
+      #       value_template: "{{ ica_integration | count > 0 }}"
+      #   then:
       - action: ica.get_baseitems
         metadata: {}
         data:
@@ -133,6 +148,33 @@ actions:
         alias: Arrange 'Favorite items'
 
       - variables:
+          baseitems_eans: |
+            {% set p = namespace(id=baseitems_eans or []) %}
+            {%- for x in p.id -%}
+            {%- if x.startswith('0') -%}
+                {%- set p.id = p.id + [x.lstrip('0')] -%}
+              {%- endif -%}
+            {%- endfor -%}
+            {{p.id}}
+        alias: Expand 'baseitems_eans' with EANs without '0'-prefix
+
+      - variables:
+          matches: >
+            {%- set offer_ids = matches | default([]) | map(attribute="id") | list -%}
+            {%- set result = namespace(id=offer_ids, offers=matches or []) -%}
+            {%- for o in offers
+              | rejectattr("eans", "undefined")
+              | rejectattr("id", "in", result.id) -%}
+                {%- set matched_eans = o["eans"] | selectattr("id", "in", baseitems_eans) | list -%}
+                {%- if matched_eans | count > 0 -%}
+                  {%- set result.id = result.id + [o.id] -%}
+                  {%- set result.offers = result.offers + [o] -%}
+                {%- endif -%}
+            {%- endfor -%}
+            {{result.offers}}
+        alias: Append to matches, for Offers by "Favorite article ean(s)"
+
+      - variables:
           include_names: >
             {% set result = namespace(names=include_names or []) %}
 
@@ -145,17 +187,6 @@ actions:
 
             {{result.names}}
         alias: Expand 'include_names' with Favorite items without an "EAN"
-
-      - variables:
-          baseitems_eans: |
-            {% set p = namespace(id=baseitems_eans or []) %}
-            {%- for x in p.id -%}
-              {%- if x.index('0') == 0 -%}
-                {%- set p.id = p.id + [x.lstrip('0')] -%}
-              {%- endif -%}
-            {%- endfor -%}
-            {{p.id}}
-        alias: Expand 'baseitems_eans' with EANs without '0'-prefix
 
       - variables:
           matches: |
@@ -178,22 +209,6 @@ actions:
             {%- endif -%}
         alias: Append to matches, for Offers by Name or ArticleName
 
-      - variables:
-          matches: >
-            {%- set offer_ids = matches | default([]) | map(attribute="id") | list -%}
-            {%- set result = namespace(id=offer_ids, offers=matches or []) -%}
-            {%- for o in offers
-              | rejectattr("eans", "undefined")
-              | rejectattr("id", "in", result.id) -%}
-                {%- set matched_eans = o["eans"] | selectattr("id", "in", baseitems_eans) | list -%}
-                {%- if matched_eans | count > 0 -%}
-                  {%- set result.id = result.id + [o.id] -%}
-                  {%- set result.offers = result.offers + [o] -%}
-                {%- endif -%}
-            {%- endfor -%}
-            {{result.offers}}
-        alias: Append to matches, for Offers by "Favorite article ean(s)"
-
       - alias: If has matches, then add to Todo-list
         if:
           - alias: If has matches
@@ -205,4 +220,4 @@ actions:
               matched_offer_ids: "{{ matched_offers | map(attribute='id') | list }}"
           - alias: Run the specified actions
             choose: []
-            default: !input new_matching_offers_action
+            default: !input actions
