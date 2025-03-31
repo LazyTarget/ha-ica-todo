@@ -1,11 +1,14 @@
 ---
 blueprint:
   name: ICA - Track new offers
-  description: "**Version 0.3**\n
-    This automation will be triggered when new ICA offers have been detected, so that you can get a notification or automatically add to your ICA shopping list.\n
-    The tracked offers can be filtered by Store, OfferName or ArticleName\n. This automation also looks through your account's favorite items and matches names/ean(s)\n
+  description: "**Version 0.3.1**\n
+    This automation will be triggered when new ICA offers have been detected,
+     so that you can get a notification or automatically add to your ICA shopping list.\n
+    The tracked offers can be filtered by Store, OfferName or ArticleName.\n
+    This automation also looks through your account's favorite items and matches names/ean(s)\n
     \n
-    [See the source on GitHub:](https://github.com/LazyTarget/ha-ica-todo/blob/main/custom_components/ica/blueprints/ica_track_new_offers.yaml)\n"
+    [See the source on GitHub:]
+    (https://github.com/LazyTarget/ha-ica-todo/blob/main/custom_components/ica/blueprints/ica_track_new_offers.yaml)\n"
   domain: automation
   source_url: https://github.com/LazyTarget/ha-ica-todo/blob/main/custom_components/ica/blueprints/ica_track_new_offers.yaml
   author: LazyTarget
@@ -57,9 +60,12 @@ blueprint:
         - `matched_offer_ids` - Contains a list of the ids of the offers that were found.
 
 
-        To add the tracked offers to your shopping list, simply call the service `ica.add_offers_to_shopping_list` and specify the target To-do list entity and pass the variable `matched_offer_ids`.
+        To add the tracked offers to your shopping list,
+         simply call the service `ica.add_offers_to_shopping_list`
+         and specify the target To-do list entity and pass the variable `matched_offer_ids`.
 
-        The field `conflict_mode` can be set to determine the handling of when an item/offer already exists in the shopping list.
+        The field `conflict_mode` can be set to determine the handling of
+         when an item/offer already exists in the shopping list.
       default:
         - action: notify.persistent_notification
           metadata: {}
@@ -91,7 +97,7 @@ variables:
 conditions:
   condition: template
   value_template: >
-    {{ trigger.event.data.type == "new_offers" 
+    {{ trigger.event.data.type == "new_offers"
     or trigger.event.data.type == "new_offers_WIP" }}
 
 actions:
@@ -106,7 +112,7 @@ actions:
         {%- if filter_stores -%}
           {%- set result = namespace(items=[]) -%}
           {%- for o in offers | rejectattr("stores", "undefined") -%}
-              {%- set matched_stores = o["stores"] 
+              {%- set matched_stores = o["stores"]
                   | selectattr("id", "in", filter_stores | map('int') | list) | list -%}
               {%- if matched_stores | count > 0 -%}
                 {%- set result.items = result.items + [o] -%}
@@ -141,9 +147,9 @@ actions:
 
       - variables:
           baseitems_eans: >
-            {{ ica_baseitems["data"] 
-                | default([]) 
-                | rejectattr("articleEan", "undefined") 
+            {{ ica_baseitems["data"]
+                | default([])
+                | rejectattr("articleEan", "undefined")
                 | map(attribute="articleEan") | list }}
         alias: Arrange 'Favorite items'
 
