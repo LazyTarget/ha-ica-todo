@@ -331,8 +331,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             # Initialize Auth during first refresh
             new_auth_state = await self.api.ensure_login()
 
-        try:
-            _LOGGER.debug("TRY-block. %s", new_auth_state)
+        async def fetch():
             # Get common ICA data first
             await self._ica_articles.get_value(invalidate_cache)
             await self._ica_baseitems.get_value(invalidate_cache)
@@ -345,6 +344,10 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             await self._ica_favorite_stores.get_value(invalidate_cache)
             await self._ica_offers.get_value(invalidate_cache)
 
+        try:
+            _LOGGER.debug("TRY-block. %s", new_auth_state)
+            await fetch()
+
         except requests.exceptions.HTTPError as err:
             _LOGGER.debug("HTTPError-block. %s", new_auth_state)
             if err.response.status_code == 401:
@@ -354,12 +357,21 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 _LOGGER.info("Refreshing login...")
                 new_auth_state = await self.api.ensure_login(refresh=True)
 
-                # Queue a new data refresh after successful login (since no exception was thrown)
-                _LOGGER.debug(
-                    "Login seems to have been successfully refreshed, queuing new data update"
-                )
-                await self.async_request_refresh()
-                return None
+                if self._auth_initialized:
+                    # Queue a new data refresh after successful login (since no exception was thrown)
+                    _LOGGER.debug(
+                        "Login seems to have been successfully refreshed, queuing new data update..."
+                    )
+                    await self.async_request_refresh()
+                    return None
+                else:
+                    # This is the first load, raise exception if new login fails...
+                    _LOGGER.debug(
+                        "Login seems to have been successfully refreshed, initiating first load..."
+                    )
+                    await fetch()
+                    return None
+            # For other status codes, raise error directly
             raise
 
         except Exception as err:
