@@ -350,27 +350,21 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
         except requests.exceptions.HTTPError as err:
             _LOGGER.debug("HTTPError-block. %s", new_auth_state)
+            _LOGGER.warning(
+                "Got %s response during data update. Err: %s",
+                err.response.status_code,
+                err,
+            )
             if err.response.status_code == 401:
-                _LOGGER.warning("Got 401 response during data update. Err: %s", err)
-
                 # Initiate re-login
                 _LOGGER.info("Refreshing login...")
                 new_auth_state = await self.api.ensure_login(refresh=True)
-
-                if self._auth_initialized:
-                    # Queue a new data refresh after successful login (since no exception was thrown)
-                    _LOGGER.debug(
-                        "Login seems to have been successfully refreshed, queuing new data update..."
-                    )
-                    await self.async_request_refresh()
-                    return None
-                else:
-                    # This is the first load, raise exception if new login fails...
-                    _LOGGER.debug(
-                        "Login seems to have been successfully refreshed, initiating first load..."
-                    )
-                    await fetch()
-                    return None
+                # Load data
+                _LOGGER.debug(
+                    "Login seems to have been successfully refreshed, explicitly fetching new data..."
+                )
+                await fetch()
+                return None
             # For other status codes, raise error directly
             raise
 
