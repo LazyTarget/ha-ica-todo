@@ -343,6 +343,19 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         expiry = expiry - timedelta(seconds=expiry_margin_seconds)
         return expiry < now
 
+    async def _refresh_data(self, invalidate_cache: bool | None = None) -> None:
+        # Get common ICA data first
+        await self._ica_articles.get_value(invalidate_cache)
+        await self._ica_baseitems.get_value(invalidate_cache)
+
+        # Get user specific data
+        await self._ica_current_bonus.get_value(invalidate_cache)
+        await self._ica_shopping_lists.get_value(invalidate_cache)
+
+        # Get store offers
+        await self._ica_favorite_stores.get_value(invalidate_cache)
+        await self._ica_offers.get_value(invalidate_cache)
+
     async def refresh_data(self, invalidate_cache: bool | None = None) -> None:
         """Fetch data from the ICA API (if necessary)."""
         new_auth_state = None
@@ -354,21 +367,8 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             _LOGGER.info("Refreshing auth token due to expiry")
             new_auth_state = await self.api.ensure_login(refresh=True)
 
-        async def fetch():
-            # Get common ICA data first
-            await self._ica_articles.get_value(invalidate_cache)
-            await self._ica_baseitems.get_value(invalidate_cache)
-
-            # Get user specific data
-            await self._ica_current_bonus.get_value(invalidate_cache)
-            await self._ica_shopping_lists.get_value(invalidate_cache)
-
-            # Get store offers
-            await self._ica_favorite_stores.get_value(invalidate_cache)
-            await self._ica_offers.get_value(invalidate_cache)
-
         try:
-            await fetch()
+            await self._refresh_data(invalidate_cache)
         except requests.exceptions.HTTPError as err:
             if err.response.status_code == 401:
                 # Initiate re-login
@@ -381,7 +381,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 _LOGGER.info(
                     "Login seems to have been successfully refreshed, explicitly fetching new data..."
                 )
-                await fetch()
+                await self._refresh_data(invalidate_cache)
                 return None
             # For other status codes, raise error directly
             _LOGGER.warning(
