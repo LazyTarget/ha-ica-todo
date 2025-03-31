@@ -25,7 +25,12 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up ICA from a config entry."""
-    _LOGGER.info("Config entry data: %s", entry.data)
+    _LOGGER.info(
+        "Loaded ICA config entry v%s.%s - Data: %s",
+        entry.version,
+        entry.minor_version,
+        entry.data,
+    )
 
     uid = entry.data[CONF_ICA_ID]
     pin = entry.data[CONF_ICA_PIN]
@@ -65,6 +70,7 @@ async def async_migrate_entry(hass, config_entry: ConfigEntry):
         config_entry.version,
         config_entry.minor_version,
     )
+    _LOGGER.debug("Config data: %s", config_entry.data)
 
     if config_entry.version > 1:
         # This means the user has downgraded from a future version
@@ -73,8 +79,12 @@ async def async_migrate_entry(hass, config_entry: ConfigEntry):
     if config_entry.version == 1:
         new_data = {**config_entry.data}
         if config_entry.minor_version < 2:
-            del new_data["accessToken"]
-            del new_data["user"]
+            if "access_token" in new_data:
+                del new_data["access_token"]
+            if "user" in new_data:
+                del new_data["user"]
+            if "userInfo" in new_data["auth_state"]:
+                del new_data["auth_state"]["userInfo"]
 
         hass.config_entries.async_update_entry(
             config_entry, data=new_data, minor_version=2, version=1
