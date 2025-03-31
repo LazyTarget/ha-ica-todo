@@ -46,6 +46,7 @@ class IcaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for ICA."""
 
     VERSION = 1
+    MINOR_VERSION = 2
 
     initial_input = None
     auth_state = None

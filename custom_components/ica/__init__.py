@@ -77,6 +77,36 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
+async def async_migrate_entry(hass, config_entry: ConfigEntry):
+    """Migrate old entry."""
+    _LOGGER.debug(
+        "Migrating configuration from version %s.%s",
+        config_entry.version,
+        config_entry.minor_version,
+    )
+
+    if config_entry.version > 1:
+        # This means the user has downgraded from a future version
+        return False
+
+    if config_entry.version == 1:
+        new_data = {**config_entry.data}
+        if config_entry.minor_version < 2:
+            del new_data["accessToken"]
+            del new_data["user"]
+
+        hass.config_entries.async_update_entry(
+            config_entry, data=new_data, minor_version=2, version=1
+        )
+
+    _LOGGER.debug(
+        "Migration to configuration version %s.%s successful",
+        config_entry.version,
+        config_entry.minor_version,
+    )
+    return True
+
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
