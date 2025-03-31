@@ -37,6 +37,11 @@ class BackgroundWorker:
 
     async def shutdown(self) -> None:
         """Stops the background worker."""
+        _LOGGER.debug(
+            "ICA - SHUTDOWN QUEUE: empty=%s, loaded=%s",
+            self._queue.empty(),
+            self._config_entry.state == ConfigEntryState.LOADED,
+        )
         if self._queue_send_remover:
             self._queue_send_remover()
         self._shutdown = True

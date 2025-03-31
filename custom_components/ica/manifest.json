@@ -2,8 +2,7 @@
   "domain": "ica",
   "name": "ICA",
   "codeowners": [
-    "@lazytarget",
-    "@dennisgranasen"
+    "@lazytarget"
   ],
   "config_flow": true,
   "dependencies": [],
@@ -14,5 +13,5 @@
     "ica"
   ],
   "requirements": [],
-  "version": "v0.8.1"
+  "version": "v0.8.2"
 }

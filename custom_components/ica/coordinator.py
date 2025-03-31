@@ -1,40 +1,42 @@
 """DataUpdateCoordinator for the Todoist component."""
 
-from datetime import timedelta, datetime, timezone
-import re
 import logging
+import re
 import uuid
-import requests
+from datetime import datetime, timedelta, timezone
 from functools import partial
 
-from homeassistant.core import HomeAssistant
+import requests
+import homeassistant.util.dt as dt_util
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
+from .background_worker import BackgroundWorker
+from .caching import CacheEntry
+from .const import (
+    CACHING_SECONDS_SHORT_TERM,
+    CONF_ICA_ID,
+    CONF_SHOPPING_LISTS,
+    DEFAULT_ARTICLE_GROUP_ID,
+    DOMAIN,
+    ConflictMode,
+    IcaEvents,
+)
 from .icaapi_async import IcaAPIAsync
 from .icatypes import (
+    AuthState,
     IcaAccountCurrentBonus,
     IcaArticle,
     IcaBaseItem,
     IcaOfferDetails,
-    IcaShoppingListSync,
-    IcaStore,
     IcaProductCategory,
     IcaRecipe,
-    IcaShoppingListEntry,
     IcaShoppingList,
+    IcaShoppingListEntry,
+    IcaShoppingListSync,
+    IcaStore,
     IcaStoreOffer,
-)
-from .background_worker import BackgroundWorker
-from .caching import CacheEntry
-from .const import (
-    DOMAIN,
-    CONF_ICA_ID,
-    CONF_SHOPPING_LISTS,
-    CACHING_SECONDS_SHORT_TERM,
-    ConflictMode,
-    IcaEvents,
-    DEFAULT_ARTICLE_GROUP_ID,
 )
 from .utils import get_diffs, index_of, try_parse_int
 
@@ -51,7 +53,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         logger: logging.Logger,
         update_interval: timedelta,
         api: IcaAPIAsync,
-        background_worker: BackgroundWorker,
         nRecipes: int = 0,
     ) -> None:
         """Initialize the ICA coordinator."""
@@ -59,13 +60,16 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self.SCAN_INTERVAL = update_interval
         self._config_entry = config_entry
         self.api: IcaAPIAsync = api
+        self._auth_initialized: bool | None = None
         self._hass = hass
         self._nRecipes: int = nRecipes
         self._stores: list[IcaStore] | None = None
         self._productCategories: list[IcaProductCategory] | None = None
         self._icaBaseItems: list | None = None
         self._icaRecipes: list[IcaRecipe] | None = None
-        self._worker: BackgroundWorker = background_worker
+
+        self._worker = BackgroundWorker(hass, config_entry)
+        config_entry.async_on_unload(self._worker.shutdown)
 
         config_entry_key = self._config_entry.data[CONF_ICA_ID]
 
@@ -320,44 +324,98 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         )
         return target
 
+    def should_refresh_login(self):
+        auth_state = self.api.get_authenticated_user()
+        if not auth_state or not auth_state.get("token"):
+            return True
+        token = auth_state["token"]
+        expiry = (
+            dt_util.parse_datetime(token["expiry"])
+            if token and token.get("expiry", None)
+            else None
+        )
+        if not expiry:
+            return True
+        now = dt_util.utcnow()
+        # Set earlier expiry, to ensure refresh before token gets killed
+        expires_in_seconds = token.get("expires_in", 2592000)
+        expiry_margin_seconds = expires_in_seconds * 0.2
+        expiry = expiry - timedelta(seconds=expiry_margin_seconds)
+        return expiry < now
+
+    async def _refresh_data(self, invalidate_cache: bool | None = None) -> None:
+        # Get common ICA data first
+        await self._ica_articles.get_value(invalidate_cache)
+        await self._ica_baseitems.get_value(invalidate_cache)
+
+        # Get user specific data
+        await self._ica_current_bonus.get_value(invalidate_cache)
+        await self._ica_shopping_lists.get_value(invalidate_cache)
+
+        # Get store offers
+        await self._ica_favorite_stores.get_value(invalidate_cache)
+        await self._ica_offers.get_value(invalidate_cache)
+
     async def refresh_data(self, invalidate_cache: bool | None = None) -> None:
         """Fetch data from the ICA API (if necessary)."""
-        self._icaRecipes = None
+        new_auth_state = None
+        if self._auth_initialized is None:
+            # Initialize Auth during first refresh
+            new_auth_state = await self.api.ensure_login()
+        elif self.should_refresh_login():
+            # Refresh login (due to expiry)
+            _LOGGER.info("Refreshing auth token due to expiry")
+            new_auth_state = await self.api.ensure_login(refresh=True)
+
         try:
-            # Get common ICA data first
-            await self._ica_articles.get_value(invalidate_cache)
-            await self._ica_baseitems.get_value(invalidate_cache)
-
-            # Get user specific data
-            await self._ica_current_bonus.get_value(invalidate_cache)
-            await self._ica_shopping_lists.get_value(invalidate_cache)
-
-            # Get store offers
-            await self._ica_favorite_stores.get_value(invalidate_cache)
-            await self._ica_offers.get_value(invalidate_cache)
-
+            await self._refresh_data(invalidate_cache)
         except requests.exceptions.HTTPError as err:
             if err.response.status_code == 401:
-                _LOGGER.warning("Got 401 response during data update. Err: %s", err)
-
                 # Initiate re-login
-                _LOGGER.info("Refershing login")
-                self.api.ensure_login(refresh=True)
-
-                # Queue a new data refresh after successful login
-                _LOGGER.debug(
-                    "Login seems to have been successfully refreshed, queuing new data update"
+                _LOGGER.info(
+                    "Data fetch resulted in status %s. Refreshing login...",
+                    err.response.status_code,
                 )
-                await self.async_request_refresh()
+                new_auth_state = await self.api.ensure_login(refresh=True)
+                # Retry loading data (with new auth state)
+                _LOGGER.info(
+                    "Login seems to have been successfully refreshed, explicitly fetching new data..."
+                )
+                await self._refresh_data(invalidate_cache)
                 return None
+            # For other status codes, raise error directly
+            _LOGGER.warning(
+                "Got %s response during data update. Err: %s",
+                err.response.status_code,
+                err,
+            )
             raise
         except Exception as err:
-            _LOGGER.fatal("Exception when getting data. Err: %s", err)
+            _LOGGER.error("Exception when getting data. Err: %s", err)
             raise UpdateFailed(f"Error communicating with API: {err}") from err
+        else:
+            # No exceptions during fetch, auth is valid
+            if not self._auth_initialized:
+                self._auth_initialized = True
+        finally:
+            if new_auth_state:
+                self._try_persist_new_auth_state(self._config_entry, new_auth_state)
 
     async def _async_update_data(self) -> None:
         """Fetch data from the ICA API."""
         await self.refresh_data()
+
+    def _try_persist_new_auth_state(
+        self, entry: ConfigEntry, auth_state: AuthState
+    ) -> bool | None:
+        entry_data = entry.data.copy()
+        entry_data["auth_state"] = auth_state
+        if self._hass.config_entries.async_update_entry(entry, data=entry_data):
+            _LOGGER.info("Successfully updated config entry data with new auth state.")
+            return True
+        else:
+            _LOGGER.debug("No changes when persisting auth state to config_entry data.")
+            return False
 
     async def _async_update_tracked_shopping_lists(self) -> list[IcaShoppingList]:
         """Return ICA shopping lists fetched at most once."""
