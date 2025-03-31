@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from functools import partial
 
 import requests
+import homeassistant.util.dt as dt_util
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -323,13 +324,33 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         )
         return target
 
+    def should_refresh_login(self):
+        auth_state = self.api.get_authenticated_user()
+        if not auth_state or not auth_state.get("token"):
+            return True
+        token = auth_state["token"]
+        expiry = (
+            dt_util.parse_datetime(token["expiry"])
+            if token and token.get("expiry", None)
+            else None
+        )
+        if not expiry:
+            return True
+        now = dt_util.utcnow()
+        # Set earlier expiry, to ensure refresh before token gets killed
+        expiry = expiry - timedelta(hours=12)
+        return expiry < now
+
     async def refresh_data(self, invalidate_cache: bool | None = None) -> None:
         """Fetch data from the ICA API (if necessary)."""
-        _LOGGER.debug("REFRESH-block. %s", self.api.get_authenticated_user())
         new_auth_state = None
         if self._auth_initialized is None:
             # Initialize Auth during first refresh
             new_auth_state = await self.api.ensure_login()
+        elif self.should_refresh_login():
+            # Refresh login (due to expiry)
+            _LOGGER.info("Refreshing auth token due to expiry")
+            new_auth_state = await self.api.ensure_login(refresh=True)
 
         async def fetch():
             # Get common ICA data first
@@ -345,42 +366,36 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             await self._ica_offers.get_value(invalidate_cache)
 
         try:
-            _LOGGER.debug("TRY-block. %s", new_auth_state)
             await fetch()
-
         except requests.exceptions.HTTPError as err:
-            _LOGGER.debug("HTTPError-block. %s", new_auth_state)
-            _LOGGER.warning(
-                "Got %s response during data update. Err: %s",
-                err.response.status_code,
-                err,
-            )
             if err.response.status_code == 401:
                 # Initiate re-login
-                _LOGGER.info("Refreshing login...")
+                _LOGGER.info(
+                    "Data fetch resulted in status %s. Refreshing login...",
+                    err.response.status_code,
+                )
                 new_auth_state = await self.api.ensure_login(refresh=True)
-                # Load data
-                _LOGGER.debug(
+                # Retry loading data (with new auth state)
+                _LOGGER.info(
                     "Login seems to have been successfully refreshed, explicitly fetching new data..."
                 )
                 await fetch()
                 return None
             # For other status codes, raise error directly
+            _LOGGER.warning(
+                "Got %s response during data update. Err: %s",
+                err.response.status_code,
+                err,
+            )
             raise
-
         except Exception as err:
-            _LOGGER.debug("Exception-block. %s", new_auth_state)
-            _LOGGER.fatal("Exception when getting data. Err: %s", err)
+            _LOGGER.error("Exception when getting data. Err: %s", err)
             raise UpdateFailed(f"Error communicating with API: {err}") from err
-
         else:
-            _LOGGER.debug("ELSE-block. %s", new_auth_state)
-            # No exceptions, so can successfully fetch data with current auth
+            # No exceptions during fetch, auth is valid
             if not self._auth_initialized:
                 self._auth_initialized = True
-
         finally:
-            _LOGGER.debug("FINALLY-block. %s", new_auth_state)
             if new_auth_state:
                 self._try_persist_new_auth_state(self._config_entry, new_auth_state)
 
