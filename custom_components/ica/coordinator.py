@@ -338,7 +338,9 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             return True
         now = dt_util.utcnow()
         # Set earlier expiry, to ensure refresh before token gets killed
-        expiry = expiry - timedelta(hours=12)
+        expires_in_seconds = token.get("expires_in", 2592000)
+        expiry_margin_seconds = expires_in_seconds * 0.2
+        expiry = expiry - timedelta(seconds=expiry_margin_seconds)
         return expiry < now
 
     async def refresh_data(self, invalidate_cache: bool | None = None) -> None:
