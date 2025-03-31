@@ -29,6 +29,9 @@ autolabeler:
   - label: 'ci/cd'
     files:
       - '/.github/**/*'
+  - label: 'blueprint'
+    files:
+      - '/custom_components/*/blueprints/**/*'
   - label: 'documentation'
     files:
       - '*.md'
