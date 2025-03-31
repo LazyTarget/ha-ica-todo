@@ -276,7 +276,7 @@ class IcaAuthenticator:
 
     def ensure_login(self, refresh: bool | None = None) -> AuthState:
         """This will ensure that a valid auth state is loaded"""
-        state = self._auth_state or AuthState()
+        state = self._auth_state.copy() or AuthState()
         self._auth_state = self._handle_login(self._credentials, state, refresh=refresh)
         return self._auth_state
 
@@ -285,7 +285,7 @@ class IcaAuthenticator:
         credentials: AuthCredentials,
         auth_state: AuthState,
         refresh: bool | None = None,
-        retry: int = 0
+        retry: int = 0,
     ) -> AuthState:
         """This will initiate an new login based on the current state and token expiration"""
         _LOGGER.debug("Handle login :: Starting state: %s", auth_state)
@@ -325,7 +325,9 @@ class IcaAuthenticator:
                 )
                 auth_state = self._handle_refresh_login(auth_state)
         except requests.exceptions.HTTPError as err:
-            _LOGGER.debug("HTTPError-block for Refresh attempt #%s. %s", retry, auth_state)
+            _LOGGER.debug(
+                "HTTPError-block for Refresh attempt #%s. %s", retry, auth_state
+            )
             if retry > 2:
                 _LOGGER.fatal("Could not refresh a new token")
                 raise
@@ -336,7 +338,9 @@ class IcaAuthenticator:
                 _LOGGER.info("Doing a new login instead...")
 
                 del auth_state["token"]
-                return self._handle_login(credentials, auth_state, refresh=False, retry=retry+1)
+                return self._handle_login(
+                    credentials, auth_state, refresh=False, retry=retry + 1
+                )
             raise
 
         _LOGGER.debug("Handle login :: final Auth_State: %s", auth_state)

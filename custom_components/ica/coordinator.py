@@ -4,7 +4,6 @@ from datetime import timedelta, datetime, timezone
 import re
 import logging
 import uuid
-import json
 import requests
 from functools import partial
 
@@ -376,13 +375,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         finally:
             _LOGGER.debug("FINALLY-block. %s", new_auth_state)
             if new_auth_state:
-                presist_result = self._try_persist_new_auth_state(
-                    self._config_entry, new_auth_state
-                )
-                _LOGGER.info(
-                    "Persisted new auth state to config entry... Result=%s",
-                    presist_result,
-                )
+                self._try_persist_new_auth_state(self._config_entry, new_auth_state)
 
     async def _async_update_data(self) -> None:
         """Fetch data from the ICA API."""
@@ -391,24 +384,14 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     def _try_persist_new_auth_state(
         self, entry: ConfigEntry, auth_state: AuthState
     ) -> bool | None:
-        pre = json.dumps(entry.data.get("auth_state", {}))
-        post = json.dumps(auth_state)
-        diff = pre != post
-        if diff:
-            entry.data["auth_state"] = auth_state
-            _LOGGER.debug("Persisting new config entry data: %s", entry.data)
-            if self._hass.config_entries.async_update_entry(entry, data=entry.data):
-                _LOGGER.info(
-                    "Successfully updated config entry data with updated auth state"
-                )
-                return True
-            else:
-                _LOGGER.warning(
-                    "Failed to update config entry data with updated auth state"
-                )
-                return False
+        entry_data = entry.data.copy()
+        entry_data["auth_state"] = auth_state
+        if self._hass.config_entries.async_update_entry(entry, data=entry_data):
+            _LOGGER.info("Successfully updated config entry data with new auth state.")
+            return True
         else:
-            _LOGGER.debug("Reusing stored authentication info")
+            _LOGGER.debug("No changes when persisting auth state to config_entry data.")
+            return False
 
     async def _async_update_tracked_shopping_lists(self) -> list[IcaShoppingList]:
         """Return ICA shopping lists fetched at most once."""
