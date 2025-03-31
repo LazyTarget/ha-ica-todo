@@ -52,7 +52,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         logger: logging.Logger,
         update_interval: timedelta,
         api: IcaAPIAsync,
-        background_worker: BackgroundWorker,
         nRecipes: int = 0,
     ) -> None:
         """Initialize the ICA coordinator."""
@@ -67,7 +66,11 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._productCategories: list[IcaProductCategory] | None = None
         self._icaBaseItems: list | None = None
         self._icaRecipes: list[IcaRecipe] | None = None
-        self._worker: BackgroundWorker = background_worker
+
+        self._worker = BackgroundWorker(
+            hass, config_entry
+        )
+        config_entry.async_on_unload(self._worker.shutdown)
 
         config_entry_key = self._config_entry.data[CONF_ICA_ID]
 

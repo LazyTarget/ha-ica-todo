@@ -9,7 +9,6 @@ from homeassistant.const import Platform, CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
 
 from .icaapi_async import IcaAPIAsync
-from .background_worker import BackgroundWorker
 from .coordinator import IcaCoordinator
 from .services import setup_global_services
 from .const import DOMAIN, CONF_ICA_PIN, CONF_ICA_ID, DEFAULT_SCAN_INTERVAL
@@ -47,7 +46,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER,
         update_interval,
         api,
-        background_worker=BackgroundWorker(hass, entry),
     )
 
     await coordinator.async_config_entry_first_refresh()
@@ -81,9 +79,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    coordinator: IcaCoordinator = entry.coordinator
-    await coordinator._worker.shutdown()
-
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
     return unload_ok
