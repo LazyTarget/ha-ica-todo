@@ -270,7 +270,11 @@ class IcaAuthenticator:
         _LOGGER.debug("code_verifier: %s", code_verifier)
         return (code_challenge, code_verifier)
 
-    def ensure_login(self, refresh: bool | None = None):
+    def get_auth_state(self) -> AuthState | None:
+        """This will get the current auth statee"""
+        return self._auth_state
+
+    def ensure_login(self, refresh: bool | None = None) -> AuthState:
         """This will ensure that a valid auth state is loaded"""
         state = self._auth_state or AuthState()
         self._auth_state = self._handle_login(self._credentials, state, refresh=refresh)
@@ -281,7 +285,7 @@ class IcaAuthenticator:
         credentials: AuthCredentials,
         auth_state: AuthState,
         refresh: bool | None = None,
-    ):
+    ) -> AuthState:
         """This will initiate an new login based on the current state and token expiration"""
         _LOGGER.debug("Handle login :: Starting state: %s", auth_state)
         now = dt_util.utcnow()
@@ -299,6 +303,7 @@ class IcaAuthenticator:
             if current_token and current_token.get("expiry", None)
             else None
         )
+        # todo: set earlier expiry, to ensure refresh before token gets killed
 
         if new_client or not current_token:
             auth_state = self._handle_new_login(credentials, auth_state)

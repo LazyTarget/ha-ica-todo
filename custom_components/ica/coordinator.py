@@ -4,6 +4,7 @@ from datetime import timedelta, datetime, timezone
 import re
 import logging
 import uuid
+import json
 import requests
 from functools import partial
 
@@ -13,6 +14,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .icaapi_async import IcaAPIAsync
 from .icatypes import (
+    AuthState,
     IcaAccountCurrentBonus,
     IcaArticle,
     IcaBaseItem,
@@ -59,6 +61,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self.SCAN_INTERVAL = update_interval
         self._config_entry = config_entry
         self.api: IcaAPIAsync = api
+        self._auth_initialized: bool | None = None
         self._hass = hass
         self._nRecipes: int = nRecipes
         self._stores: list[IcaStore] | None = None
@@ -322,8 +325,14 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
     async def refresh_data(self, invalidate_cache: bool | None = None) -> None:
         """Fetch data from the ICA API (if necessary)."""
-        self._icaRecipes = None
+        _LOGGER.debug("REFRESH-block. %s", self.api.get_authenticated_user())
+        new_auth_state = None
+        if self._auth_initialized is None:
+            # Initialize Auth during first refresh
+            new_auth_state = await self.api.ensure_login()
+
         try:
+            _LOGGER.debug("TRY-block. %s", new_auth_state)
             # Get common ICA data first
             await self._ica_articles.get_value(invalidate_cache)
             await self._ica_baseitems.get_value(invalidate_cache)
@@ -337,27 +346,69 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             await self._ica_offers.get_value(invalidate_cache)
 
         except requests.exceptions.HTTPError as err:
+            _LOGGER.debug("HTTPError-block. %s", new_auth_state)
             if err.response.status_code == 401:
                 _LOGGER.warning("Got 401 response during data update. Err: %s", err)
 
                 # Initiate re-login
-                _LOGGER.info("Refershing login")
-                self.api.ensure_login(refresh=True)
+                _LOGGER.info("Refreshing login...")
+                new_auth_state = await self.api.ensure_login(refresh=True)
 
-                # Queue a new data refresh after successful login
+                # Queue a new data refresh after successful login (since no exception was thrown)
                 _LOGGER.debug(
                     "Login seems to have been successfully refreshed, queuing new data update"
                 )
                 await self.async_request_refresh()
                 return None
             raise
+
         except Exception as err:
+            _LOGGER.debug("Exception-block. %s", new_auth_state)
             _LOGGER.fatal("Exception when getting data. Err: %s", err)
             raise UpdateFailed(f"Error communicating with API: {err}") from err
+
+        else:
+            _LOGGER.debug("ELSE-block. %s", new_auth_state)
+            # No exceptions, so can successfully fetch data with current auth
+            if not self._auth_initialized:
+                self._auth_initialized = True
+
+        finally:
+            _LOGGER.debug("FINALLY-block. %s", new_auth_state)
+            if new_auth_state:
+                presist_result = self._try_persist_new_auth_state(
+                    self._config_entry, new_auth_state
+                )
+                _LOGGER.info(
+                    "Persisted new auth state to config entry... Result=%s",
+                    presist_result,
+                )
 
     async def _async_update_data(self) -> None:
         """Fetch data from the ICA API."""
         await self.refresh_data()
+
+    def _try_persist_new_auth_state(
+        self, entry: ConfigEntry, auth_state: AuthState
+    ) -> bool | None:
+        pre = json.dumps(entry.data.get("auth_state", {}))
+        post = json.dumps(auth_state)
+        diff = pre != post
+        if diff:
+            entry.data["auth_state"] = auth_state
+            _LOGGER.debug("Persisting new config entry data: %s", entry.data)
+            if self._hass.config_entries.async_update_entry(entry, data=entry.data):
+                _LOGGER.info(
+                    "Successfully updated config entry data with updated auth state"
+                )
+                return True
+            else:
+                _LOGGER.warning(
+                    "Failed to update config entry data with updated auth state"
+                )
+                return False
+        else:
+            _LOGGER.debug("Reusing stored authentication info")
 
     async def _async_update_tracked_shopping_lists(self) -> list[IcaShoppingList]:
         """Return ICA shopping lists fetched at most once."""

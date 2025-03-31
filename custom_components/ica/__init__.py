@@ -37,10 +37,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     credentials = AuthCredentials({"username": uid, "password": pin})
     auth_state: AuthState = entry.data.get("auth_state", {})
-    pre = json.dumps(auth_state)
+    # pre = json.dumps(auth_state)
 
     api = IcaAPIAsync(credentials, auth_state)
-    await api.ensure_login()
+    # await api.ensure_login()
     coordinator = IcaCoordinator(
         hass,
         entry,
@@ -51,22 +51,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     await coordinator.async_config_entry_first_refresh()
-    auth_state = api.get_authenticated_user()
-    post = json.dumps(auth_state)
-    diff = pre != post
-    if diff:
-        entry.data["auth_state"] = auth_state
-        _LOGGER.debug("Persisting new config entry data: %s", entry.data)
-        if hass.config_entries.async_update_entry(entry, data=entry.data):
-            _LOGGER.info(
-                "Successfully updated config entry data with updated auth state"
-            )
-        else:
-            _LOGGER.warning(
-                "Failed to update config entry data with updated auth state"
-            )
-    else:
-        _LOGGER.debug("Reusing stored authentication info")
+    # auth_state = api.get_authenticated_user()
+    # post = json.dumps(auth_state)
+    # diff = pre != post
+    # if diff:
+    #     entry.data["auth_state"] = auth_state
+    #     _LOGGER.debug("Persisting new config entry data: %s", entry.data)
+    #     if hass.config_entries.async_update_entry(entry, data=entry.data):
+    #         _LOGGER.info(
+    #             "Successfully updated config entry data with updated auth state"
+    #         )
+    #     else:
+    #         _LOGGER.warning(
+    #             "Failed to update config entry data with updated auth state"
+    #         )
+    # else:
+    #     _LOGGER.debug("Reusing stored authentication info")
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator

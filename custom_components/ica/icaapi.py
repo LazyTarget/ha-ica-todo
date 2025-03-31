@@ -59,10 +59,11 @@ class IcaAPI:
         )
         self._authenticator = IcaAuthenticator(credentials, auth_state, session)
 
-    def ensure_login(self, refresh: bool | None = None):
+    def ensure_login(self, refresh: bool | None = None) -> AuthState:
         auth_state = self._authenticator.ensure_login(refresh=refresh)
         self._auth_state = auth_state
         self._auth_key = auth_state["token"]["access_token"]
+        return self._auth_state
 
     def get_authenticated_user(self):
         # return self._user
