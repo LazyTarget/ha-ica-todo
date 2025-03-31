@@ -285,6 +285,7 @@ class IcaAuthenticator:
         credentials: AuthCredentials,
         auth_state: AuthState,
         refresh: bool | None = None,
+        retry: int = 0
     ) -> AuthState:
         """This will initiate an new login based on the current state and token expiration"""
         _LOGGER.debug("Handle login :: Starting state: %s", auth_state)
@@ -307,20 +308,36 @@ class IcaAuthenticator:
 
         if new_client or not current_token:
             auth_state = self._handle_new_login(credentials, auth_state)
-        elif current_token_expiry and current_token_expiry < now:
-            _LOGGER.info(
-                "Handle login :: Token expired, will refresh... %s < %s",
-                current_token_expiry,
-                now,
-            )
-            auth_state = self._handle_refresh_login(auth_state)
-        elif bool(refresh):
-            _LOGGER.info(
-                "Handle login :: Refreshing... %s < %s",
-                current_token_expiry,
-                now,
-            )
-            auth_state = self._handle_refresh_login(auth_state)
+
+        try:
+            if current_token_expiry and current_token_expiry < now:
+                _LOGGER.info(
+                    "Handle login :: Token expired, will refresh... %s < %s",
+                    current_token_expiry,
+                    now,
+                )
+                auth_state = self._handle_refresh_login(auth_state)
+            elif bool(refresh):
+                _LOGGER.info(
+                    "Handle login :: Refreshing... %s < %s",
+                    current_token_expiry,
+                    now,
+                )
+                auth_state = self._handle_refresh_login(auth_state)
+        except requests.exceptions.HTTPError as err:
+            _LOGGER.debug("HTTPError-block for Refresh attempt #%s. %s", retry, auth_state)
+            if retry > 2:
+                _LOGGER.fatal("Could not refresh a new token")
+                raise
+            if err.response.status_code == 400:
+                _LOGGER.warning("Got 400 response during token refresh. Err: %s", err)
+
+                # Initiate a new login
+                _LOGGER.info("Doing a new login instead...")
+
+                del auth_state["token"]
+                return self._handle_login(credentials, auth_state, refresh=False, retry=retry+1)
+            raise
 
         _LOGGER.debug("Handle login :: final Auth_State: %s", auth_state)
         return auth_state
