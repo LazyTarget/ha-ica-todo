@@ -2,9 +2,11 @@
 
 import datetime
 import json
-import voluptuous as vol
+import logging
 import uuid
 
+import homeassistant.helpers.config_validation as cv
+import voluptuous as vol
 from homeassistant.components.todo import (
     TodoItem,
     TodoItemStatus,
@@ -15,21 +17,20 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import (
     HomeAssistant,
     ServiceCall,
-    callback,
     SupportsResponse,
+    callback,
 )
-import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers import service
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
-    DOMAIN,
     CONF_JSON_DATA_IN_DESC,
-    ConflictMode,
-    IcaServices,
     CONFLICT_MODES,
     DEFAULT_ARTICLE_GROUP_ID,
+    DOMAIN,
+    ConflictMode,
+    IcaServices,
 )
 from .coordinator import IcaCoordinator
 from .icatypes import (
@@ -39,8 +40,6 @@ from .icatypes import (
     ServiceCallResponse,
 )
 from .utils import index_of
-
-import logging
 
 _LOGGER = logging.getLogger(__name__)
 

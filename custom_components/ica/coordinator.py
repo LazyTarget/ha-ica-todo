@@ -1,16 +1,27 @@
 """DataUpdateCoordinator for the Todoist component."""
 
-from datetime import timedelta, datetime, timezone
-import re
 import logging
+import re
 import uuid
-import requests
+from datetime import datetime, timedelta, timezone
 from functools import partial
 
-from homeassistant.core import HomeAssistant
+import requests
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
+from .background_worker import BackgroundWorker
+from .caching import CacheEntry
+from .const import (
+    CACHING_SECONDS_SHORT_TERM,
+    CONF_ICA_ID,
+    CONF_SHOPPING_LISTS,
+    DEFAULT_ARTICLE_GROUP_ID,
+    DOMAIN,
+    ConflictMode,
+    IcaEvents,
+)
 from .icaapi_async import IcaAPIAsync
 from .icatypes import (
     AuthState,
@@ -18,24 +29,13 @@ from .icatypes import (
     IcaArticle,
     IcaBaseItem,
     IcaOfferDetails,
-    IcaShoppingListSync,
-    IcaStore,
     IcaProductCategory,
     IcaRecipe,
-    IcaShoppingListEntry,
     IcaShoppingList,
+    IcaShoppingListEntry,
+    IcaShoppingListSync,
+    IcaStore,
     IcaStoreOffer,
-)
-from .background_worker import BackgroundWorker
-from .caching import CacheEntry
-from .const import (
-    DOMAIN,
-    CONF_ICA_ID,
-    CONF_SHOPPING_LISTS,
-    CACHING_SECONDS_SHORT_TERM,
-    ConflictMode,
-    IcaEvents,
-    DEFAULT_ARTICLE_GROUP_ID,
 )
 from .utils import get_diffs, index_of, try_parse_int
 
@@ -67,9 +67,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._icaBaseItems: list | None = None
         self._icaRecipes: list[IcaRecipe] | None = None
 
-        self._worker = BackgroundWorker(
-            hass, config_entry
-        )
+        self._worker = BackgroundWorker(hass, config_entry)
         config_entry.async_on_unload(self._worker.shutdown)
 
         config_entry_key = self._config_entry.data[CONF_ICA_ID]
