@@ -30,6 +30,7 @@ from .icatypes import (
     IcaArticle,
     IcaBaseItem,
     IcaOfferDetails,
+    IcaOfferInfo,
     IcaProductCategory,
     IcaRecipe,
     IcaShoppingList,
@@ -256,8 +257,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             _LOGGER.warning("No existing offers found. Is this true??")
             return []
 
-        new_offers: list[IcaOfferDetails] = []
-        limited: list[IcaOfferDetails] = []
+        new_offers: list[IcaOfferInfo] = []
         for f in full_offers:
             current_offer = target.get(f["id"]) or IcaOfferDetails()
             store_offer = store_offers.get(f["id"]) or IcaStoreOffer()
@@ -267,9 +267,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             offer.update(f)
             target[offer["id"]] = offer
             if not current_offer:
-                new_offers.append(offer)
-            if len(limited) < 5:
-                limited.append(offer)
+                new_offers.append(IcaOfferInfo.map_from_offer_details(offer))
 
         # Prepare for publish of change event
         await CacheEntry(
@@ -291,7 +289,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 "timestamp": str(datetime.now(timezone.utc)),
                 "pre_count": pre_count,
                 "post_count": len(target),
-                # "new_offers": new_offers,
                 "diffs": diffs,
             }
             await CacheEntry(
