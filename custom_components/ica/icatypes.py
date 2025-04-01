@@ -1,5 +1,7 @@
 from typing import TypedDict, Generic, TypeVar, Any
 
+from .utils import try_parse_int
+
 _DataT = TypeVar("_DataT", default=dict[str, Any])
 
 
@@ -190,21 +192,19 @@ class IcaOfferMechanics(TypedDict):
         # todo: rewrite `parsedMechanics` as string (like the ICA-app does)
         mech = mech or {}
         result = ""
+
+        def format_value(v: str) -> str:
+            (r, i) = try_parse_int(v)
+            return f"{i}{mech.get('unitSign', '')}".strip() if r and i else v.strip()
+
         if mech.get("type") == "Standard":
-            result = (
-                mech.get("value1", "")
-                + " "
-                + mech.get("value2", "")
-                + " "
-                + mech.get("value3", "")
-                + " "
-                + mech.get("value4", "")
-                + " "
-                + mech.get("unitSign", "")
-            )
+            result = f"{result} {format_value(mech.get('value1'))}".strip()
+            result = f"{result} {format_value(mech.get('value2'))}".strip()
+            result = f"{result} {format_value(mech.get('value3'))}".strip()
+            result = f"{result} {format_value(mech.get('value4'))}".strip()
         else:
             result = mech.get("type")
-        return result
+        return result or ""
 
 
 class IcaStoreOffer(TypedDict):
@@ -279,10 +279,7 @@ class IcaOfferInfo(TypedDict):
     restriction: str | None
     referenceInfo: str | None
     referencePriceText: str | None
-
-    parsedMechanics: IcaOfferMechanics | None
-    # todo: rewrite as string (like the ICA-app does)
-    parsedOfferPriceText: str | None
+    offerPriceText: str | None
 
     ### Conditionals ###
     # isSelfScan: bool | None
@@ -298,10 +295,9 @@ class IcaOfferInfo(TypedDict):
 
     @classmethod
     def map_from_offer_details(cls, offer: IcaOfferDetails):
-        parsedOfferPriceText = IcaOfferMechanics.format_to_string(
+        offerPriceText = IcaOfferMechanics.format_to_string(
             offer.get("parsedMechanics", None)
         )
-        # parsedOfferPriceText = offer.get("parsedMechanics", IcaOfferMechanics()).format_to_string()
         eans = [
             ArticleOfferEanSlim(
                 id=x.get("id"), articleDescription=x.get("articleDescription")
@@ -330,7 +326,7 @@ class IcaOfferInfo(TypedDict):
             restriction=offer.get("restriction"),
             referenceInfo=offer.get("referenceInfo"),
             referencePriceText=offer.get("referencePriceText"),
-            parsedOfferPriceText=parsedOfferPriceText,
+            priceText=offerPriceText,
             ### Conditionals ###
             # isSelfScan: bool | None
             # isPersonal: bool | None
