@@ -326,7 +326,7 @@ class IcaOfferInfo(TypedDict):
             restriction=offer.get("restriction"),
             referenceInfo=offer.get("referenceInfo"),
             referencePriceText=offer.get("referencePriceText"),
-            priceText=offerPriceText,
+            offerPriceText=offerPriceText,
             ### Conditionals ###
             # isSelfScan: bool | None
             # isPersonal: bool | None
