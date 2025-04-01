@@ -1,5 +1,7 @@
 from typing import TypedDict, Generic, TypeVar, Any
 
+from .utils import try_parse_int
+
 _DataT = TypeVar("_DataT", default=dict[str, Any])
 
 
@@ -157,15 +159,21 @@ class IcaArticleCategory(TypedDict):
     expandedArticleGroupId: int | None
 
 
-class ArticleOfferEan(TypedDict):
+class ArticleOfferEanSlim(TypedDict):
     id: str | None  # "eanId"
     articleDescription: str | None
+
+
+class ArticleOfferEan(ArticleOfferEanSlim):
     imageUrl: str | None
 
 
-class ArticleOfferStore(TypedDict):
+class ArticleOfferStoreSlim(TypedDict):
     id: str | None  # "storeId"
     referencePriceText: str | None
+
+
+class ArticleOfferStore(ArticleOfferStoreSlim):
     isValidInStore: bool | None
     isValidOnline: bool | None
 
@@ -178,6 +186,25 @@ class IcaOfferMechanics(TypedDict):
     value2: str | None
     value3: str | None
     value4: str | None
+
+    @classmethod
+    def format_to_string(cls, mech: dict) -> str:
+        # todo: rewrite `parsedMechanics` as string (like the ICA-app does)
+        mech = mech or {}
+        result = ""
+
+        def format_value(v: str) -> str:
+            (r, i) = try_parse_int(v)
+            return f"{i}{mech.get('unitSign', '')}".strip() if r and i else v.strip()
+
+        if mech.get("type") == "Standard":
+            result = f"{result} {format_value(mech.get('value1'))}".strip()
+            result = f"{result} {format_value(mech.get('value2'))}".strip()
+            result = f"{result} {format_value(mech.get('value3'))}".strip()
+            result = f"{result} {format_value(mech.get('value4'))}".strip()
+        else:
+            result = mech.get("type")
+        return result or ""
 
 
 class IcaStoreOffer(TypedDict):
@@ -233,6 +260,84 @@ class IcaArticleOffer(TypedDict):
 
 class IcaOfferDetails(IcaStoreOffer, IcaArticleOffer):
     """Describes everything about an ICA offer"""
+
+
+class IcaOfferInfo(TypedDict):
+    """Describes the basic things about a ICA offer"""
+
+    id: str | None  # "OfferId"
+    articleGroupId: int | None
+    expandedArticleGroupId: int | None
+
+    # Offer
+    name: str | None  # "ArticleName / OfferName"
+    brand: str | None
+    packageInformation: str | None
+    customerInformation: str | None
+    condition: str | None
+    disclaimer: str | None
+    restriction: str | None
+    referenceInfo: str | None
+    referencePriceText: str | None
+    offerPriceText: str | None
+
+    ### Conditionals ###
+    # isSelfScan: bool | None
+    # isPersonal: bool | None
+    isUsed: bool | None
+    # requiresLoyaltyCard: bool | None
+    validFrom: str | None
+    validTo: str | None
+
+    ### Products ###
+    eans: list[ArticleOfferEanSlim] | None
+    stores: list[ArticleOfferStoreSlim] | None
+
+    @classmethod
+    def map_from_offer_details(cls, offer: IcaOfferDetails):
+        offerPriceText = IcaOfferMechanics.format_to_string(
+            offer.get("parsedMechanics", None)
+        )
+        eans = [
+            ArticleOfferEanSlim(
+                id=x.get("id"), articleDescription=x.get("articleDescription")
+            )
+            for x in offer.get("eans", [])
+        ]
+        stores = [
+            ArticleOfferStoreSlim(
+                id=x.get("id"),
+                referencePriceText=x.get("referencePriceText"),
+            )
+            for x in offer.get("stores", [])
+        ]
+        return IcaOfferInfo(
+            id=offer.get("id"),
+            articleGroupId=offer.get("category", {}).get("articleGroupId", 12),
+            expandedArticleGroupId=offer.get("category", {}).get(
+                "expandedArticleGroupId", 12
+            ),
+            name=offer.get("name"),
+            brand=offer.get("brand"),
+            packageInformation=offer.get("packageInformation"),
+            customerInformation=offer.get("customerInformation"),
+            condition=offer.get("condition"),
+            disclaimer=offer.get("disclaimer"),
+            restriction=offer.get("restriction"),
+            referenceInfo=offer.get("referenceInfo"),
+            referencePriceText=offer.get("referencePriceText"),
+            offerPriceText=offerPriceText,
+            ### Conditionals ###
+            # isSelfScan: bool | None
+            # isPersonal: bool | None
+            isUsed=offer.get("isUsed"),
+            # requiresLoyaltyCard: bool | None
+            validFrom=offer.get("validFrom"),
+            validTo=offer.get("validTo"),
+            ### Products ###
+            eans=eans,
+            stores=stores,
+        )
 
 
 class ProductLookup(TypedDict):
