@@ -1,6 +1,8 @@
 import logging
 import json
-from typing import Any
+from typing import Any, TypeVar
+
+_DataT = TypeVar("_DataT", default=dict[Any, Any])
 
 
 class EmptyLogger(logging.Logger):
@@ -8,6 +10,13 @@ class EmptyLogger(logging.Logger):
 
     def __init__(self):
         self.disabled = True
+
+
+def trim_props(obj: _DataT, predicate=None) -> _DataT:
+    if not obj:
+        return obj
+    predicate = predicate or (lambda k, v: v is not None and v != "")
+    return {k: v for k, v in obj.items() if predicate(k, v)}
 
 
 def to_dict(list_source, key: str = "id"):
