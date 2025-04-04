@@ -84,13 +84,19 @@ class CacheEntry(Generic[_DataT]):
             return await self.refresh()
         return self._value
 
-    async def refresh(self):
+    async def refresh(self) -> _DataT:
         """Refreshes state using the value_factory"""
         # Invoke value factory (example: API)
-        value = await self._value_factory()
-        return await self.set_value(value)
+        value: _DataT = None
+        try:
+            value = await self._value_factory()
+        except Exception as err:
+            self._logger.error("Exception when refreshing data. Err: %s", err)
+            raise
+        else:
+            return await self.set_value(value)
 
-    async def set_value(self, value: _DataT):
+    async def set_value(self, value: _DataT) -> _DataT:
         """Sets the cached value (and persists to file)"""
         self._value = value
         self._timestamp = dt.datetime.now(dt.timezone.utc)

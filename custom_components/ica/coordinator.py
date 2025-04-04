@@ -480,9 +480,9 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     async def _async_update_tracked_shopping_lists(self) -> list[IcaShoppingList]:
         """Return ICA shopping lists fetched at most once."""
         current = self._ica_shopping_lists.current_value() or []
-        updated = await self._get_tracked_shopping_lists()
-        if not updated:
-            raise ValueError("Failed to get a valid shopping list from the API")
+        updated = await self._get_tracked_shopping_lists() or []
+        # if not updated:
+        #     raise ValueError("Failed to get a valid shopping list from the API")
 
         for shopping_list in updated or []:
             old_rows = next(
