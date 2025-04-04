@@ -43,7 +43,7 @@ from .icatypes import (
     IcaStore,
     IcaStoreOffer,
 )
-from .utils import get_diffs, index_of, try_parse_int
+from .utils import get_diffs, index_of, trim_props, try_parse_int
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -282,16 +282,20 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 new_offers.append(offer_info)
             for ean in offer.get("eans", []):
                 ean_id = ean.get("id", None)
-                # if ean_id and not product_registry.get(ean_id):
-                if ean_id:
-                    category = offer.get("category", {})
-                    article = ArticleInfo(
-                        name=None,# needs to be input via ProductService lookup
-                        articleId=None,# needs to be input via ProductService lookup
-                        articleGroupId=category.get("articleGroupId"),
-                        expandedArticleGroupId=category.get("expandedArticleGroupId"),
+                if ean_id and not product_registry.get(ean_id):
+                    cat = offer.get("category", {})
+                    article = (
+                        ArticleInfo(
+                            name=None,  # needs to be input via ProductService lookup
+                            articleId=None,  # needs to be input via ProductService lookup
+                            articleGroupId=cat.get("articleGroupId"),
+                            expandedArticleGroupId=cat.get("expandedArticleGroupId"),
+                        )
+                        if cat
+                        else None
                     )
-                    offer = IcaProductOffer(
+                    product_offer = IcaProductOffer(
+                        id=offer.get("id"),
                         name=offer.get("name"),
                         brand=offer.get("brand"),
                         packageInformation=offer.get("packageInformation"),
@@ -304,8 +308,8 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                     product = IcaProduct(
                         ean_id=ean_id,
                         ean_name=ean.get("articleDescription"),
-                        article=article,
-                        offer=offer,
+                        article=trim_props(article),
+                        offer=trim_props(product_offer),
                     )
                     new_products[ean_id] = product
         if new_products:
@@ -377,7 +381,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         for k in new_products:
             product = new_products[k]
             product_registry[k] = product
-            _LOGGER.debug("Saved product to registry: #%s %s", k, product["ean_name"])
         await self._ica_products.set_value(product_registry)
         return product_registry
 
