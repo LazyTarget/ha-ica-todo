@@ -25,6 +25,7 @@ from .const import (
 )
 from .icaapi_async import IcaAPIAsync
 from .icatypes import (
+    ArticleInfo,
     AuthState,
     IcaAccountCurrentBonus,
     IcaArticle,
@@ -34,6 +35,7 @@ from .icatypes import (
     IcaOfferMechanics,
     IcaProduct,
     IcaProductCategory,
+    IcaProductOffer,
     IcaRecipe,
     IcaShoppingList,
     IcaShoppingListEntry,
@@ -283,23 +285,27 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 # if ean_id and not product_registry.get(ean_id):
                 if ean_id:
                     category = offer.get("category", {})
-                    product = IcaProduct(
-                        # Ean
-                        ean_id=ean_id,
-                        articleDescription=ean.get("articleDescription"),
-                        # Article
+                    article = ArticleInfo(
+                        name=None,# needs to be input via ProductService lookup
                         articleId=None,# needs to be input via ProductService lookup
                         articleGroupId=category.get("articleGroupId"),
                         expandedArticleGroupId=category.get("expandedArticleGroupId"),
-                        # Offer
-                        offerName=offer.get("name"),
-                        offerBrand=offer.get("brand"),
-                        offerPackageInformation=offer.get("packageInformation"),
-                        offerPriceText=IcaOfferMechanics.format_to_string(
+                    )
+                    offer = IcaProductOffer(
+                        name=offer.get("name"),
+                        brand=offer.get("brand"),
+                        packageInformation=offer.get("packageInformation"),
+                        priceText=IcaOfferMechanics.format_to_string(
                             offer.get("parsedMechanics", None)
                         ),
-                        offerReferencePriceText=offer.get("referencePriceText"),
-                        offerRefrenceInfo=offer.get("referenceInfo"),
+                        referencePriceText=offer.get("referencePriceText"),
+                        refrenceInfo=offer.get("referenceInfo"),
+                    )
+                    product = IcaProduct(
+                        ean_id=ean_id,
+                        ean_name=ean.get("articleDescription"),
+                        article=article,
+                        offer=offer,
                     )
                     new_products[ean_id] = product
         if new_products:
@@ -364,11 +370,14 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     ) -> dict[str, IcaProduct]:
         product_registry = self._ica_products.current_value() or {}
         if not new_products:
+            # Ran through refresh loop
+            # todo: look up Products with an article.articleId and article.name ?
+            # todo: as this might not be urgent, partition lookups in paged-batches
             return product_registry
         for k in new_products:
             product = new_products[k]
             product_registry[k] = product
-            _LOGGER.debug("Saved product to registry: #%s %s", k, product["articleDescription"])
+            _LOGGER.debug("Saved product to registry: #%s %s", k, product["ean_name"])
         await self._ica_products.set_value(product_registry)
         return product_registry
 

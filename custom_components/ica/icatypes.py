@@ -142,6 +142,21 @@ class OpeningHours(TypedDict):
     serviceOpeningHours: list[DayOpeningHours] | None
 
 
+class ArticleInfo(TypedDict):
+    """Minimal information about an Article"""
+    # name: str | None  # "articleName"
+    # articleId: int | None
+    articleGroupId: int | None
+    expandedArticleGroupId: int | None
+
+class ProductLookup(ArticleInfo):
+    gtin: str | None  # "eanId / barcode"
+    name: str | None  # "articleName"
+    articleId: int | None
+    # articleGroupId: int | None
+    # expandedArticleGroupId: int | None
+
+
 class IcaStore(TypedDict):
     id: int  # "storeId"
     marketingName: str | None
@@ -339,31 +354,22 @@ class IcaOfferInfo(TypedDict):
             stores=stores,
         )
 
+
+class IcaProductOffer(TypedDict):
+    """An even more minified version of IcaOfferInfo"""
+    id: str | None # Offer Id
+    name: str | None  # Offer name
+    brand: str | None
+    packageInformation: str | None
+    priceText: str | None  # comes from "parsedMechanics"
+    referencePriceText: str | None
+    refrenceInfo: str | None
+
 class IcaProduct(TypedDict):
-    ### Specific Product ###
     ean_id: str  # "eanId / barcode"
-    articleDescription: str  # description of the Ean article
-
-    ### Article ###
-    articleId: int | None
-    articleGroupId: int | None
-    expandedArticleGroupId: int | None
-
-    ### Offer ###
-    offerName: str | None  # Offer name
-    offerBrand: str | None
-    offerPackageInformation: str | None
-    offerPriceText: str | None  # comes from "parsedMechanics"
-    offerReferencePriceText: str | None
-    offerRefrenceInfo: str | None
-
-
-class ProductLookup(TypedDict):
-    gtin: str  # "eanId / barcode"
-    name: str  # "articleName"
-    articleId: int | None
-    articleGroupId: int | None
-    expandedArticleGroupId: int | None
+    ean_name: str | None # description of the Ean article
+    article: ProductLookup | ArticleInfo | None
+    offer: IcaProductOffer | None
 
 
 class IcaBaseItem(TypedDict):
