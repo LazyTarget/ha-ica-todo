@@ -279,7 +279,7 @@ class IcaOfferInfo(TypedDict):
     restriction: str | None
     referenceInfo: str | None
     referencePriceText: str | None
-    offerPriceText: str | None
+    offerPriceText: str | None  # comes from "parsedMechanics"
 
     ### Conditionals ###
     # isSelfScan: bool | None
@@ -338,6 +338,24 @@ class IcaOfferInfo(TypedDict):
             eans=eans,
             stores=stores,
         )
+
+class IcaProduct(TypedDict):
+    ### Specific Product ###
+    ean_id: str  # "eanId / barcode"
+    articleDescription: str  # description of the Ean article
+
+    ### Article ###
+    articleId: int | None
+    articleGroupId: int | None
+    expandedArticleGroupId: int | None
+
+    ### Offer ###
+    offerName: str | None  # Offer name
+    offerBrand: str | None
+    offerPackageInformation: str | None
+    offerPriceText: str | None  # comes from "parsedMechanics"
+    offerReferencePriceText: str | None
+    offerRefrenceInfo: str | None
 
 
 class ProductLookup(TypedDict):
