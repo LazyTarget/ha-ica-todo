@@ -35,6 +35,13 @@ NOTE: Currently under development and might be unstable!
 - [ ] Implement the different `CONFLICT_MODES`
 - [ ] Allow for (scheduled) notification, when favorite item(s) are on discount/offer
 - [ ] Avoid getting all shopping lists before updating individual lists. Since integration has config on the ID's. Only fetch during config_flow
+- [ ] Check if the 'Ica To-Go app' can be reverse engineered. That way we could possibly scan ONCE, for both for ICA purchase and for Grocy tracking.
+
+    ```
+    Seems to authicate via ims.icagruppen.se, via Mobilt BankID. Which will probably unlock the door. Not sure how much to fool around here since everything is tracable.
+    App gets current offers for the store. But starting to scan items will add them to the cart. Which kind of commits that you want to purchase them...
+    Not sure what to benefit whit this app as of now
+    ```
 
 **Barcode/QR/Bower**
 - [ ] Check API possibilities for scanning/shopping items with the phone?
