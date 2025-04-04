@@ -114,16 +114,16 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         )
 
     async def _get_tracked_shopping_lists(self) -> list[IcaShoppingList]:
-        api_data = await self.api.get_shopping_lists()
-        if "shoppingLists" in api_data:
-            y = api_data["shoppingLists"]
-            return [
-                await self.api.get_shopping_list(z["offlineId"])
-                for z in y
-                if z["offlineId"]
-                in self._config_entry.data.get(CONF_SHOPPING_LISTS, [])
-            ]
-        return None
+        if not (list_ids := self._config_entry.data.get(CONF_SHOPPING_LISTS, [])):
+            return None
+        lists: list[IcaShoppingList] = []
+        for offline_id in list_ids:
+            if not offline_id:
+                continue
+            shopping_list = await self.api.get_shopping_list(offline_id)
+            if shopping_list:
+                lists.append(shopping_list)
+        return lists
 
     def get_shopping_list(self, list_id) -> IcaShoppingList:
         selected_lists = self._ica_shopping_lists.current_value() or []
