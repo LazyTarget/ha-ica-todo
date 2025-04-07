@@ -82,7 +82,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         config_entry.async_on_unload(self._worker.shutdown)
 
         self._openFoodFactsSession = async_get_clientsession(self._hass)
-        config_entry.async_on_unload(self._openFoodFactsSession.close)
+        # config_entry.async_on_unload(self._openFoodFactsSession.close)
 
         config_entry_key = self._config_entry.data[CONF_ICA_ID]
 
