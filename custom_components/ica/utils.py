@@ -72,11 +72,10 @@ def get_diff_obj(old: dict, new: dict, key: str = "id", include_values: bool = T
     new = new or {}
     row_id = new.get(key) or old.get(key)
     if added:
-        return [{"op": "+", key: row_id, "new": new}]
+        return {"op": "+", key: row_id, "new": new}
     if removed:
-        return [{"op": "-", key: row_id, "old": old}]
+        return {"op": "-", key: row_id, "old": old}
 
-    diffs = []
     props = []
     for k in [*old, *new]:
         d = new.get(k, None) != old.get(k, None)
@@ -88,12 +87,10 @@ def get_diff_obj(old: dict, new: dict, key: str = "id", include_values: bool = T
         if include_values:
             o = {value: old.get(value, None) for value in props}
             n = {value: new.get(value, None) for value in props}
-            diffs.append(
-                {"op": "~", key: row_id, "changed_props": props, "old": o, "new": n}
-            )
+            return {"op": "~", key: row_id, "changed_props": props, "old": o, "new": n}
         else:
-            diffs.append({"op": "~", key: row_id, "changed_props": props})
-    return diffs
+            return {"op": "~", key: row_id, "changed_props": props}
+    return None
 
 
 def index_of(source: list[dict], key, value) -> int:
