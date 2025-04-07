@@ -1,6 +1,7 @@
 """DataUpdateCoordinator for the Todoist component."""
 
 import logging
+import traceback
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -114,16 +115,16 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         )
 
     async def _get_tracked_shopping_lists(self) -> list[IcaShoppingList]:
-        api_data = await self.api.get_shopping_lists()
-        if "shoppingLists" in api_data:
-            y = api_data["shoppingLists"]
-            return [
-                await self.api.get_shopping_list(z["offlineId"])
-                for z in y
-                if z["offlineId"]
-                in self._config_entry.data.get(CONF_SHOPPING_LISTS, [])
-            ]
-        return None
+        if not (list_ids := self._config_entry.data.get(CONF_SHOPPING_LISTS, [])):
+            return None
+        lists: list[IcaShoppingList] = []
+        for offline_id in list_ids:
+            if not offline_id:
+                continue
+            shopping_list = await self.api.get_shopping_list(offline_id)
+            if shopping_list:
+                lists.append(shopping_list)
+        return lists
 
     def get_shopping_list(self, list_id) -> IcaShoppingList:
         selected_lists = self._ica_shopping_lists.current_value() or []
@@ -452,6 +453,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             raise
         except Exception as err:
             _LOGGER.error("Exception when getting data. Err: %s", err)
+            _LOGGER.error(traceback.format_exc())
             raise UpdateFailed(f"Error communicating with API: {err}") from err
         else:
             # No exceptions during fetch, auth is valid
@@ -480,9 +482,9 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     async def _async_update_tracked_shopping_lists(self) -> list[IcaShoppingList]:
         """Return ICA shopping lists fetched at most once."""
         current = self._ica_shopping_lists.current_value() or []
-        updated = await self._get_tracked_shopping_lists()
-        if not updated:
-            raise ValueError("Failed to get a valid shopping list from the API")
+        updated = await self._get_tracked_shopping_lists() or []
+        # if not updated:
+        #     raise ValueError("Failed to get a valid shopping list from the API")
 
         for shopping_list in updated or []:
             old_rows = next(

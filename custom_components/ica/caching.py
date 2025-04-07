@@ -53,24 +53,35 @@ class CacheEntry(Generic[_DataT]):
         """Gets value from state, file or API"""
         now = dt.datetime.now(dt.timezone.utc)
 
-        if not self._value and self._file:
+        if self._value is not None and self._file:
             # Load persisted file (if initial load)
             content = await self._file.async_load_json()
-            self._logger.debug("Loaded from file: %s = %s", self._path, content)
+            self._logger.debug(
+                "Loaded from file: %s = %s", self._path, str(content)[:100]
+            )
             if (
                 content
                 and isinstance(content, dict)
                 and content.get("timestamp")
-                and content.get("value")
+                and content.get("key")
             ):
                 # Is wrapped in CacheEntryInfo
                 info: CacheEntryInfo = content
-                self._value = info.get("value")
+                value = info.get("value")
+                if value is None or value == str(None):
+                    value = None
+                self._value = value
                 self._timestamp = dt.datetime.fromisoformat(
                     info.get("timestamp")
                 ).replace(tzinfo=dt.timezone.utc)
+                self._logger.debug(
+                    "Loaded cache entry: %s = %s", self._path, str(self._value)[:100]
+                )
             else:
                 self._value = content
+                self._logger.debug(
+                    "Loaded raw content: %s = %s", self._path, str(self._value)[:100]
+                )
 
         # Auto invalidate if passed expiry
         invalidate_cache = (
@@ -80,21 +91,29 @@ class CacheEntry(Generic[_DataT]):
             else invalidate_cache
         )
 
-        if invalidate_cache or not self._value:
+        if invalidate_cache or self._value is None:
             return await self.refresh()
         return self._value
 
-    async def refresh(self):
+    async def refresh(self) -> _DataT:
         """Refreshes state using the value_factory"""
         # Invoke value factory (example: API)
-        value = await self._value_factory()
-        return await self.set_value(value)
+        value: _DataT = None
+        try:
+            value = await self._value_factory()
+        except Exception as err:
+            self._logger.error("Exception when refreshing data. Err: %s", err)
+            raise
+        else:
+            return await self.set_value(value)
 
-    async def set_value(self, value: _DataT):
+    async def set_value(self, value: _DataT) -> _DataT:
         """Sets the cached value (and persists to file)"""
         self._value = value
         self._timestamp = dt.datetime.now(dt.timezone.utc)
-        self._logger.info("Persisting value in cache entry: %s = %s", self._key, value)
+        self._logger.debug(
+            "Persisting value in cache entry: %s = %s", self._key, str(value)[:100]
+        )
 
         if self._file:
             # Persist new value to file
@@ -105,7 +124,7 @@ class CacheEntry(Generic[_DataT]):
                 "value": self._value,
             }
             await self._file.async_store_json(info)
-            self._logger.debug("Saved to file: %s = %s", self._path, info)
+            self._logger.debug("Saved to file: %s = %s", self._path, str(info)[:100])
         return self._value
 
 

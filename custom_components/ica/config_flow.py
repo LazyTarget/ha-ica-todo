@@ -156,10 +156,9 @@ class IcaOptionsFlowHandler(OptionsFlow):
                 CONF_JSON_DATA_IN_DESC, False
             )
 
-            if selection := user_input.get(CONF_SHOPPING_LISTS, []):
-                config_entry_data[CONF_SHOPPING_LISTS] = selection
-            else:
-                errors[CONF_SHOPPING_LISTS] = f"Invalid value submitted: {selection}"
+            config_entry_data[CONF_SHOPPING_LISTS] = user_input.get(
+                CONF_SHOPPING_LISTS, []
+            )
 
             if self.hass.config_entries.async_update_entry(
                 self.config_entry,
@@ -221,7 +220,7 @@ class IcaOptionsFlowHandler(OptionsFlow):
 
     def _build_shopping_list_selector_schema(self, lists):
         return {
-            vol.Required(
+            vol.Optional(
                 CONF_SHOPPING_LISTS,
                 description="The shopping lists to track",
                 default=self.config_entry.data.get(CONF_SHOPPING_LISTS, []),
