@@ -1,6 +1,7 @@
 """DataUpdateCoordinator for the Todoist component."""
 
 import logging
+import traceback
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -452,6 +453,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             raise
         except Exception as err:
             _LOGGER.error("Exception when getting data. Err: %s", err)
+            _LOGGER.error(traceback.format_exc())
             raise UpdateFailed(f"Error communicating with API: {err}") from err
         else:
             # No exceptions during fetch, auth is valid
