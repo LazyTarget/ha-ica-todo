@@ -230,17 +230,17 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             _LOGGER.warning("Failed to get offers from stores!")
             return current
 
-        # Remove obsolete offers... (+30 days from expiration)
-        for offer_id in list(current):
-            offer = current[offer_id]
-            offer_due = (
-                datetime.fromisoformat(offer["validTo"]) + timedelta(days=30)
-                if offer.get("validTo")
-                else datetime.max
-            )
-            if offer_due < now:
-                _LOGGER.info("Removing obsolete offer: %s", offer)
-                del target[offer_id]
+        # # Remove obsolete offers... (+30 days from expiration)
+        # for offer_id in list(current):
+        #     offer = current[offer_id]
+        #     offer_due = (
+        #         datetime.fromisoformat(offer["validTo"]) + timedelta(days=30)
+        #         if offer.get("validTo")
+        #         else datetime.max
+        #     )
+        #     if offer_due < now:
+        #         _LOGGER.info("Removing obsolete offer: %s", offer)
+        #         del target[offer_id]
 
         # Look up the "active" offers that was retrieved
         store_ids = list(offers_per_store.keys())
