@@ -66,14 +66,17 @@ def get_diffs(a, b, key: str = "id", include_values: bool = True):
 
 
 def get_diff_obj(old: dict, new: dict, key: str = "id", include_values: bool = True):
+    old = old or {}
+    new = new or {}
     diffs = []
     props = []
     row_id = new[key]
-    for k in new:
+    for k in [*old, *new]:
         d = new.get(k, None) != old.get(k, None)
         # todo: ignore changes in ordering when list. ICA quite oftenly change or send inconsistent sorting in the Ean-property
-        if d:
+        if d and k not in props:
             props.append(k)
+
     if props:
         if include_values:
             o = {value: old.get(value, None) for value in props}
