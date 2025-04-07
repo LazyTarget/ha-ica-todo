@@ -723,7 +723,17 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
         if not product.get("open_food_facts"):
             open_food_fact_product = await self.get_product_from_open_food_facts(code)
-            product["open_food_facts"] = trim_props(open_food_fact_product)
+            if open_food_fact_product:
+                product["open_food_facts"] = trim_props(open_food_fact_product)
+
+        if (
+            not product.get("article")
+            and not product.get("open_food_facts")
+            and not product.get("offers")
+        ):
+            # No product found, Invalid barcode?
+            _LOGGER.warning("No matches for identifier: %s", identifier)
+            return None
 
         # Commit any updated data
         product_registry[product["ean_id"]] = product
