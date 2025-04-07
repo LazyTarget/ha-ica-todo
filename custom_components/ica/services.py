@@ -28,6 +28,12 @@ ADD_BASEITEM_SCHEMA = vol.Schema(
     }
 )
 
+LOOKUP_PRODUCT_SCHEMA = vol.Schema(
+    {
+        vol.Required("identifier"): cv.string,
+    }
+)
+
 
 def setup_global_services(hass: HomeAssistant) -> None:
     if not hass.services.has_service(DOMAIN, IcaServices.REFRESH_ALL):
@@ -135,7 +141,6 @@ def setup_global_services(hass: HomeAssistant) -> None:
 
     # Non-entity based Services
     if not hass.services.has_service(DOMAIN, IcaServices.GET_RECIPE):
-
         async def handle_get_recipe(
             call: ServiceCall,
         ) -> ServiceCallResponse[IcaRecipe]:
@@ -154,5 +159,27 @@ def setup_global_services(hass: HomeAssistant) -> None:
             IcaServices.GET_RECIPE,
             handle_get_recipe,
             schema=vol.Schema({vol.Required("recipe_id"): cv.string}),
+            supports_response=SupportsResponse.ONLY,
+        )
+
+    # Non-entity based Services
+    if not hass.services.has_service(DOMAIN, IcaServices.LOOKUP_PRODUCT):
+        async def handle_lookup_product(
+            call: ServiceCall,
+        ) -> ServiceCallResponse[IcaRecipe]:
+            """Call will query local Product registry and fill in with info from OpenFoodFacts."""
+            config_entry: ConfigEntry = hass.config_entries.async_entries(DOMAIN)[0]
+            coordinator: IcaCoordinator = (
+                config_entry.coordinator or hass.data[DOMAIN][config_entry.entry_id]
+            )
+            identifier = call.data["identifier"]
+            product_info = await coordinator.get_product_info(identifier)
+            return ServiceCallResponse[IcaRecipe](success=bool(product_info), data=product_info)
+
+        hass.services.async_register(
+            DOMAIN,
+            IcaServices.LOOKUP_PRODUCT,
+            handle_lookup_product,
+            schema=LOOKUP_PRODUCT_SCHEMA,
             supports_response=SupportsResponse.ONLY,
         )

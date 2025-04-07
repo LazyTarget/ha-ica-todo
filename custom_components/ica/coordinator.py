@@ -3,6 +3,7 @@
 import logging
 import traceback
 import re
+from typing import Any, Optional
 import uuid
 from datetime import datetime, timedelta, timezone
 from functools import partial
@@ -76,6 +77,9 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
         self._worker = BackgroundWorker(hass, config_entry)
         config_entry.async_on_unload(self._worker.shutdown)
+
+        self._openFoodFactsSession = requests.Session()
+        config_entry.async_on_unload(self._openFoodFactsSession.close)
 
         config_entry_key = self._config_entry.data[CONF_ICA_ID]
 
@@ -688,3 +692,62 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     #     if self._icaRecipes is None and self._nRecipes:
     #         self._icaRecipes = await self.api.get_random_recipes(nRecipes)
     #     return self._icaRecipes
+
+    async def get_product_from_open_food_facts(
+        self,
+        code: str,
+        fields: Optional[list[str]] = None,
+        raise_if_invalid: bool = False,
+    ) -> Optional[dict[str, Any]]:
+        """Return a product.
+
+        If the product does not exist, None is returned.
+
+        :param code: barcode of the product
+        :param fields: a list of fields to return. If None, all fields are
+            returned.
+        :param raise_if_invalid: if True, a ValueError is raised if the
+            barcode is invalid, defaults to False.
+        :return: the API response
+        """
+        if not code or not isinstance(code, str):
+            raise ValueError("code must be a non-empty string")
+        url = f"{self.base_url}/api/v2/product/{code}.json"
+        if fields := fields or []:
+            # requests escape comma in URLs, as expected, but openfoodfacts
+            # server does not recognize escaped commas.
+            # See
+            # https://github.com/openfoodfacts/openfoodfacts-server/issues/1607
+            url += f'?fields={",".join(fields)}'
+
+        response = self._openFoodFactsSession.get(
+            url,
+            headers={"User-Agent": "ha-ica-todo"},
+            timeout=10,
+        )
+
+        try:
+            if response.status_code == 404 and not raise_if_invalid:
+                return None
+            response.raise_for_status()
+        except BaseException as ex:
+            _LOGGER.error(
+                "Error getting info from OpenFoodFacts. HTTP [GET] Resp: %s -> %s",
+                response.status_code,
+                response.text,
+            )
+            raise ex
+        else:
+            resp = response.json()
+
+            if resp is None:
+                # product not found
+                return None
+
+            if resp["status"] == 0:
+                # invalid barcode
+                if raise_if_invalid:
+                    raise ValueError(f"invalid barcode: {code}")
+                return None
+
+            return resp["product"] if resp is not None else None

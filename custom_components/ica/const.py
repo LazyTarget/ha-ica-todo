@@ -118,6 +118,7 @@ class IcaServices(StrEnum):
 
     REFRESH_ALL = "refresh_all"
     GET_RECIPE = "get_recipe"
+    LOOKUP_PRODUCT = "lookup_product"
     # GET_STORE_DISCOUNTS = "get_store_discounts"
     GET_BASEITEMS = "get_baseitems"
     ADD_BASEITEM = "add_baseitem"
