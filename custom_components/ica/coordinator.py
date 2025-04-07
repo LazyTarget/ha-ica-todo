@@ -240,21 +240,24 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             return current
 
         product_registry = self._ica_products.current_value() or {}
-        new_products: dict[str, IcaProduct] = {}
+        product_registry_old = product_registry.copy()
+        product_count = len(product_registry)
+        _LOGGER.fatal("NEW_PROD #0: %s", product_count)
 
         # Remove obsolete offers... (+30 days from expiration)
         for offer_id in list(current):
             offer = current[offer_id]
-            self._parse_products_from_offer(offer, new_products, product_registry)
+            self._copy_offer_products_to_registry(offer, product_registry)
 
             offer_due = (
-                datetime.fromisoformat(offer["validTo"]) + timedelta(days=30)
+                datetime.fromisoformat(offer["validTo"]) + timedelta(days=13)
                 if offer and offer.get("validTo")
                 else datetime.max
             )
             if offer_due < now:
                 _LOGGER.warning("Removing obsolete offer: %s", offer)
                 del target[offer_id]
+        _LOGGER.fatal("NEW_PROD #1: %s", len(product_registry))
 
         # Look up the "active" offers that was retrieved
         store_ids = list(offers_per_store.keys())
@@ -295,7 +298,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 offer_info = IcaOfferInfo.map_from_offer_details(offer)
                 new_offers.append(offer_info)
 
-            self._parse_products_from_offer(offer, new_products, product_registry)
+            self._copy_offer_products_to_registry(offer, product_registry)
             # for ean in offer.get("eans", []):
             #     ean_id = ean.get("id", None)
             #     if ean_id and not product_registry.get(ean_id):
@@ -328,9 +331,28 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             #             offer=trim_props(product_offer),
             #         )
             #         new_products[ean_id] = product
-        if new_products:
-            _LOGGER.info("Persisting %s new products", len(new_products))
-            await self._update_products(new_products)
+        new_product_count = len(product_registry)
+        _LOGGER.fatal("NEW_PROD #2: %s", new_product_count)
+        if product_count != new_product_count:
+            _LOGGER.info("Persisting %s new products", new_product_count)
+            await self._update_products(product_registry)
+
+        diffs = get_diffs(product_registry_old, product_registry, include_values=False)
+        if diffs:
+            event_data = {
+                "type": "products_changed",
+                "uid": self._config_entry.data[CONF_ICA_ID],
+                "timestamp": str(datetime.now(timezone.utc)),
+                "pre_count": product_count,
+                "post_count": new_product_count,
+                "diffs": diffs,
+            }
+            await CacheEntry(
+                self._hass, "products_changed--diffs", partial(lambda _: None)
+            ).set_value(event_data)
+            await self._worker.fire_or_queue_event(
+                f"{DOMAIN}_product_event", event_data
+            )
 
         # Prepare for publish of change event
         await CacheEntry(
@@ -384,15 +406,11 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         )
         return target
 
-    def _parse_products_from_offer(
+    def _copy_offer_products_to_registry(
         self,
         offer: IcaOfferDetails,
-        new_products: dict[str, IcaProduct],
         product_registry: dict[str, IcaProduct],
-    ) -> dict[str, IcaProduct]:
-        new_products = new_products or {}
-        product_registry = product_registry or new_products
-
+    ):
         for ean in offer.get("eans", []):
             ean_id = ean.get("id", None)
             if ean_id and not product_registry.get(ean_id):
@@ -418,14 +436,19 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                     referencePriceText=offer.get("referencePriceText"),
                     refrenceInfo=offer.get("referenceInfo"),
                 )
-                product = IcaProduct(
+                product = product_registry.get(ean_id) or IcaProduct()
+                product.update(
                     ean_id=ean_id,
                     ean_name=ean.get("articleDescription"),
                     article=trim_props(article),
-                    offer=trim_props(product_offer),
+                    offers=product.get("offers") or {},
                 )
-                new_products[ean_id] = product
-        return new_products
+                if old_offer := product.get("offer", None):
+                    _LOGGER.warning("Reformatting offers on Ean: %s", ean_id)
+                    product["offers"][old_offer["id"]] = old_offer
+                    del product["offer"]
+                product["offers"][product_offer["id"]] = product_offer
+                product_registry[ean_id] = product
 
     async def _update_products(
         self,
@@ -437,9 +460,13 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             # todo: look up Products with an article.articleId and article.name ?
             # todo: as this might not be urgent, partition lookups in paged-batches
             return product_registry
-        for k in new_products:
-            product = new_products[k]
-            product_registry[k] = product
+
+        # for k in new_products:
+        #     product = new_products[k]
+        #     product_registry[k] = product
+        _LOGGER.fatal("PRE UPDATE: %s", len(product_registry))
+        product_registry.update(new_products)
+        _LOGGER.fatal("POST UPDATE: %s", len(product_registry))
         await self._ica_products.set_value(product_registry)
         return product_registry
 

@@ -144,10 +144,12 @@ class OpeningHours(TypedDict):
 
 class ArticleInfo(TypedDict):
     """Minimal information about an Article"""
+
     # name: str | None  # "articleName"
     # articleId: int | None
     articleGroupId: int | None
     expandedArticleGroupId: int | None
+
 
 class ProductLookup(ArticleInfo):
     gtin: str | None  # "eanId / barcode"
@@ -357,7 +359,8 @@ class IcaOfferInfo(TypedDict):
 
 class IcaProductOffer(TypedDict):
     """An even more minified version of IcaOfferInfo"""
-    id: str | None # Offer Id
+
+    id: str | None  # Offer Id
     name: str | None  # Offer name
     brand: str | None
     packageInformation: str | None
@@ -365,11 +368,12 @@ class IcaProductOffer(TypedDict):
     referencePriceText: str | None
     refrenceInfo: str | None
 
+
 class IcaProduct(TypedDict):
     ean_id: str  # "eanId / barcode"
-    ean_name: str | None # description of the Ean article
+    ean_name: str | None  # description of the Ean article
     article: ProductLookup | ArticleInfo | None
-    offer: IcaProductOffer | None
+    offers: dict[str, IcaProductOffer] | None
 
 
 class IcaBaseItem(TypedDict):
