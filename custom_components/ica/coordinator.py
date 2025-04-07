@@ -3,6 +3,7 @@
 import logging
 import traceback
 import re
+from typing import Optional
 import uuid
 from datetime import datetime, timedelta, timezone
 from functools import partial
@@ -12,6 +13,7 @@ import homeassistant.util.dt as dt_util
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .background_worker import BackgroundWorker
 from .caching import CacheEntry
@@ -23,6 +25,7 @@ from .const import (
     DOMAIN,
     ConflictMode,
     IcaEvents,
+    OpenFoodFacts,
 )
 from .icaapi_async import IcaAPIAsync
 from .icatypes import (
@@ -43,8 +46,9 @@ from .icatypes import (
     IcaShoppingListSync,
     IcaStore,
     IcaStoreOffer,
+    OpenFoodFactsProduct,
 )
-from .utils import get_diffs, index_of, trim_props, try_parse_int
+from .utils import get_diff_obj, get_diffs, index_of, trim_props, try_parse_int
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -76,6 +80,9 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
         self._worker = BackgroundWorker(hass, config_entry)
         config_entry.async_on_unload(self._worker.shutdown)
+
+        self._openFoodFactsSession = async_get_clientsession(self._hass)
+        config_entry.async_on_unload(self._openFoodFactsSession.close)
 
         config_entry_key = self._config_entry.data[CONF_ICA_ID]
 
@@ -688,3 +695,126 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     #     if self._icaRecipes is None and self._nRecipes:
     #         self._icaRecipes = await self.api.get_random_recipes(nRecipes)
     #     return self._icaRecipes
+
+    async def get_product_info(self, identifier: str) -> IcaProduct:
+        (r, code) = try_parse_int(identifier)
+        if r and code:
+            # Successful parse
+            code = str(code)
+        else:
+            # Not a valid Barcode was passed. Treat as a free-text instead...
+            raise NotImplementedError(
+                "Passing product identifiers as free-text is not yet supported"
+            )
+
+        product_registry = self._ica_products.current_value() or {}
+        old = product_registry.get(code) or {}
+        product = (
+            old
+            or IcaProduct(
+                ean_id=code,
+            )
+        ).copy()
+
+        if not product.get("article"):
+            ica_product_lookup = await self.api.lookup_barcode(code)
+            if ica_product_lookup:
+                product["article"] = ica_product_lookup
+
+        if not product.get("open_food_facts"):
+            open_food_fact_product = await self.get_product_from_open_food_facts(code)
+            if open_food_fact_product:
+                product["open_food_facts"] = trim_props(open_food_fact_product)
+
+        if (
+            not product.get("article")
+            and not product.get("open_food_facts")
+            and not product.get("offers")
+        ):
+            # No product found, Invalid barcode?
+            _LOGGER.warning("No matches for identifier: %s", identifier)
+            return None
+
+        # Commit any updated data
+        product_registry[product["ean_id"]] = product
+        _LOGGER.info(
+            "Persisting product changes to registry: %s",
+            get_diff_obj(old, product, key="ean_id"),
+        )
+        await self._ica_products.set_value(product_registry)
+        return product
+
+    async def get_product_from_open_food_facts(
+        self,
+        code: str,
+        fields: Optional[list[str]] = None,
+        raise_if_invalid: bool = False,
+    ) -> Optional[OpenFoodFactsProduct]:
+        """Return a product.
+
+        If the product does not exist, None is returned.
+
+        :param code: barcode of the product
+        :param fields: a list of fields to return. If None, all fields are
+            returned.
+        :param raise_if_invalid: if True, a ValueError is raised if the
+            barcode is invalid, defaults to False.
+        :return: the API response
+        """
+        if not code or not isinstance(code, str):
+            raise ValueError("code must be a non-empty string")
+        url = OpenFoodFacts.APIv2.format(code)
+        if fields := fields or OpenFoodFacts.DEFAULT_FIELDS:
+            # requests escape comma in URLs, as expected, but openfoodfacts
+            # server does not recognize escaped commas.
+            # See
+            # https://github.com/openfoodfacts/openfoodfacts-server/issues/1607
+            url += f"?fields={','.join(fields)}"
+
+        response = await self._openFoodFactsSession.get(
+            url,
+            headers={"User-Agent": "ha-ica-todo"},
+            timeout=10,
+        )
+
+        try:
+            if response.status == 404 and not raise_if_invalid:
+                return None
+            response.raise_for_status()
+        except BaseException as ex:
+            _LOGGER.error(
+                "Error getting info from OpenFoodFacts. HTTP [GET] Resp: %s -> %s",
+                response.status,
+                response.text,
+            )
+            raise ex
+        else:
+            resp = await response.json()
+            if resp is None:
+                # product not found
+                return None
+            if resp.get("status", None) is None:
+                raise ValueError(
+                    "Seems like the API call to OpenFoodFacts failed. HTTP [GET] Resp: %s -> %s",
+                    response.status,
+                    response.text,
+                )
+            if resp["status"] == 0:
+                # invalid barcode
+                if raise_if_invalid:
+                    raise ValueError(f"invalid barcode: {code}")
+                return None
+
+            p = resp["product"] if resp is not None else None
+            nutriments = p.get("nutriments", {})
+            return OpenFoodFactsProduct(
+                brand_owner=p.get("brand_owner"),
+                brands=p.get("brands"),
+                product_name=p.get("product_name"),
+                product_type=p.get("product_type"),
+                quantity=p.get("quantity"),
+                energy_kcal_value=nutriments.get(
+                    "energy-kcal_value", nutriments.get("energy-kcal_100g")
+                ),
+                categories=p.get("categories_hierarchy"),
+            )
