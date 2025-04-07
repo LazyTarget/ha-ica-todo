@@ -723,7 +723,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
         if not product.get("open_food_facts"):
             open_food_fact_product = await self.get_product_from_open_food_facts(code)
-            product["open_food_facts"] = open_food_fact_product
+            product["open_food_facts"] = trim_props(open_food_fact_product)
 
         # Commit any updated data
         product_registry[product["ean_id"]] = product
@@ -803,7 +803,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 product_name=p.get("product_name"),
                 product_type=p.get("product_type"),
                 quantity=p.get("quantity"),
-                expiration_date=p.get("expiration_date"),
                 energy_kcal_value=nutriments.get(
                     "energy-kcal_value", nutriments.get("energy-kcal_100g")
                 ),

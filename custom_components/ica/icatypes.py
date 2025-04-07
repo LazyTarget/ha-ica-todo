@@ -166,7 +166,6 @@ class OpenFoodFactsProduct(TypedDict):
     product_name: str | None
     product_type: str | None
     energy_kcal_value: int | None
-    expiration_date: str | None
     categories: list[str]
 
 
