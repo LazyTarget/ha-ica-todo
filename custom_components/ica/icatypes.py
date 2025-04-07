@@ -159,6 +159,17 @@ class ProductLookup(ArticleInfo):
     # expandedArticleGroupId: int | None
 
 
+class OpenFoodFactsProduct(TypedDict):
+    brand_owner: str | None
+    brands: str | None
+    quantity: str | None
+    product_name: str | None
+    product_type: str | None
+    energy_kcal_value: int | None
+    expiration_date: str | None
+    categories: list[str]
+
+
 class IcaStore(TypedDict):
     id: int  # "storeId"
     marketingName: str | None
@@ -373,6 +384,7 @@ class IcaProduct(TypedDict):
     ean_id: str  # "eanId / barcode"
     ean_name: str | None  # description of the Ean article
     article: ProductLookup | ArticleInfo | None
+    off: OpenFoodFactsProduct | None
     offers: dict[str, IcaProductOffer] | None
 
 

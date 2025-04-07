@@ -197,3 +197,17 @@ RECIPE_ENDPOINT: Final = (
 RANDOM_RECIPES_ENDPOINT: Final = (
     "sverige/digx/mobile/recipeservice/v1/recipes/random?numberofrecipes={}"
 )
+
+
+class OpenFoodFacts:
+    APIv2 = "https://world.openfoodfacts.org/api/v2/product/{}.json"
+    DEFAULT_FIELDS: Final = [
+        "brand_owner",
+        "brands",
+        "quantity",
+        "product_name",
+        "product_type",
+        "expiration_date",
+        "categories_hierarchy",
+        "nutriments",
+    ]

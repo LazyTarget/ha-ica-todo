@@ -3,7 +3,7 @@
 import logging
 import traceback
 import re
-from typing import Any, Optional
+from typing import Optional
 import uuid
 from datetime import datetime, timedelta, timezone
 from functools import partial
@@ -24,6 +24,7 @@ from .const import (
     DOMAIN,
     ConflictMode,
     IcaEvents,
+    OpenFoodFacts,
 )
 from .icaapi_async import IcaAPIAsync
 from .icatypes import (
@@ -44,6 +45,7 @@ from .icatypes import (
     IcaShoppingListSync,
     IcaStore,
     IcaStoreOffer,
+    OpenFoodFactsProduct,
 )
 from .utils import get_diffs, index_of, trim_props, try_parse_int
 
@@ -693,12 +695,23 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     #         self._icaRecipes = await self.api.get_random_recipes(nRecipes)
     #     return self._icaRecipes
 
-    async def get_product_from_open_food_facts(
+    async def get_product_info(self, code: str) -> IcaProduct:
+        ica_product_lookup = await self.api.lookup_barcode(code)
+        open_food_fact_product = self.get_product_from_open_food_facts(code)
+
+        product = IcaProduct(
+            article=ica_product_lookup,
+            off=open_food_fact_product,
+            ean_id=code,
+        )
+        return product
+
+    def get_product_from_open_food_facts(
         self,
         code: str,
         fields: Optional[list[str]] = None,
         raise_if_invalid: bool = False,
-    ) -> Optional[dict[str, Any]]:
+    ) -> Optional[OpenFoodFactsProduct]:
         """Return a product.
 
         If the product does not exist, None is returned.
@@ -712,13 +725,13 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         """
         if not code or not isinstance(code, str):
             raise ValueError("code must be a non-empty string")
-        url = f"{self.base_url}/api/v2/product/{code}.json"
-        if fields := fields or []:
+        url = OpenFoodFacts.APIv2.format(code)
+        if fields := fields or OpenFoodFacts.DEFAULT_FIELDS:
             # requests escape comma in URLs, as expected, but openfoodfacts
             # server does not recognize escaped commas.
             # See
             # https://github.com/openfoodfacts/openfoodfacts-server/issues/1607
-            url += f'?fields={",".join(fields)}'
+            url += f"?fields={','.join(fields)}"
 
         response = self._openFoodFactsSession.get(
             url,
@@ -739,15 +752,26 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             raise ex
         else:
             resp = response.json()
-
             if resp is None:
                 # product not found
                 return None
-
             if resp["status"] == 0:
                 # invalid barcode
                 if raise_if_invalid:
                     raise ValueError(f"invalid barcode: {code}")
                 return None
 
-            return resp["product"] if resp is not None else None
+            p = resp["product"] if resp is not None else None
+            nutriments = p.get("nutriments", {})
+            return OpenFoodFactsProduct(
+                brand_owner=p.get("brand_owner"),
+                brands=p.get("brands"),
+                product_name=p.get("product_name"),
+                product_type=p.get("product_type"),
+                quantity=p.get("quantity"),
+                expiration_date=p.get("expiration_date"),
+                energy_kcal_value=nutriments.get(
+                    "energy-kcal_value", nutriments.get("energy-kcal_100g")
+                ),
+                categories=p.get("categories_hierarchy"),
+            )
