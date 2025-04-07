@@ -116,13 +116,17 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
     async def init_cache(self) -> None:
         """Initializes the cache from local files."""
-        await self._ica_articles.init_value()
-        await self._ica_baseitems.init_value()
-        await self._ica_current_bonus.init_value()
-        await self._ica_favorite_stores.init_value()
-        await self._ica_shopping_lists.init_value()
-        await self._ica_offers.init_value()
-        await self._ica_products.init_value()
+        try:
+            await self._ica_articles.init_value()
+            await self._ica_baseitems.init_value()
+            await self._ica_current_bonus.init_value()
+            await self._ica_favorite_stores.init_value()
+            await self._ica_shopping_lists.init_value()
+            await self._ica_offers.init_value()
+            await self._ica_products.init_value()
+        except Exception as e:
+            _LOGGER.error("Cache initialization failed: %s", e)
+            raise
 
     async def _get_tracked_shopping_lists(self) -> list[IcaShoppingList]:
         if not (list_ids := self._config_entry.data.get(CONF_SHOPPING_LISTS, [])):
@@ -249,7 +253,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             self._copy_offer_products_to_registry(offer, product_registry)
 
             offer_due = (
-                datetime.fromisoformat(offer["validTo"]) + timedelta(days=13)
+                datetime.fromisoformat(offer["validTo"]) + timedelta(days=30)
                 if offer and offer.get("validTo")
                 else datetime.max
             )
@@ -427,12 +431,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             # todo: as this might not be urgent, partition lookups in paged-batches
             return product_registry
 
-        # for k in new_products:
-        #     product = new_products[k]
-        #     product_registry[k] = product
-        _LOGGER.fatal("PRE UPDATE: %s", len(product_registry))
         product_registry.update(new_products)
-        _LOGGER.fatal("POST UPDATE: %s", len(product_registry))
         await self._ica_products.set_value(product_registry)
         return product_registry
 

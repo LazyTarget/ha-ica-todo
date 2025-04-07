@@ -51,7 +51,7 @@ class CacheEntry(Generic[_DataT]):
 
     async def init_value(self) -> _DataT:
         """This will load the initial value from file (if exists)."""
-        if self._file:
+        if self._value is None and self._file:
             # Load persisted file (if initial load)
             content = await self._file.async_load_json()
             self._logger.debug(
