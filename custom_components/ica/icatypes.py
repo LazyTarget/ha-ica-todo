@@ -384,7 +384,7 @@ class IcaProduct(TypedDict):
     ean_id: str  # "eanId / barcode"
     ean_name: str | None  # description of the Ean article
     article: ProductLookup | ArticleInfo | None
-    off: OpenFoodFactsProduct | None
+    open_food_facts: OpenFoodFactsProduct | None
     offers: dict[str, IcaProductOffer] | None
 
 

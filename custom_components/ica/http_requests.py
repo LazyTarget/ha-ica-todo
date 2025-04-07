@@ -32,6 +32,7 @@ def get(
     url: str,
     auth_key: str | None = None,
     params: Dict[str, Any] | None = None,
+    return_none_when_404: bool = False,
 ):
     _LOGGER.info(
         "HTTP [GET] Req: %s%s", url, f" | Params: {str(params)}" if params else ""
@@ -43,6 +44,8 @@ def get(
     if response.status_code == 200:
         _LOGGER.debug("HTTP [GET] Resp: %s", json.dumps(response.json()))
         return response.json()
+    elif response.status_code == 404 and return_none_when_404:
+        return None
 
     try:
         response.raise_for_status()

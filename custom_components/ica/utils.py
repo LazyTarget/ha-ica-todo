@@ -87,7 +87,7 @@ if __name__ == "__main__":
     # n = [{"id": 1, "name": "FOO"}, {"id": 2, "name": "BAR"}]
 
     j = open(
-        "C:\HomeAssistant\config\.storage\ica.offers_event_data_diff_base2.json", "r"
+        "C:\\HomeAssistant\\config\\.storage\\ica.offers_event_data_diff_base2.json", "r"
     ).read()
     doc = json.loads(j)
     o = doc["value"]["old"]

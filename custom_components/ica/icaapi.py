@@ -92,7 +92,7 @@ class IcaAPI:
             get_rest_url(API.URLs.PRODUCT_BARCODE_LOOKUP_ENDPOINT), identifier
         )
         try:
-            result = get(self._session, url, self._auth_key)
+            result = get(self._session, url, self._auth_key, return_none_when_404=True)
         except requests.exceptions.HTTPError as err:
             if err.response.status_code == 404:
                 return None
@@ -145,7 +145,7 @@ class IcaAPI:
     def get_recipe(self, recipe_id: int) -> IcaRecipe | None:
         url = str.format(get_rest_url(RECIPE_ENDPOINT), recipe_id)
         try:
-            result = get(self._session, url, self._auth_key)
+            result = get(self._session, url, self._auth_key, return_none_when_404=True)
         except requests.exceptions.HTTPError as err:
             if err.response.status_code == 404:
                 return None

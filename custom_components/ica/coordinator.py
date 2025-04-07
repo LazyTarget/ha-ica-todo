@@ -13,6 +13,7 @@ import homeassistant.util.dt as dt_util
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .background_worker import BackgroundWorker
 from .caching import CacheEntry
@@ -80,7 +81,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self._worker = BackgroundWorker(hass, config_entry)
         config_entry.async_on_unload(self._worker.shutdown)
 
-        self._openFoodFactsSession = requests.Session()
+        self._openFoodFactsSession = async_get_clientsession(self._hass)
         config_entry.async_on_unload(self._openFoodFactsSession.close)
 
         config_entry_key = self._config_entry.data[CONF_ICA_ID]
@@ -697,16 +698,15 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
     async def get_product_info(self, code: str) -> IcaProduct:
         ica_product_lookup = await self.api.lookup_barcode(code)
-        open_food_fact_product = self.get_product_from_open_food_facts(code)
+        open_food_fact_product = await self.get_product_from_open_food_facts(code)
 
-        product = IcaProduct(
-            article=ica_product_lookup,
-            off=open_food_fact_product,
+        return IcaProduct(
             ean_id=code,
+            article=ica_product_lookup,
+            open_food_facts=open_food_fact_product,
         )
-        return product
 
-    def get_product_from_open_food_facts(
+    async def get_product_from_open_food_facts(
         self,
         code: str,
         fields: Optional[list[str]] = None,
@@ -733,28 +733,34 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             # https://github.com/openfoodfacts/openfoodfacts-server/issues/1607
             url += f"?fields={','.join(fields)}"
 
-        response = self._openFoodFactsSession.get(
+        response = await self._openFoodFactsSession.get(
             url,
             headers={"User-Agent": "ha-ica-todo"},
             timeout=10,
         )
 
         try:
-            if response.status_code == 404 and not raise_if_invalid:
+            if response.status == 404 and not raise_if_invalid:
                 return None
             response.raise_for_status()
         except BaseException as ex:
             _LOGGER.error(
                 "Error getting info from OpenFoodFacts. HTTP [GET] Resp: %s -> %s",
-                response.status_code,
+                response.status,
                 response.text,
             )
             raise ex
         else:
-            resp = response.json()
+            resp = await response.json()
             if resp is None:
                 # product not found
                 return None
+            if resp.get("status", None) is None:
+                raise ValueError(
+                    "Seems like the API call to OpenFoodFacts failed. HTTP [GET] Resp: %s -> %s",
+                    response.status,
+                    response.text,
+                )
             if resp["status"] == 0:
                 # invalid barcode
                 if raise_if_invalid:
