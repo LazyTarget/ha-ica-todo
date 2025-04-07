@@ -242,7 +242,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         product_registry = self._ica_products.current_value() or {}
         product_registry_old = product_registry.copy()
         product_count = len(product_registry)
-        _LOGGER.fatal("NEW_PROD #0: %s", product_count)
 
         # Remove obsolete offers... (+30 days from expiration)
         for offer_id in list(current):
@@ -257,7 +256,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             if offer_due < now:
                 _LOGGER.warning("Removing obsolete offer: %s", offer)
                 del target[offer_id]
-        _LOGGER.fatal("NEW_PROD #1: %s", len(product_registry))
 
         # Look up the "active" offers that was retrieved
         store_ids = list(offers_per_store.keys())
@@ -297,44 +295,12 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             if not current_offer:
                 offer_info = IcaOfferInfo.map_from_offer_details(offer)
                 new_offers.append(offer_info)
-
             self._copy_offer_products_to_registry(offer, product_registry)
-            # for ean in offer.get("eans", []):
-            #     ean_id = ean.get("id", None)
-            #     if ean_id and not product_registry.get(ean_id):
-            #         cat = offer.get("category", {})
-            #         article = (
-            #             ArticleInfo(
-            #                 name=None,  # needs to be input via ProductService lookup
-            #                 articleId=None,  # needs to be input via ProductService lookup
-            #                 articleGroupId=cat.get("articleGroupId"),
-            #                 expandedArticleGroupId=cat.get("expandedArticleGroupId"),
-            #             )
-            #             if cat
-            #             else None
-            #         )
-            #         product_offer = IcaProductOffer(
-            #             id=offer.get("id"),
-            #             name=offer.get("name"),
-            #             brand=offer.get("brand"),
-            #             packageInformation=offer.get("packageInformation"),
-            #             priceText=IcaOfferMechanics.format_to_string(
-            #                 offer.get("parsedMechanics", None)
-            #             ),
-            #             referencePriceText=offer.get("referencePriceText"),
-            #             refrenceInfo=offer.get("referenceInfo"),
-            #         )
-            #         product = IcaProduct(
-            #             ean_id=ean_id,
-            #             ean_name=ean.get("articleDescription"),
-            #             article=trim_props(article),
-            #             offer=trim_props(product_offer),
-            #         )
-            #         new_products[ean_id] = product
         new_product_count = len(product_registry)
-        _LOGGER.fatal("NEW_PROD #2: %s", new_product_count)
         if product_count != new_product_count:
-            _LOGGER.info("Persisting %s new products", new_product_count)
+            _LOGGER.info(
+                "Persisting %s new products", new_product_count - product_count
+            )
             await self._update_products(product_registry)
 
         diffs = get_diffs(product_registry_old, product_registry, include_values=False)
