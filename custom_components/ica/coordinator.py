@@ -221,7 +221,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         self, store_ids: list[str] = None
     ) -> dict[str, IcaOfferDetails]:
         now = datetime.now()
-        product_registry = self._ica_products.current_value() or {}
         current = (
             self._ica_offers.current_value() or {}
         )  # Get current value without refreshing. Possible infinite loop
@@ -240,17 +239,22 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             _LOGGER.warning("Failed to get offers from stores!")
             return current
 
-        # # Remove obsolete offers... (+30 days from expiration)
-        # for offer_id in list(current):
-        #     offer = current[offer_id]
-        #     offer_due = (
-        #         datetime.fromisoformat(offer["validTo"]) + timedelta(days=30)
-        #         if offer.get("validTo")
-        #         else datetime.max
-        #     )
-        #     if offer_due < now:
-        #         _LOGGER.info("Removing obsolete offer: %s", offer)
-        #         del target[offer_id]
+        product_registry = self._ica_products.current_value() or {}
+        new_products: dict[str, IcaProduct] = {}
+
+        # Remove obsolete offers... (+30 days from expiration)
+        for offer_id in list(current):
+            offer = current[offer_id]
+            self._parse_products_from_offer(offer, new_products, product_registry)
+
+            offer_due = (
+                datetime.fromisoformat(offer["validTo"]) + timedelta(days=30)
+                if offer and offer.get("validTo")
+                else datetime.max
+            )
+            if offer_due < now:
+                _LOGGER.warning("Removing obsolete offer: %s", offer)
+                del target[offer_id]
 
         # Look up the "active" offers that was retrieved
         store_ids = list(offers_per_store.keys())
@@ -279,7 +283,6 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             return []
 
         new_offers: list[IcaOfferInfo] = []
-        new_products: dict[str, IcaProduct] = {}
         for f in full_offers:
             current_offer = target.get(f["id"]) or IcaOfferDetails()
             store_offer = store_offers.get(f["id"]) or IcaStoreOffer()
@@ -291,38 +294,40 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             if not current_offer:
                 offer_info = IcaOfferInfo.map_from_offer_details(offer)
                 new_offers.append(offer_info)
-            for ean in offer.get("eans", []):
-                ean_id = ean.get("id", None)
-                if ean_id and not product_registry.get(ean_id):
-                    cat = offer.get("category", {})
-                    article = (
-                        ArticleInfo(
-                            name=None,  # needs to be input via ProductService lookup
-                            articleId=None,  # needs to be input via ProductService lookup
-                            articleGroupId=cat.get("articleGroupId"),
-                            expandedArticleGroupId=cat.get("expandedArticleGroupId"),
-                        )
-                        if cat
-                        else None
-                    )
-                    product_offer = IcaProductOffer(
-                        id=offer.get("id"),
-                        name=offer.get("name"),
-                        brand=offer.get("brand"),
-                        packageInformation=offer.get("packageInformation"),
-                        priceText=IcaOfferMechanics.format_to_string(
-                            offer.get("parsedMechanics", None)
-                        ),
-                        referencePriceText=offer.get("referencePriceText"),
-                        refrenceInfo=offer.get("referenceInfo"),
-                    )
-                    product = IcaProduct(
-                        ean_id=ean_id,
-                        ean_name=ean.get("articleDescription"),
-                        article=trim_props(article),
-                        offer=trim_props(product_offer),
-                    )
-                    new_products[ean_id] = product
+
+            self._parse_products_from_offer(offer, new_products, product_registry)
+            # for ean in offer.get("eans", []):
+            #     ean_id = ean.get("id", None)
+            #     if ean_id and not product_registry.get(ean_id):
+            #         cat = offer.get("category", {})
+            #         article = (
+            #             ArticleInfo(
+            #                 name=None,  # needs to be input via ProductService lookup
+            #                 articleId=None,  # needs to be input via ProductService lookup
+            #                 articleGroupId=cat.get("articleGroupId"),
+            #                 expandedArticleGroupId=cat.get("expandedArticleGroupId"),
+            #             )
+            #             if cat
+            #             else None
+            #         )
+            #         product_offer = IcaProductOffer(
+            #             id=offer.get("id"),
+            #             name=offer.get("name"),
+            #             brand=offer.get("brand"),
+            #             packageInformation=offer.get("packageInformation"),
+            #             priceText=IcaOfferMechanics.format_to_string(
+            #                 offer.get("parsedMechanics", None)
+            #             ),
+            #             referencePriceText=offer.get("referencePriceText"),
+            #             refrenceInfo=offer.get("referenceInfo"),
+            #         )
+            #         product = IcaProduct(
+            #             ean_id=ean_id,
+            #             ean_name=ean.get("articleDescription"),
+            #             article=trim_props(article),
+            #             offer=trim_props(product_offer),
+            #         )
+            #         new_products[ean_id] = product
         if new_products:
             _LOGGER.info("Persisting %s new products", len(new_products))
             await self._update_products(new_products)
@@ -378,6 +383,49 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             len(target),
         )
         return target
+
+    def _parse_products_from_offer(
+        self,
+        offer: IcaOfferDetails,
+        new_products: dict[str, IcaProduct],
+        product_registry: dict[str, IcaProduct],
+    ) -> dict[str, IcaProduct]:
+        new_products = new_products or {}
+        product_registry = product_registry or new_products
+
+        for ean in offer.get("eans", []):
+            ean_id = ean.get("id", None)
+            if ean_id and not product_registry.get(ean_id):
+                cat = offer.get("category", {})
+                article = (
+                    ArticleInfo(
+                        name=None,  # needs to be input via ProductService lookup
+                        articleId=None,  # needs to be input via ProductService lookup
+                        articleGroupId=cat.get("articleGroupId"),
+                        expandedArticleGroupId=cat.get("expandedArticleGroupId"),
+                    )
+                    if cat
+                    else None
+                )
+                product_offer = IcaProductOffer(
+                    id=offer.get("id"),
+                    name=offer.get("name"),
+                    brand=offer.get("brand"),
+                    packageInformation=offer.get("packageInformation"),
+                    priceText=IcaOfferMechanics.format_to_string(
+                        offer.get("parsedMechanics", None)
+                    ),
+                    referencePriceText=offer.get("referencePriceText"),
+                    refrenceInfo=offer.get("referenceInfo"),
+                )
+                product = IcaProduct(
+                    ean_id=ean_id,
+                    ean_name=ean.get("articleDescription"),
+                    article=trim_props(article),
+                    offer=trim_props(product_offer),
+                )
+                new_products[ean_id] = product
+        return new_products
 
     async def _update_products(
         self,
