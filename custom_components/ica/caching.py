@@ -49,11 +49,9 @@ class CacheEntry(Generic[_DataT]):
         This can be used where async/await is not possible"""
         return self._value
 
-    async def get_value(self, invalidate_cache: bool | None = None) -> _DataT:
-        """Gets value from state, file or API"""
-        now = dt.datetime.now(dt.timezone.utc)
-
-        if self._value is not None and self._file:
+    async def init_value(self) -> _DataT:
+        """This will load the initial value from file (if exists)."""
+        if self._value is None and self._file:
             # Load persisted file (if initial load)
             content = await self._file.async_load_json()
             self._logger.debug(
@@ -82,6 +80,14 @@ class CacheEntry(Generic[_DataT]):
                 self._logger.debug(
                     "Loaded raw content: %s = %s", self._path, str(self._value)[:100]
                 )
+        return self._value
+
+    async def get_value(self, invalidate_cache: bool | None = None) -> _DataT:
+        """Gets value from state, file or API"""
+        now = dt.datetime.now(dt.timezone.utc)
+
+        if self._value is not None and self._file:
+            await self.init_value()
 
         # Auto invalidate if passed expiry
         invalidate_cache = (
