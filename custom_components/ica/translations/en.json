@@ -50,6 +50,16 @@
           }
         }
       },
+      "lookup_product": {
+        "name": "Get product",
+        "description": "Gets information about a Product",
+        "fields": {
+          "identifier": {
+            "name": "Identifier",
+            "description": "EAN/gtin/Barcode"
+          }
+        }
+      },
       "get_baseitems": {
         "name": "Get favorite items",
         "description": "Gets the favorite items (a.k.a baseitems) for the user",

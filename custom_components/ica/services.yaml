@@ -16,6 +16,16 @@ get_recipe:
       selector:
         text:
 
+lookup_product:
+  fields:
+    identifier:
+      name: "Barcode"
+      description: "EAN/gtin/Barcode"
+      example: "7300400375504"
+      required: true
+      selector:
+        text:
+
 get_baseitems:
   fields:
     integration:
@@ -36,7 +46,7 @@ add_baseitem:
     identifier:
       name: "Name / Barcode"
       description: "Either a free text name or a Barcode"
-      example: "07300400375504"
+      example: "7300400375504"
       default: ''
       required: true
       selector:

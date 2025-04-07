@@ -738,7 +738,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         # Commit any updated data
         product_registry[product["ean_id"]] = product
         _LOGGER.info(
-            "Persisting product to registry: %s",
+            "Persisting product changes to registry: %s",
             get_diff_obj(old, product, key="ean_id"),
         )
         await self._ica_products.set_value(product_registry)
