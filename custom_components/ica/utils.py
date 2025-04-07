@@ -65,6 +65,27 @@ def get_diffs(a, b, key: str = "id", include_values: bool = True):
     return diffs
 
 
+def get_diff_obj(old: dict, new: dict, key: str = "id", include_values: bool = True):
+    diffs = []
+    props = []
+    row_id = new[key]
+    for k in new:
+        d = new.get(k, None) != old.get(k, None)
+        # todo: ignore changes in ordering when list. ICA quite oftenly change or send inconsistent sorting in the Ean-property
+        if d:
+            props.append(k)
+    if props:
+        if include_values:
+            o = {value: old.get(value, None) for value in props}
+            n = {value: new.get(value, None) for value in props}
+            diffs.append(
+                {"op": "~", key: row_id, "changed_props": props, "old": o, "new": n}
+            )
+        else:
+            diffs.append({"op": "~", key: row_id, "changed_props": props})
+    return diffs
+
+
 def index_of(source: list[dict], key, value) -> int:
     """Return the index of the item with the given KeyValue pairing or -1 if not found."""
     return next(
@@ -87,7 +108,8 @@ if __name__ == "__main__":
     # n = [{"id": 1, "name": "FOO"}, {"id": 2, "name": "BAR"}]
 
     j = open(
-        "C:\\HomeAssistant\\config\\.storage\\ica.offers_event_data_diff_base2.json", "r"
+        "C:\\HomeAssistant\\config\\.storage\\ica.offers_event_data_diff_base2.json",
+        "r",
     ).read()
     doc = json.loads(j)
     o = doc["value"]["old"]

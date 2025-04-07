@@ -48,7 +48,7 @@ from .icatypes import (
     IcaStoreOffer,
     OpenFoodFactsProduct,
 )
-from .utils import get_diffs, index_of, trim_props, try_parse_int
+from .utils import get_diff_obj, get_diffs, index_of, trim_props, try_parse_int
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -696,15 +696,43 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     #         self._icaRecipes = await self.api.get_random_recipes(nRecipes)
     #     return self._icaRecipes
 
-    async def get_product_info(self, code: str) -> IcaProduct:
-        ica_product_lookup = await self.api.lookup_barcode(code)
-        open_food_fact_product = await self.get_product_from_open_food_facts(code)
+    async def get_product_info(self, identifier: str) -> IcaProduct:
+        (r, code) = try_parse_int(identifier)
+        if r and code:
+            # Successful parse
+            code = str(code)
+        else:
+            # Not a valid Barcode was passed. Treat as a free-text instead...
+            raise NotImplementedError(
+                "Passing product identifiers as free-text is not yet supported"
+            )
 
-        return IcaProduct(
-            ean_id=code,
-            article=ica_product_lookup,
-            open_food_facts=open_food_fact_product,
+        product_registry = self._ica_products.current_value() or {}
+        old = product_registry.get(code) or {}
+        product = (
+            old
+            or IcaProduct(
+                ean_id=code,
+            )
+        ).copy()
+
+        if not product.get("article"):
+            ica_product_lookup = await self.api.lookup_barcode(code)
+            if ica_product_lookup:
+                product["article"] = ica_product_lookup
+
+        if not product.get("open_food_facts"):
+            open_food_fact_product = await self.get_product_from_open_food_facts(code)
+            product["open_food_facts"] = open_food_fact_product
+
+        # Commit any updated data
+        product_registry[product["ean_id"]] = product
+        _LOGGER.info(
+            "Persisting product to registry: %s",
+            get_diff_obj(old, product, key="ean_id"),
         )
+        await self._ica_products.set_value(product_registry)
+        return product
 
     async def get_product_from_open_food_facts(
         self,
