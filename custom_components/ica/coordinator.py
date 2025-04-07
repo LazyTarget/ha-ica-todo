@@ -114,6 +114,16 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             partial(self._update_products),
         )
 
+    async def init_cache(self) -> None:
+        """Initializes the cache from local files."""
+        await self._ica_articles.init_value()
+        await self._ica_baseitems.init_value()
+        await self._ica_current_bonus.init_value()
+        await self._ica_favorite_stores.init_value()
+        await self._ica_shopping_lists.init_value()
+        await self._ica_offers.init_value()
+        await self._ica_products.init_value()
+
     async def _get_tracked_shopping_lists(self) -> list[IcaShoppingList]:
         if not (list_ids := self._config_entry.data.get(CONF_SHOPPING_LISTS, [])):
             return None
