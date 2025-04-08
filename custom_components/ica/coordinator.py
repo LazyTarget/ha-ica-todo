@@ -528,7 +528,10 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
 
     async def _async_update_data(self) -> None:
         """Fetch data from the ICA API."""
-        await self.refresh_data()
+        if self._config_entry.data.get(CONF_DIRTY_CACHE, False):
+            await self.refresh_data(invalidate_cache=True)
+        else:
+            await self.refresh_data()
 
     def _try_persist_new_state(
         self,
