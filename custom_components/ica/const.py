@@ -85,6 +85,7 @@ CONFIG_ENTRY_NAME: Final = "ICA - %s"
 CONF_ICA_ID: Final = "personal_id"
 CONF_ICA_PIN: Final = "pin_code"
 CONF_SHOPPING_LISTS: Final = "shopping_lists"
+CONF_DIRTY_CACHE: Final = "dirty_cache"
 CONF_NUM_RECIPES: Final = "recipe_count"
 
 CONF_JSON_DATA_IN_DESC: Final = "json_data_in_desc"

@@ -84,7 +84,9 @@ class BackgroundWorker:
     def fire_event(self, event_type, event_data) -> None:
         """Immediately tells Home Assistant to fire an event."""
         _LOGGER.info(
-            "ICA - FIRING EVENT: %s, len: %s", event_type, len(str(event_data))
+            "ICA - FIRING EVENT: %s, len: %s",
+            event_type,
+            len(bytes(str(event_data), "utf-8")),
         )
         _LOGGER.warning("Event data: %s", str(event_data)[:100])
         self._hass.bus.fire(

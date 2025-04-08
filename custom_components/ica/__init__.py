@@ -10,7 +10,12 @@ from homeassistant.core import HomeAssistant
 from .icaapi_async import IcaAPIAsync
 from .coordinator import IcaCoordinator
 from .services import setup_global_services
-from .const import DOMAIN, CONF_ICA_PIN, CONF_ICA_ID, DEFAULT_SCAN_INTERVAL
+from .const import (
+    DOMAIN,
+    CONF_ICA_PIN,
+    CONF_ICA_ID,
+    DEFAULT_SCAN_INTERVAL,
+)
 from .icatypes import AuthCredentials, AuthState
 
 _LOGGER = logging.getLogger(__name__)
