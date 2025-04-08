@@ -502,6 +502,8 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                     "Login seems to have been successfully refreshed, explicitly fetching new data..."
                 )
                 await self._refresh_data(invalidate_cache)
+                # If cache was invalidated and successfully refreshed, then set dirty_cache flag to False
+                dirty_cache = False if invalidate_cache is True else None
                 return None
             # For other status codes, raise error directly
             _LOGGER.warning(
@@ -525,6 +527,10 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 self._try_persist_new_state(
                     self._config_entry, new_auth_state, dirty_cache
                 )
+
+    async def _async_setup(self) -> None:
+        """Initialize coordinator."""
+        await self.init_cache()
 
     async def _async_update_data(self) -> None:
         """Fetch data from the ICA API."""
