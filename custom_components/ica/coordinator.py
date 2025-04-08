@@ -19,6 +19,7 @@ from .background_worker import BackgroundWorker
 from .caching import CacheEntry
 from .const import (
     CACHING_SECONDS_SHORT_TERM,
+    CONF_DIRTY_CACHE,
     CONF_ICA_ID,
     CONF_SHOPPING_LISTS,
     DEFAULT_ARTICLE_GROUP_ID,
@@ -477,6 +478,7 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
     async def refresh_data(self, invalidate_cache: bool | None = None) -> None:
         """Fetch data from the ICA API (if necessary)."""
         new_auth_state = None
+        dirty_cache = None
         if self._auth_initialized is None:
             # Initialize Auth during first refresh
             new_auth_state = await self.api.ensure_login()
@@ -516,24 +518,35 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
             # No exceptions during fetch, auth is valid
             if not self._auth_initialized:
                 self._auth_initialized = True
+            # If cache was invalidated and successfully refreshed, then set dirty_cache flag to False
+            dirty_cache = False if invalidate_cache is True else None
         finally:
-            if new_auth_state:
-                self._try_persist_new_auth_state(self._config_entry, new_auth_state)
+            if new_auth_state or dirty_cache is not None:
+                self._try_persist_new_state(
+                    self._config_entry, new_auth_state, dirty_cache
+                )
 
     async def _async_update_data(self) -> None:
         """Fetch data from the ICA API."""
         await self.refresh_data()
 
-    def _try_persist_new_auth_state(
-        self, entry: ConfigEntry, auth_state: AuthState
+    def _try_persist_new_state(
+        self,
+        entry: ConfigEntry,
+        auth_state: AuthState | None,
+        dirty_cache: bool | None,
     ) -> bool | None:
         entry_data = entry.data.copy()
-        entry_data["auth_state"] = auth_state
+        if auth_state is not None:
+            entry_data["auth_state"] = auth_state
+        if dirty_cache is not None:
+            entry_data[CONF_DIRTY_CACHE] = dirty_cache
+
         if self._hass.config_entries.async_update_entry(entry, data=entry_data):
-            _LOGGER.info("Successfully updated config entry data with new auth state.")
+            _LOGGER.info("Successfully updated config entry data with new state.")
             return True
         else:
-            _LOGGER.debug("No changes when persisting auth state to config_entry data.")
+            _LOGGER.debug("No changes when persisting state to config_entry data.")
             return False
 
     async def _async_update_tracked_shopping_lists(self) -> list[IcaShoppingList]:

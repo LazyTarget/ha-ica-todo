@@ -21,6 +21,7 @@ from .coordinator import IcaCoordinator
 from .icatypes import AuthCredentials
 from .icaapi_async import IcaAPIAsync
 from .const import (
+    CONF_DIRTY_CACHE,
     DOMAIN,
     CONFIG_ENTRY_NAME,
     CONF_ICA_ID,
@@ -149,6 +150,8 @@ class IcaOptionsFlowHandler(OptionsFlow):
 
         # Handle input
         if user_input is not None:
+            require_cache_invalidation = config_entry_data.get(CONF_DIRTY_CACHE, False)
+
             config_entry_data[CONF_SCAN_INTERVAL] = user_input.get(
                 CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
             )
@@ -156,9 +159,14 @@ class IcaOptionsFlowHandler(OptionsFlow):
                 CONF_JSON_DATA_IN_DESC, False
             )
 
+            pre = config_entry_data.get(CONF_SHOPPING_LISTS, []).copy()
             config_entry_data[CONF_SHOPPING_LISTS] = user_input.get(
                 CONF_SHOPPING_LISTS, []
             )
+            post = config_entry_data.get(CONF_SHOPPING_LISTS, [])
+            require_cache_invalidation = require_cache_invalidation or (pre != post)
+
+            config_entry_data[CONF_DIRTY_CACHE] = require_cache_invalidation
 
             if self.hass.config_entries.async_update_entry(
                 self.config_entry,
