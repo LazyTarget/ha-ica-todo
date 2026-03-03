@@ -52,6 +52,39 @@ add_baseitem:
       selector:
         text:
 
+upsert_shopping_list:
+  fields:
+    entity_id:
+      name: "Shopping list entity"
+      description: "The shopping list entity to add to"
+      required: true
+      selector:
+        entity:
+          filter:
+            integration: ica
+            domain: todo
+          exclude_entities:
+            - todo.ica_favorite_articles
+          multiple: false
+    rows:
+       name: "Rows"
+       description: "The rows to add/update in the shopping list (either the raw text or JSON object)"
+       example: 'Lasagneplattor\n\r{"productName": "Banan", "productEan": "4011800420710", "offer_id": "2000681790", "quantity": 2, "unit": "st", "recipies": [{"id": "722982", "quantity": 1, "unit": "st"}]}'
+       required: true
+       selector:
+         text:
+           multiple: true
+    conflict_mode:
+      name: "Conflict mode"
+      description: "What do to if the item already exists"
+      default: 'APPEND'
+      selector:
+        select:
+          options:
+            - "APPEND"
+            - "MERGE"
+            - "IGNORE"
+
 add_offers_to_shopping_list:
   fields:
     entity_id:

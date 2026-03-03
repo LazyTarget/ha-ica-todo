@@ -151,6 +151,75 @@ def async_register_services(
         supports_response=SupportsResponse.OPTIONAL,
     )
 
+    async def handle_upsert_shopping_list(
+        entity: IcaShoppingListEntity, call: ServiceCall
+    ) -> ServiceCallResponse[IcaShoppingList]:
+        """Call will upsert an existing Offer to a ICA shopping list"""
+        sync = IcaShoppingListSync()
+        rows = call.data["rows"]
+        conflict_mode = call.data.get("conflict_mode", ConflictMode.APPEND)
+        # created_rows = []
+        # for offer_id in rows:
+        #     if not offer_id or ("," in offer_id):
+        #         _LOGGER.warning("Invalid `offer_id` passed: %s", offer_id)
+        #         continue
+        #     offer = coordinator.get_offer_info(offer_id)
+        #     if not offer:
+        #         _LOGGER.warning("Offer not found: %s", offer_id)
+        #         continue
+        #     cat = offer.get("category", {})
+        #     ean = (
+        #         offer.get("eans")[0].get(
+        #             "id"
+        #         )  # todo: How to handle if multiple?. Best would be to add the Ean that was triggered...
+        #         if len(offer.get("eans", [])) == 1
+        #         else None
+        #     )
+        #     created_rows.append(
+        #         IcaShoppingListEntry(
+        #             internalOrder=999,
+        #             productName=offer["name"],
+        #             isStrikedOver=False,
+        #             sourceId=-1,
+        #             articleGroupId=cat.get("articleGroupId", DEFAULT_ARTICLE_GROUP_ID),
+        #             articleGroupIdExtended=cat.get(
+        #                 "expandedArticleGroupId", DEFAULT_ARTICLE_GROUP_ID
+        #             ),
+        #             offerId=offer_id,
+        #             latestChange=(
+        #                 datetime.datetime.now(datetime.timezone.utc)
+        #                 .replace(microsecond=0)
+        #                 .isoformat()
+        #                 + "Z"
+        #             ),
+        #             productEan=ean,
+        #             offlineId=str(uuid.uuid4()),
+        #         )
+        #     )
+
+        if not rows:
+            return ServiceCallResponse[IcaShoppingList](success=False, data=None)
+
+        sync = await coordinator.generate_sync_request(entity._project_id, rows)
+        updated_list = await coordinator.sync_shopping_list(
+            sync, conflict_mode=conflict_mode
+        )
+        return ServiceCallResponse[IcaShoppingList](success=True, data=updated_list)
+
+    service.async_register_entity_service(
+        hass,
+        DOMAIN,
+        name=IcaServices.UPSERT_SHOPPING_LIST,
+        schema={
+            vol.Required("rows"): vol.All(cv.ensure_list, [str]),
+            vol.Optional("conflict_mode"): vol.In(CONFLICT_MODES),
+        },
+        job_type=None,
+        entities=shopping_list_entities,
+        func=handle_upsert_shopping_list,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+
     # # Non-entity based Services
     # if not hass.services.has_service(DOMAIN, IcaServices.GET_RECIPE):
     #     async def handle_get_recipe(call: ServiceCall) -> None:
