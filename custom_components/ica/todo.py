@@ -200,7 +200,7 @@ def async_register_services(
         if not rows:
             return ServiceCallResponse[IcaShoppingList](success=False, data=None)
 
-        sync = await coordinator.generate_sync_request(entity._project_id, rows)
+        sync = await entity.async_generate_sync_request(rows)
         updated_list = await coordinator.sync_shopping_list(
             sync, conflict_mode=conflict_mode
         )
@@ -404,6 +404,61 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         return await self.coordinator.sync_shopping_list(
             sync, conflict_mode=conflict_mode
         )
+
+    async def async_generate_sync_request(self, rows: list[str]) -> IcaShoppingListSync:
+        """Generates a sync request for updates to a shopping list."""
+        persisted_list = self.coordinator.get_shopping_list(self._project_id)
+        if not persisted_list:
+            raise ValueError("Could not find shopping_list")
+
+        persisted_rows = persisted_list.get("rows") or []
+        sync = IcaShoppingListSync(
+            offlineId=self._project_id,
+            changedShoppingListProperties={},
+        )
+        sync["changedShoppingListProperties"]["latestChange"] = (
+            f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
+        )
+
+        for row_input in rows:
+            row: IcaShoppingListEntry = {}
+            try:
+                row = json.loads(row_input, strict=False)
+                _LOGGER.debug("Parsing row as json: %s", row)
+            except ValueError:
+                # Not JSON
+                ti = self.coordinator.parse_summary(row_input)
+                row.update(ti)
+                _LOGGER.debug("Parsing row as str: %s", row)
+                if "summary" in row:
+                    del row["summary"]
+
+            offline_id = row.get("offlineId")
+            persisted_row = (
+                next(r for r in persisted_rows if r["offlineId"] == offline_id)
+                if offline_id
+                else None
+            )
+            if not offline_id:
+                offline_id = str(uuid.uuid4())
+
+            # TODO: Apply conflict_mode logic
+
+            row_create = persisted_row is None
+            if row_create:
+                # New row
+                sync["createdRows"] = sync.get("createdRows") or []
+                sync["createdRows"].append(row)
+            else:
+                # Update row
+                sync["changedRows"] = sync.get("changedRows") or []
+                sync["changedRows"].append(row)
+            row["latestChange"] = (
+                f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z"
+            )
+
+        _LOGGER.info("Built sync: %s", sync)
+        return sync
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
         """Update a To-do item."""

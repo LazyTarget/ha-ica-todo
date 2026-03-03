@@ -148,9 +148,9 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
                 lists.append(shopping_list)
         return lists
 
-    def get_shopping_list(self, list_id) -> IcaShoppingList:
+    def get_shopping_list(self, list_offline_id) -> IcaShoppingList | None:
         selected_lists = self._ica_shopping_lists.current_value() or []
-        for x in filter(lambda x: x["offlineId"] == list_id, selected_lists):
+        for x in filter(lambda x: x["offlineId"] == list_offline_id, selected_lists):
             return x
         return None
 
@@ -591,9 +591,11 @@ class IcaCoordinator(DataUpdateCoordinator[list[IcaShoppingListEntry]]):
         instant_submit: bool = True,
     ) -> IcaShoppingList:
         """Pushes the specified changes to ICA. Might apply some conflict logic on the before. In the future changes could be batched together before being sumbmitted."""
-        # todo: Apply conflict_mode logic
-        # todo: Batch changes before submitting after X seconds
-        # todo: Apply ordering
+
+        # TODO: Ensure that one of the fields are set 'changedRows', 'createdRows', 'deletedRows'
+        # TODO: Apply conflict_mode logic
+        # TODO: Batch changes before submitting after X seconds
+        # TODO: Apply ordering
 
         # Push sync to API
         updated_list = await self.api.sync_shopping_list(sync)
