@@ -200,7 +200,9 @@ def async_register_services(
         if not rows:
             return ServiceCallResponse[IcaShoppingList](success=False, data=None)
 
-        sync = await entity.async_generate_sync_request(rows)
+        sync = await entity.async_generate_sync_request(
+            rows, conflict_mode=conflict_mode
+        )
         updated_list = await coordinator.sync_shopping_list(
             sync, conflict_mode=conflict_mode
         )
@@ -406,7 +408,9 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
             sync, conflict_mode=conflict_mode
         )
 
-    async def async_generate_sync_request(self, rows: list[str]) -> IcaShoppingListSync:
+    async def async_generate_sync_request(
+        self, rows: list[str], conflict_mode: ConflictMode
+    ) -> IcaShoppingListSync:
         """Generates a sync request for updates to a shopping list."""
         persisted_list = self.coordinator.get_shopping_list(self._project_id)
         if not persisted_list:
@@ -435,26 +439,74 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                 if "summary" in row:
                     del row["summary"]
 
-            offline_id = row.get("offlineId")
-            persisted_row = (
-                next(
-                    (r for r in persisted_rows if r.get("offlineId") == offline_id),
-                    None,
-                )
-                if offline_id
-                else None
-            )
-            if not offline_id:
-                offline_id = str(uuid.uuid4())
+            persisted_row: IcaShoppingListEntry | None = None
+            if conflict_mode == ConflictMode.APPEND:
+                persisted_row = None
+                row["offlineId"] = str(
+                    uuid.uuid4()
+                )  # in APPEND-mode, we overwrite any previous 'offlineId'
+            else:
+                # In other modes, we try to find a matching existing rows if applicable
+                # Matching is done based on 'offlineId', if present, otherwise 'productName'
 
-            # TODO: Apply conflict_mode logic
+                # Fetch by 'offlineId' if available
+                if offline_id := row.get("offlineId"):
+                    persisted_row = next(
+                        (r for r in persisted_rows if r.get("offlineId") == offline_id),
+                        None,
+                    )
+                    if persisted_row:
+                        _LOGGER.info("Merging based on offlineId match: %s", offline_id)
+
+                if not persisted_row and (product_name := row.get("productName")):
+                    # If no match by 'offlineId', try matching by 'productName'
+                    persisted_row = next(
+                        (
+                            r
+                            for r in persisted_rows
+                            if r.get("productName") == product_name
+                        ),
+                        None,
+                    )
+                    if persisted_row:
+                        _LOGGER.info(
+                            "Merging based on productName match: %s", product_name
+                        )
+
+                if persisted_row and conflict_mode == ConflictMode.MERGE:
+                    # Handle merging
+
+                    # TODO: Implement the merging of specific fields
+                    # TODO: Handle unit conversions...
+                    row["quantity"] = row.get("quantity") + persisted_row.get(
+                        "quantity", 0
+                    )
 
             row_create = persisted_row is None
             if row_create:
+                # Ensure that a 'offlineId' is defined. Easier traceability if it is created here and not in the ICA backend.
+                if not row.get("offlineId"):
+                    row["offlineId"] = str(uuid.uuid4())
+
                 # New row
                 sync["createdRows"] = sync.get("createdRows") or []
                 sync["createdRows"].append(row)
             else:
+                if conflict_mode == ConflictMode.IGNORE:
+                    _LOGGER.info(
+                        "Ignored update due to conflict mode 'ignore'. New: %s. Persisted: %s",
+                        row,
+                        persisted_row,
+                    )
+                    continue
+
+                if not row.get("offlineId"):
+                    row["offlineId"] = str(uuid.uuid4())
+                    _LOGGER.warning(
+                        "No offlineId found for row in MERGE-mode! This might have unexpected behaviour. Row: %s",
+                        row,
+                    )
+
                 # Update row
                 sync["changedRows"] = sync.get("changedRows") or []
                 sync["changedRows"].append(row)
