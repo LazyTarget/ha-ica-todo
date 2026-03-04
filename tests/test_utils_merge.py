@@ -1,26 +1,34 @@
 """Tests for unit conversion and IcaShoppingListEntry merging utilities."""
 
-import sys
+import importlib.util
 import os
+
 import pytest
 
-# Ensure the custom_components package is importable
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "..", "custom_components")
+# Import utils.py directly to avoid pulling in the full ica package
+# (which depends on homeassistant).
+_utils_path = os.path.join(
+    os.path.dirname(__file__),
+    "..",
+    "custom_components",
+    "ica",
+    "utils.py",
 )
+_spec = importlib.util.spec_from_file_location("ica_utils", _utils_path)
+_utils = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_utils)
 
-from ica.utils import (
-    are_units_compatible,
-    convert_quantity,
-    get_unit_group,
-    merge_shopping_list_entries,
-    _merge_recipe_refs,
-)
+are_units_compatible = _utils.are_units_compatible
+convert_quantity = _utils.convert_quantity
+get_unit_group = _utils.get_unit_group
+merge_shopping_list_entries = _utils.merge_shopping_list_entries
+_merge_recipe_refs = _utils._merge_recipe_refs
 
 
 # ---------------------------------------------------------------------------
 # Unit group detection
 # ---------------------------------------------------------------------------
+
 
 class TestGetUnitGroup:
     def test_volume_units(self):
@@ -56,6 +64,7 @@ class TestGetUnitGroup:
 # Unit compatibility
 # ---------------------------------------------------------------------------
 
+
 class TestAreUnitsCompatible:
     def test_same_unit(self):
         assert are_units_compatible("dl", "dl") is True
@@ -90,6 +99,7 @@ class TestAreUnitsCompatible:
 # ---------------------------------------------------------------------------
 # Quantity conversion
 # ---------------------------------------------------------------------------
+
 
 class TestConvertQuantity:
     def test_same_unit_noop(self):
@@ -135,6 +145,7 @@ class TestConvertQuantity:
 # ---------------------------------------------------------------------------
 # Recipe reference merging
 # ---------------------------------------------------------------------------
+
 
 class TestMergeRecipeRefs:
     def test_both_none(self):
@@ -185,6 +196,7 @@ class TestMergeRecipeRefs:
 # ---------------------------------------------------------------------------
 # Shopping list entry merging
 # ---------------------------------------------------------------------------
+
 
 class TestMergeShoppingListEntries:
     def test_basic_same_unit(self):
