@@ -282,6 +282,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         """Handle updated data from the coordinator."""
         items = []
         if shopping_list := self.coordinator.get_shopping_list(self._project_id):
+            _LOGGER.info("TODO list: %s", shopping_list)
             for task in shopping_list["rows"]:
                 if task.get("offerId", None):
                     if offer := self.coordinator.get_offer_info(task["offerId"]):
@@ -424,18 +425,22 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
             row: IcaShoppingListEntry = {}
             try:
                 row = json.loads(row_input, strict=False)
-                _LOGGER.debug("Parsing row as json: %s", row)
-            except ValueError:
+                _LOGGER.warning("Parsing row as json: %s", row)
+            except ValueError as e:
+                _LOGGER.error("Error parsing row as json: %s. Error: %s", row_input, e)
                 # Not JSON
                 ti = self.coordinator.parse_summary(row_input)
                 row.update(ti)
-                _LOGGER.debug("Parsing row as str: %s", row)
+                _LOGGER.warning("Parsing row as str: %s", row)
                 if "summary" in row:
                     del row["summary"]
 
             offline_id = row.get("offlineId")
             persisted_row = (
-                next(r for r in persisted_rows if r["offlineId"] == offline_id)
+                next(
+                    (r for r in persisted_rows if r.get("offlineId") == offline_id),
+                    None,
+                )
                 if offline_id
                 else None
             )
