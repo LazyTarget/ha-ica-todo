@@ -474,13 +474,15 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                         )
 
                 if persisted_row and conflict_mode == ConflictMode.MERGE:
-                    # Handle merging
+                    # TODO: Handle merging
 
-                    # TODO: Implement the merging of specific fields
+                    # TODO: Implement the merging of specific fields ['quantity', 'unit', 'recipes', 'recipe_id']
+                    # TODO: Update 'row' with any non-conflicting changes from 'persisted_row' to avoid overwriting them in the sync
                     # TODO: Handle unit conversions...
-                    row["quantity"] = row.get("quantity") + persisted_row.get(
-                        "quantity", 0
-                    )
+                    # row["quantity"] = row.get("quantity") + persisted_row.get(
+                    #     "quantity", 0
+                    # )
+                    pass
 
             row_create = persisted_row is None
             if row_create:
