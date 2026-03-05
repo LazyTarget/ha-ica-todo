@@ -434,6 +434,8 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                 _LOGGER.error("Error parsing row as json: %s. Error: %s", row_input, e)
                 # Not JSON
                 ti = self.coordinator.parse_summary(row_input)
+                if q := ti.get("quantity") and isinstance(ti["quantity"], str):
+                    ti["quantity"] = float(q)
                 row.update(ti)
                 _LOGGER.warning("Parsing row as str: %s", row)
                 if "summary" in row:
@@ -477,6 +479,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                     row = merge_shopping_list_entries(
                         base=persisted_row, other=row
                     )
+                    row["offlineId"] = persisted_row["offlineId"]  # Assign 'offlineId' on the row that is to be updated
 
             row_create = persisted_row is None
             if row_create:
