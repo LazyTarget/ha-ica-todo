@@ -39,7 +39,7 @@ from .icatypes import (
     IcaShoppingListSync,
     ServiceCallResponse,
 )
-from .utils import index_of, merge_shopping_list_entries
+from .utils import index_of, merge_shopping_list_entries, product_names_match
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -471,14 +471,14 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
 
                 if not persisted_row and (product_name := row.get("productName")):
                     # If no match by 'offlineId', try matching by 'productName'
+                    # Handles pluralization in both English and Swedish
                     persisted_row = next(
                         (
                             r
                             for r in persisted_rows
-                            if r.get("productName", "").casefold()
-                            == product_name.casefold()
-                            # TODO: Handle pluralized product names (e.g. "Tomato" vs "Tomatoes"), or rather in Swedish: "Tomat" vs "Tomater".
-                            # Could be done by stripping trailing 's' when comparing, but might cause false positives
+                            if product_names_match(
+                                r.get("productName"), product_name
+                            )
                         ),
                         None,
                     )

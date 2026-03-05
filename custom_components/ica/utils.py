@@ -110,6 +110,163 @@ def try_parse_int(value: Any) -> tuple[bool, int]:
 
 
 # ---------------------------------------------------------------------------
+# Product name normalization for plural matching
+# ---------------------------------------------------------------------------
+
+def normalize_product_name(name: str | None) -> str:
+    """Normalize a product name for fuzzy matching, handling Swedish and English plurals.
+
+    This function strips common plural suffixes to allow matching between
+    singular and plural forms (e.g., "Tomat" ↔ "Tomater", "Apple" ↔ "Apples").
+
+    Swedish plural patterns (ordered by specificity):
+      - erna, orna, arna  → remove 4 chars  (pojkarna → pojk)
+      - or, ar, er        → remove 2 chars  (tomater → tomat)
+      - et, en            → remove 2 chars  (äpplet → äpple, barnen → barn)
+      - n after vowel     → remove 1 char   (äpplen → äpple)
+
+    English plural patterns:
+      - ies  → replace with 'y'  (berries → berry)
+      - es   → remove 2 chars    (boxes → box, tomatoes → tomato)
+      - s    → remove 1 char     (apples → apple)
+
+    The function is conservative: it only strips suffixes when the remaining
+    stem is at least 3 characters to avoid over-aggressive matching.
+
+    Parameters
+    ----------
+    name : The product name to normalize.
+
+    Returns
+    -------
+    The normalized (singular-like) form, lowercased and stripped.
+    """
+    if not name:
+        return ""
+
+    normalized = name.strip().lower()
+    if len(normalized) < 4:
+        return normalized  # Too short to safely normalize
+
+    # Swedish: longer suffixes first (to avoid partial matches)
+    if len(normalized) >= 6:
+        for suffix in ("erna", "orna", "arna"):
+            if normalized.endswith(suffix):
+                stem = normalized[: -len(suffix)]
+                if len(stem) >= 3:
+                    return stem
+
+    # Swedish: or, ar, er (plural endings)
+    if len(normalized) >= 5:
+        for suffix in ("or", "ar", "er"):
+            if normalized.endswith(suffix):
+                stem = normalized[:-2]
+                if len(stem) >= 3:
+                    return stem
+
+    # Swedish: a (common singular ending that's dropped in plural)
+    # gurka → gurk, flicka → flick (then plural adds or/ar: gurkor, flickor)
+    # Also handles definite plural forms ending in -a (e.g., äpplena → äpplen)
+    if len(normalized) >= 4 and normalized.endswith("a"):
+        stem = normalized[:-1]
+        if len(stem) >= 3:
+            # Only strip 'a' if it looks like a Swedish noun pattern
+            # (consonant before the 'a', not a vowel)
+            if stem[-1] not in "aeiouyåäö":
+                # Special case: if after stripping 'a', we have 'n' after a vowel,
+                # continue stripping to handle definite plurals (äpplena → äpplen → äpple)
+                if (
+                    len(stem) >= 4
+                    and stem.endswith("n")
+                    and stem[-2] in "aeiouyåäö"
+                ):
+                    final_stem = stem[:-1]
+                    if len(final_stem) >= 3:
+                        return final_stem
+                return stem
+
+    # Swedish: et, en (definite forms: äpplet → äpple, barnen → barn)
+    # Check these before "n after vowel" to avoid false matches on "en" suffix
+    if len(normalized) >= 5:
+        if normalized.endswith("et"):
+            stem = normalized[:-2]
+            if len(stem) >= 3:
+                # If stem ends with consonant + "l", add back "e" (äppl → äpple)
+                if stem[-1] == "l" and len(stem) >= 2 and stem[-2] not in "aeiouyåäö":
+                    return stem + "e"
+                return stem
+        if normalized.endswith("en"):
+            stem = normalized[:-2]
+            if len(stem) >= 3:
+                # If stem ends with consonant + "l", add back "e" (äppl → äpple)
+                if stem[-1] == "l" and len(stem) >= 2 and stem[-2] not in "aeiouyåäö":
+                    return stem + "e"
+                return stem
+
+    # Swedish: n after vowel (äpplen → äpple)
+    if (
+        len(normalized) >= 5
+        and normalized.endswith("n")
+        and normalized[-2] in "aeiouyåäö"
+    ):
+        stem = normalized[:-1]
+        if len(stem) >= 3:
+            return stem
+
+    # English: ies → y (berries → berry)
+    if len(normalized) >= 5 and normalized.endswith("ies"):
+        stem = normalized[:-3] + "y"
+        if len(stem) >= 3:
+            return stem
+
+    # English: s vs es disambiguation
+    # For words ending in 's', determine whether to strip 's' or 'es'
+    if len(normalized) >= 4 and normalized.endswith("s"):
+        # First try removing just 's'
+        stem_s = normalized[:-1]
+        
+        # If ends in 'es', might need to remove 'es' instead of just 's'
+        if len(normalized) >= 5 and normalized.endswith("es"):
+            stem_es = normalized[:-2]
+            if len(stem_es) >= 3:
+                # Remove 'es' for words ending in x, z, s, o
+                # (boxes → box, buzzes → buzz, tomatoes → tomato)
+                if stem_es[-1] in "xzso":
+                    return stem_es
+                # For other 'es' endings, prefer removing just 's' (apples → apple)
+        
+        # Remove just 's' if it produces a valid stem
+        if len(stem_s) >= 3 and not stem_s.endswith("s"):
+            return stem_s
+
+    return normalized
+    if len(normalized) >= 5 and normalized.endswith("es"):
+        stem = normalized[:-2]
+        # Only strip if the preceding char suggests it's a real plural
+        # (e.g., x, s, z, ch, sh in English; final 't' for Swedish)
+        if len(stem) >= 3 and stem[-1] in "xszt":
+            return stem
+
+    # English: -s
+    if len(normalized) >= 4 and normalized.endswith("s"):
+        stem = normalized[:-1]
+        # Avoid stripping 's' from words that naturally end in 's'
+        # Simple heuristic: if the second-to-last char is 's', likely not a plural
+        if len(stem) >= 3 and stem[-1] != "s":
+            return stem
+
+    return normalized
+
+
+def product_names_match(name_a: str | None, name_b: str | None) -> bool:
+    """Check if two product names match, accounting for pluralization.
+
+    Returns ``True`` if the normalized forms are identical.
+    """
+    return normalize_product_name(name_a) == normalize_product_name(name_b)
+
+
+# ---------------------------------------------------------------------------
 # Unit conversion system
 # Supported units: L, dl, cl, ml, krm, tsk, msk, kg, g, st, förp
 # ---------------------------------------------------------------------------
