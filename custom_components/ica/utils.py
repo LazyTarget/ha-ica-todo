@@ -265,11 +265,11 @@ def merge_shopping_list_entries(
 
     Merging rules
     -------------
-    * ``quantity`` – summed when the ``unit`` values are compatible.
+    * ``quantity`` - summed when the ``unit`` values are compatible.
       If only one entry carries a quantity the non-None value is kept.
-    * ``unit`` – the *base* unit is preserved when both have quantities;
+    * ``unit`` - the *base* unit is preserved when both have quantities;
       if only *other* has a unit it is adopted.
-    * ``recipes`` – recipe reference lists are combined; quantities for
+    * ``recipes`` - recipe reference lists are combined; quantities for
       the same ``recipeId`` are added (with unit conversion when needed).
     * Other nullable fields (``productEan``, ``articleGroupId``, etc.) are
       carried over from *other* when *base* has ``None``.

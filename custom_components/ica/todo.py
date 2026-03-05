@@ -436,6 +436,10 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                 ti = self.coordinator.parse_summary(row_input)
                 if q := ti.get("quantity") and isinstance(ti["quantity"], str):
                     ti["quantity"] = float(q)
+                if not ti.get("unit"):
+                    # Do like ICA, and assume "st" as default unit?
+                    # TODO: Verify this is what we want..
+                    ti["unit"] = "st"
                 row.update(ti)
                 _LOGGER.warning("Parsing row as str: %s", row)
                 if "summary" in row:
@@ -473,6 +477,8 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                             for r in persisted_rows
                             if r.get("productName", "").casefold()
                             == product_name.casefold()
+                            # TODO: Handle pluralized product names (e.g. "Tomato" vs "Tomatoes"), or rather in Swedish: "Tomat" vs "Tomater".
+                            # Could be done by stripping trailing 's' when comparing, but might cause false positives
                         ),
                         None,
                     )
