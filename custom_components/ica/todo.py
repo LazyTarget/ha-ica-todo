@@ -454,7 +454,12 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                 # Fetch by 'offlineId' if available
                 if offline_id := row.get("offlineId"):
                     persisted_row = next(
-                        (r for r in persisted_rows if r.get("offlineId") == offline_id),
+                        (
+                            r
+                            for r in persisted_rows
+                            if r.get("offlineId", "").casefold()
+                            == offline_id.casefold()
+                        ),
                         None,
                     )
                     if persisted_row:
@@ -466,7 +471,8 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                         (
                             r
                             for r in persisted_rows
-                            if r.get("productName") == product_name
+                            if r.get("productName", "").casefold()
+                            == product_name.casefold()
                         ),
                         None,
                     )
@@ -476,10 +482,10 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                         )
 
                 if persisted_row and conflict_mode == ConflictMode.MERGE:
-                    row = merge_shopping_list_entries(
-                        base=persisted_row, other=row
-                    )
-                    row["offlineId"] = persisted_row["offlineId"]  # Assign 'offlineId' on the row that is to be updated
+                    row = merge_shopping_list_entries(base=persisted_row, other=row)
+                    row["offlineId"] = persisted_row[
+                        "offlineId"
+                    ]  # Assign 'offlineId' on the row that is to be updated
 
             row_create = persisted_row is None
             if row_create:
