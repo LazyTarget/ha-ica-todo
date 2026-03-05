@@ -3,7 +3,6 @@
 import importlib.util
 import os
 
-import pytest
 
 # Import utils.py directly
 _utils_path = os.path.join(
@@ -32,19 +31,29 @@ class TestNormalizeProductName:
     # Swedish plurals
     def test_swedish_or_plural(self):
         """Swedish -or plural (flicka → flickor)"""
-        assert normalize_product_name("Tomater") == "tomat"
-        assert normalize_product_name("tomater") == "tomat"
-        assert normalize_product_name("Gurkor") == "gurk"
+        assert normalize_product_name("Kakor") == "kaka"
+        assert normalize_product_name("Gurkor") == "gurka"
 
     def test_swedish_ar_plural(self):
-        """Swedish -ar plural (pojke → pojkar)"""
-        assert normalize_product_name("Äpplar") == "äppl"
-        assert normalize_product_name("Morottar") == "morott"
+        """Swedish -ar plural (pojk → pojkar)"""
+        assert normalize_product_name("Pojkar") == "pojk"
+        assert normalize_product_name("Ostar") == "ost"
+        assert normalize_product_name("Fiskar") == "fisk"
+
+    def test_swedish_ötter_plural(self):
+        """Swedish -ötter plural (morot → morötter)"""
+        assert normalize_product_name("Morötter") == "morot"
+        assert normalize_product_name("Fötter") == "fot"
 
     def test_swedish_er_plural(self):
-        """Swedish -er plural (hundar, sometimes)"""
+        """Swedish -er plural (tomater → tomat)"""
+        assert normalize_product_name("Tomater") == "tomat"
+        assert normalize_product_name("tomater") == "tomat"
         assert normalize_product_name("Bärer") == "bär"
-        assert normalize_product_name("Halter") == "halt"
+        assert normalize_product_name("Aprikoser") == "aprikos"
+        assert (
+            normalize_product_name("Ananaser") == "ananas"
+        )  # should not strip 's' from ananas
 
     def test_swedish_arna_plural(self):
         """Swedish definite plural -arna"""
@@ -58,8 +67,8 @@ class TestNormalizeProductName:
 
     def test_swedish_orna_plural(self):
         """Swedish definite plural -orna"""
-        assert normalize_product_name("Tomatenorna") == "tomaten"
-        assert normalize_product_name("Flickorna") == "flick"
+        assert normalize_product_name("Kakorna") == "kaka"
+        assert normalize_product_name("Flickorna") == "flicka"
 
     def test_swedish_n_after_vowel(self):
         """Swedish -n suffix after vowel (äpplet → äpple)"""
@@ -92,6 +101,9 @@ class TestNormalizeProductName:
         assert normalize_product_name("Tomat") == "tomat"
         assert normalize_product_name("Apple") == "apple"
         assert normalize_product_name("Mjölk") == "mjölk"
+        assert normalize_product_name("Smör") == "smör"
+        assert normalize_product_name("Salt") == "salt"
+        assert normalize_product_name("Kaffe") == "kaffe"
 
     def test_short_words_unchanged(self):
         """Very short words should not be normalized"""
@@ -103,6 +115,9 @@ class TestNormalizeProductName:
         """Words that naturally end in 's' should not be stripped"""
         assert normalize_product_name("Glass") == "glass"  # double-s preserved
         assert normalize_product_name("Ris") == "ris"
+        assert (
+            normalize_product_name("Ananas") == "ananas"
+        )  # ends with 's' but is singular
 
     def test_preserves_minimum_length(self):
         """Normalization should preserve at least 3 chars in the stem"""
@@ -187,16 +202,16 @@ class TestProductNamesMatch:
         """Real-world shopping list scenarios"""
         # User adds "Tomater" (plural), recipe adds "Tomat" (singular) → merge
         assert product_names_match("Tomater", "Tomat") is True
-        
+
         # User adds "Mjölk", recipe adds "Mjölk" → merge
         assert product_names_match("Mjölk", "Mjölk") is True
-        
+
         # Different products → don't merge
         assert product_names_match("Äpple", "Päron") is False
-        
+
         # English recipe adds "Eggs", user list has "Egg" → merge
         assert product_names_match("Egg", "Eggs") is True
-        
+
         # Variation in capitalization → merge
         assert product_names_match("Potatis", "POTATIS") is True
 
