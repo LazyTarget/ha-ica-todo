@@ -250,12 +250,20 @@ class TestMergeShoppingListEntries:
         assert result["quantity"] == 1  # unchanged
         assert result["unit"] == "förp"
 
-    def test_base_none_quantity(self):
+    def test_base_none_quantity_adopts_other(self):
         base = {"productName": "Smör", "quantity": None, "unit": None}
         other = {"productName": "Smör", "quantity": 500, "unit": "g"}
         result = merge_shopping_list_entries(base, other)
         assert result["quantity"] == 500
         assert result["unit"] == "g"
+
+    def test_base_none_quantity_other_none_unit(self):
+        """Other has quantity but no unit → defaults to 'st'."""
+        base = {"productName": "Salt", "quantity": None, "unit": None}
+        other = {"productName": "Salt", "quantity": 2, "unit": None}
+        result = merge_shopping_list_entries(base, other)
+        assert result["quantity"] == 2
+        assert result["unit"] == "st"  # defaulted
 
     def test_other_none_quantity(self):
         base = {"productName": "Smör", "quantity": 500, "unit": "g"}
@@ -272,19 +280,30 @@ class TestMergeShoppingListEntries:
         assert result["unit"] is None
 
     def test_no_unit_both_have_quantity(self):
-        """Both entries have quantity but no explicit unit – just sum them."""
+        """Both entries have quantity but no explicit unit – defaults to 'st', so they sum."""
         base = {"productName": "X", "quantity": 2, "unit": None}
         other = {"productName": "X", "quantity": 3, "unit": None}
         result = merge_shopping_list_entries(base, other)
         assert result["quantity"] == 5
+        assert result["unit"] == "st"  # defaulted
 
-    def test_base_has_no_unit_other_has(self):
-        """Base has quantity without unit, other provides a unit – adopt it."""
+    def test_base_has_no_unit_other_has_incompatible(self):
+        """Base has no unit (→ 'st'), other has 'dl' → incompatible, base unchanged."""
         base = {"productName": "X", "quantity": 2, "unit": None}
         other = {"productName": "X", "quantity": 3, "unit": "dl"}
         result = merge_shopping_list_entries(base, other)
+        assert (
+            result["quantity"] == 2
+        )  # unchanged (st vs dl)  -> # TODO: Should create new entry?
+        assert result["unit"] == "st"
+
+    def test_base_has_no_unit_other_also_st(self):
+        """Base has no unit (→ 'st'), other is explicitly 'st' → compatible."""
+        base = {"productName": "X", "quantity": 2, "unit": None}
+        other = {"productName": "X", "quantity": 3, "unit": "st"}
+        result = merge_shopping_list_entries(base, other)
         assert result["quantity"] == 5
-        assert result["unit"] == "dl"
+        assert result["unit"] == "st"
 
     def test_recipe_merge(self):
         base = {

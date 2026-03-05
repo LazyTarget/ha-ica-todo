@@ -114,15 +114,18 @@ def try_parse_int(value: Any) -> tuple[bool, int]:
 # Supported units: L, dl, cl, ml, krm, tsk, msk, kg, g, st, förp
 # ---------------------------------------------------------------------------
 
+# The default unit when none is specified — treated as "pieces" (styck).
+DEFAULT_UNIT = "st"
+
 # Volume – conversion factors to the base unit (ml)
 _VOLUME_TO_ML: dict[str, float] = {
-    "l": 1000.0,
-    "dl": 100.0,
-    "cl": 10.0,
-    "ml": 1.0,
-    "krm": 1.0,   # kryddmått  ≈ 1 ml
-    "tsk": 5.0,    # tesked     (teaspoon) = 5 ml
-    "msk": 15.0,   # matsked    (tablespoon) = 15 ml
+    "l": 1000.0,     # liter
+    "dl": 100.0,     # deciliter
+    "cl": 10.0,      # centiliter
+    "ml": 1.0,       # milliliter
+    "krm": 1.0,      # kryddmått  ≈ 1 ml  (a pinch)
+    "tsk": 5.0,      # tesked            (teaspoon)
+    "msk": 15.0,     # matsked           (tablespoon)
 }
 
 # Weight – conversion factors to the base unit (g)
@@ -131,7 +134,9 @@ _WEIGHT_TO_G: dict[str, float] = {
     "g": 1.0,
 }
 
-# Count units – not inter-convertible ('st' = styck/pieces, 'förp' = förpackning/packs)
+# Count units – each is its own isolated group (not inter-convertible).
+# 'st'   = styck        (pieces)
+# 'förp' = förpackning  (packs)
 _COUNT_UNITS: set[str] = {"st", "förp"}
 
 # Grouped table look-ups
@@ -146,6 +151,11 @@ def _normalize_unit(unit: str | None) -> str | None:
     if unit is None:
         return None
     return unit.strip().lower()
+
+
+def _effective_unit(unit: str | None) -> str:
+    """Return *unit* if defined, otherwise fall back to ``DEFAULT_UNIT``."""
+    return unit if unit is not None else DEFAULT_UNIT
 
 
 def get_unit_group(unit: str | None) -> tuple[str | None, dict[str, float] | None]:
@@ -163,7 +173,6 @@ def get_unit_group(unit: str | None) -> tuple[str | None, dict[str, float] | Non
         if norm in table:
             return (group_name, table)
     if norm in _COUNT_UNITS:
-        # Each count unit is its own isolated group
         return (f"count:{norm}", {norm: 1.0})
     return (None, None)
 
@@ -200,18 +209,27 @@ def convert_quantity(
 
     from_group, from_table = get_unit_group(from_unit)
     to_group, to_table = get_unit_group(to_unit)
-
     if from_group is None or to_group is None or from_group != to_group:
         return None
 
-    # from → base → to
     base_value = quantity * from_table[from_norm]
     return round(base_value / to_table[to_norm], 4)
+
+
+def _add_quantities(
+    qty_a: float, unit_a: str, qty_b: float, unit_b: str
+) -> tuple[float, str] | None:
+    """Add two (quantity, unit) pairs. Returns ``(sum, target_unit)`` or ``None`` if incompatible."""
+    converted = convert_quantity(qty_b, unit_b, unit_a)
+    if converted is None:
+        return None
+    return (round(qty_a + converted, 4), unit_a)
 
 
 # ---------------------------------------------------------------------------
 # Merging IcaShoppingListEntry dicts
 # ---------------------------------------------------------------------------
+
 
 def _merge_recipe_refs(
     base_recipes: list[dict] | None,
@@ -219,9 +237,9 @@ def _merge_recipe_refs(
 ) -> list[dict] | None:
     """Merge two recipe-reference lists.
 
-    * Quantities for matching recipe IDs are summed (with unit conversion).
-    * Non-overlapping recipe references are included as-is.
-    * Returns ``None`` when both inputs are ``None``.
+    * Quantities for the same recipe ID are summed (with unit conversion).
+    * Non-overlapping recipe references are kept as-is.
+    * Returns ``None`` when both inputs are empty/``None``.
     """
     if not base_recipes and not other_recipes:
         return None
@@ -232,100 +250,86 @@ def _merge_recipe_refs(
 
     merged: dict[int, dict] = {}
     for ref in base_recipes:
-        rid = ref.get("id")
-        merged[rid] = dict(ref)
+        merged[ref.get("id")] = dict(ref)
 
     for ref in other_recipes:
         rid = ref.get("id")
-        if rid in merged:
-            existing = merged[rid]
-            other_qty = ref.get("quantity", 0) or 0
-            existing_qty = existing.get("quantity", 0) or 0
-            converted = convert_quantity(
-                other_qty,
-                ref.get("unit", "") or "",
-                existing.get("unit", "") or "",
-            )
-            if converted is not None:
-                existing["quantity"] = round(existing_qty + converted, 4)
-            # else: incompatible units for same recipe – keep existing value
-        else:
+        if rid not in merged:
             merged[rid] = dict(ref)
+            continue
+
+        existing = merged[rid]
+        existing_qty = existing.get("quantity", 0) or 0
+        other_qty = ref.get("quantity", 0) or 0
+        existing_unit = _effective_unit(existing.get("unit"))
+        other_unit = _effective_unit(ref.get("unit"))
+
+        added = _add_quantities(existing_qty, existing_unit, other_qty, other_unit)
+        if added is not None:
+            existing["quantity"] = added[0]
+            existing["unit"] = added[1]
+        # else: incompatible units for same recipe – keep existing as-is
+            # TODO: Add as separate entry instead?
 
     return list(merged.values())
 
 
-def merge_shopping_list_entries(
-    base: dict,
-    other: dict,
-) -> dict:
-    """Merge two ``IcaShoppingListEntry`` dicts together.
+def merge_shopping_list_entries(base: dict, other: dict) -> dict:
+    """Merge two ``IcaShoppingListEntry`` dicts into a new dict.
 
-    *base* is treated as the primary entry; *other* is merged **into** it.
+    *base* is the primary (existing) entry; *other* is merged **into** it.
 
-    Merging rules
-    -------------
-    * ``quantity`` - summed when the ``unit`` values are compatible.
-      If only one entry carries a quantity the non-None value is kept.
-    * ``unit`` - the *base* unit is preserved when both have quantities;
-      if only *other* has a unit it is adopted.
-    * ``recipes`` - recipe reference lists are combined; quantities for
-      the same ``recipeId`` are added (with unit conversion when needed).
-    * Other nullable fields (``productEan``, ``articleGroupId``, etc.) are
-      carried over from *other* when *base* has ``None``.
+    Merging behaviour
+    -----------------
+    **quantity / unit**
+      Quantities are summed when the units are compatible.  A missing unit
+      is treated as ``"st"`` (pieces) so that ``None``-unit entries are never
+      silently mixed with volume or weight entries.
 
-    Parameters
-    ----------
-    base:  The existing / primary shopping-list entry.
-    other: The entry to merge into *base*.
+    **recipes**
+      Recipe reference lists are combined.  Quantities for the same
+      ``recipeId`` are added together (with unit conversion when needed).
 
-    Returns
-    -------
-    A **new** dict with the merged result (neither input is mutated).
+    **other fields**
+      Nullable metadata (``productEan``, ``articleGroupId``, …) is carried
+      over from *other* only when *base* has ``None``.
+
+    Neither input dict is mutated.
     """
     result = dict(base)
 
     base_qty: float | None = base.get("quantity")
     other_qty: float | None = other.get("quantity")
-    base_unit: str | None = base.get("unit")
-    other_unit: str | None = other.get("unit")
 
+    # --- Merge quantity & unit ---
     if base_qty is not None and other_qty is not None:
-        # Both entries carry a quantity – try to add them
-        if base_unit is None and other_unit is None:
-            result["quantity"] = round(base_qty + other_qty, 4)
-        elif base_unit is not None and other_unit is not None:
-            converted = convert_quantity(other_qty, other_unit, base_unit)
-            if converted is not None:
-                result["quantity"] = round(base_qty + converted, 4)
-            # else: incompatible units → keep base quantity unchanged
-        elif base_unit is None and other_unit is not None:
-            # Base has no unit context – adopt other's unit system
-            result["quantity"] = round(base_qty + other_qty, 4)
-            result["unit"] = other_unit
-        # else: other_unit is None → just add raw numbers, keep base_unit
-        else:
-            result["quantity"] = round(base_qty + other_qty, 4)
-    elif base_qty is None and other_qty is not None:
-        result["quantity"] = other_qty
-        if other_unit is not None:
-            result["unit"] = other_unit
-    # else: base_qty wins (may itself be None)
+        base_unit = _effective_unit(base.get("unit"))
+        other_unit = _effective_unit(other.get("unit"))
 
-    # Merge recipe references
+        added = _add_quantities(base_qty, base_unit, other_qty, other_unit)
+        if added is not None:
+            result["quantity"] = added[0]
+            result["unit"] = added[1]
+        else:
+            # Incompatible units – keep base values, but materialise the default
+            result["unit"] = base_unit
+
+    elif base_qty is None and other_qty is not None:
+        # Only *other* has a quantity – adopt it wholesale
+        result["quantity"] = other_qty
+        result["unit"] = _effective_unit(other.get("unit"))
+
+    # else: base already has the best value (or both are None)
+
+    # --- Merge recipe references ---
     merged_recipes = _merge_recipe_refs(
         base.get("recipes"), other.get("recipes")
     )
     if merged_recipes is not None:
         result["recipes"] = merged_recipes
 
-    # Carry over non-None fields from 'other' when 'base' has None
-    for field in (
-        "productEan",
-        "articleGroupId",
-        "articleGroupIdExtended",
-        "offerId",
-    ):
+    # --- Carry over nullable metadata from *other* where *base* is None ---
+    for field in ("productEan", "articleGroupId", "articleGroupIdExtended", "offerId"):
         if result.get(field) is None and other.get(field) is not None:
             result[field] = other[field]
 
