@@ -422,7 +422,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
             changedShoppingListProperties={},
         )
         sync["changedShoppingListProperties"]["latestChange"] = (
-            f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z",
+            f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z"
         )
 
         for row_input in rows:
