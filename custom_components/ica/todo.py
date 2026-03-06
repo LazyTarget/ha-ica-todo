@@ -151,6 +151,77 @@ def async_register_services(
         supports_response=SupportsResponse.OPTIONAL,
     )
 
+    async def handle_upsert_shopping_list(
+        entity: IcaShoppingListEntity, call: ServiceCall
+    ) -> ServiceCallResponse[IcaShoppingList]:
+        """Call will upsert an existing Offer to a ICA shopping list"""
+        sync = IcaShoppingListSync()
+        rows = call.data["rows"]
+        conflict_mode = call.data.get("conflict_mode", ConflictMode.APPEND)
+        # created_rows = []
+        # for offer_id in rows:
+        #     if not offer_id or ("," in offer_id):
+        #         _LOGGER.warning("Invalid `offer_id` passed: %s", offer_id)
+        #         continue
+        #     offer = coordinator.get_offer_info(offer_id)
+        #     if not offer:
+        #         _LOGGER.warning("Offer not found: %s", offer_id)
+        #         continue
+        #     cat = offer.get("category", {})
+        #     ean = (
+        #         offer.get("eans")[0].get(
+        #             "id"
+        #         )  # todo: How to handle if multiple?. Best would be to add the Ean that was triggered...
+        #         if len(offer.get("eans", [])) == 1
+        #         else None
+        #     )
+        #     created_rows.append(
+        #         IcaShoppingListEntry(
+        #             internalOrder=999,
+        #             productName=offer["name"],
+        #             isStrikedOver=False,
+        #             sourceId=-1,
+        #             articleGroupId=cat.get("articleGroupId", DEFAULT_ARTICLE_GROUP_ID),
+        #             articleGroupIdExtended=cat.get(
+        #                 "expandedArticleGroupId", DEFAULT_ARTICLE_GROUP_ID
+        #             ),
+        #             offerId=offer_id,
+        #             latestChange=(
+        #                 datetime.datetime.now(datetime.timezone.utc)
+        #                 .replace(microsecond=0)
+        #                 .isoformat()
+        #                 + "Z"
+        #             ),
+        #             productEan=ean,
+        #             offlineId=str(uuid.uuid4()),
+        #         )
+        #     )
+
+        if not rows:
+            return ServiceCallResponse[IcaShoppingList](success=False, data=None)
+
+        sync = await entity.async_generate_sync_request(
+            rows, conflict_mode=conflict_mode
+        )
+        updated_list = await coordinator.sync_shopping_list(
+            sync, conflict_mode=conflict_mode
+        )
+        return ServiceCallResponse[IcaShoppingList](success=True, data=updated_list)
+
+    service.async_register_entity_service(
+        hass,
+        DOMAIN,
+        name=IcaServices.UPSERT_SHOPPING_LIST,
+        schema={
+            vol.Required("rows"): vol.All(cv.ensure_list, [str]),
+            vol.Optional("conflict_mode"): vol.In(CONFLICT_MODES),
+        },
+        job_type=None,
+        entities=shopping_list_entities,
+        func=handle_upsert_shopping_list,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+
     # # Non-entity based Services
     # if not hass.services.has_service(DOMAIN, IcaServices.GET_RECIPE):
     #     async def handle_get_recipe(call: ServiceCall) -> None:
@@ -213,6 +284,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         """Handle updated data from the coordinator."""
         items = []
         if shopping_list := self.coordinator.get_shopping_list(self._project_id):
+            _LOGGER.info("TODO list: %s", shopping_list)
             for task in shopping_list["rows"]:
                 if task.get("offerId", None):
                     if offer := self.coordinator.get_offer_info(task["offerId"]):
@@ -335,6 +407,117 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
         return await self.coordinator.sync_shopping_list(
             sync, conflict_mode=conflict_mode
         )
+
+    async def async_generate_sync_request(
+        self, rows: list[str], conflict_mode: ConflictMode
+    ) -> IcaShoppingListSync:
+        """Generates a sync request for updates to a shopping list."""
+        persisted_list = self.coordinator.get_shopping_list(self._project_id)
+        if not persisted_list:
+            raise ValueError("Could not find shopping_list")
+
+        persisted_rows = persisted_list.get("rows") or []
+        sync = IcaShoppingListSync(
+            offlineId=self._project_id,
+            changedShoppingListProperties={},
+        )
+        sync["changedShoppingListProperties"]["latestChange"] = (
+            f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z"
+        )
+
+        for row_input in rows:
+            row: IcaShoppingListEntry = {}
+            try:
+                row = json.loads(row_input, strict=False)
+                _LOGGER.warning("Parsing row as json: %s", row)
+            except ValueError as e:
+                _LOGGER.error("Error parsing row as json: %s. Error: %s", row_input, e)
+                # Not JSON
+                ti = self.coordinator.parse_summary(row_input)
+                row.update(ti)
+                _LOGGER.warning("Parsing row as str: %s", row)
+                if "summary" in row:
+                    del row["summary"]
+
+            persisted_row: IcaShoppingListEntry | None = None
+            if conflict_mode == ConflictMode.APPEND:
+                persisted_row = None
+                row["offlineId"] = str(
+                    uuid.uuid4()
+                )  # in APPEND-mode, we overwrite any previous 'offlineId'
+            else:
+                # In other modes, we try to find a matching existing rows if applicable
+                # Matching is done based on 'offlineId', if present, otherwise 'productName'
+
+                # Fetch by 'offlineId' if available
+                if offline_id := row.get("offlineId"):
+                    persisted_row = next(
+                        (r for r in persisted_rows if r.get("offlineId") == offline_id),
+                        None,
+                    )
+                    if persisted_row:
+                        _LOGGER.info("Merging based on offlineId match: %s", offline_id)
+
+                if not persisted_row and (product_name := row.get("productName")):
+                    # If no match by 'offlineId', try matching by 'productName'
+                    persisted_row = next(
+                        (
+                            r
+                            for r in persisted_rows
+                            if r.get("productName") == product_name
+                        ),
+                        None,
+                    )
+                    if persisted_row:
+                        _LOGGER.info(
+                            "Merging based on productName match: %s", product_name
+                        )
+
+                if persisted_row and conflict_mode == ConflictMode.MERGE:
+                    # TODO: Handle merging
+
+                    # TODO: Implement the merging of specific fields ['quantity', 'unit', 'recipes', 'recipe_id']
+                    # TODO: Update 'row' with any non-conflicting changes from 'persisted_row' to avoid overwriting them in the sync
+                    # TODO: Handle unit conversions...
+                    # row["quantity"] = row.get("quantity") + persisted_row.get(
+                    #     "quantity", 0
+                    # )
+                    pass
+
+            row_create = persisted_row is None
+            if row_create:
+                # Ensure that a 'offlineId' is defined. Easier traceability if it is created here and not in the ICA backend.
+                if not row.get("offlineId"):
+                    row["offlineId"] = str(uuid.uuid4())
+
+                # New row
+                sync["createdRows"] = sync.get("createdRows") or []
+                sync["createdRows"].append(row)
+            else:
+                if conflict_mode == ConflictMode.IGNORE:
+                    _LOGGER.info(
+                        "Ignored update due to conflict mode 'ignore'. New: %s. Persisted: %s",
+                        row,
+                        persisted_row,
+                    )
+                    continue
+
+                if not row.get("offlineId"):
+                    row["offlineId"] = str(uuid.uuid4())
+                    _LOGGER.warning(
+                        "No offlineId found for row in MERGE-mode! This might have unexpected behaviour. Row: %s",
+                        row,
+                    )
+
+                # Update row
+                sync["changedRows"] = sync.get("changedRows") or []
+                sync["changedRows"].append(row)
+            row["latestChange"] = (
+                f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z"
+            )
+
+        _LOGGER.info("Built sync: %s", sync)
+        return sync
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
         """Update a To-do item."""

@@ -433,13 +433,17 @@ class IcaShoppingListEntry(TypedDict):
     id: int | None  # "RowId"
     offlineId: str | None
     productName: str
-    quantity: float | None
-    unit: str | None
+    quantity: (
+        float | None
+    )  # the quantity of the item. Can be None if no quantity specified.
+    unit: (
+        str | None
+    )  # the quantity unit, e.g. "kg", "st", "liter" or similar. Not standardized, just what ICA sends and shows in the app. Can be None if no quantity/unit specified.
     recipes: list[IcaShoppingListEntryRecipeRef] | None
     recipeId: str | None
     offerId: str | None
     productEan: str | None
-    isStrikedOver: bool
+    isStrikedOver: bool  # Whether the item is marked as "bought"
     internalOrder: int | None
     articleGroupId: int | None
     articleGroupIdExtended: int | None
