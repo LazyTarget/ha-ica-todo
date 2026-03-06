@@ -434,7 +434,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                 _LOGGER.error("Error parsing row as json: %s. Error: %s", row_input, e)
                 # Not JSON
                 ti = self.coordinator.parse_summary(row_input)
-                if q := ti.get("quantity") and isinstance(ti["quantity"], str):
+                if (q := ti.get("quantity")) and isinstance(q, str):
                     ti["quantity"] = float(q)
                 if not ti.get("unit"):
                     # Do like ICA, and assume "st" as default unit?
