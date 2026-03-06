@@ -39,7 +39,7 @@ from .icatypes import (
     IcaShoppingListSync,
     ServiceCallResponse,
 )
-from .utils import index_of
+from .utils import index_of, merge_shopping_list_entries
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -434,6 +434,12 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                 _LOGGER.error("Error parsing row as json: %s. Error: %s", row_input, e)
                 # Not JSON
                 ti = self.coordinator.parse_summary(row_input)
+                if q := ti.get("quantity") and isinstance(ti["quantity"], str):
+                    ti["quantity"] = float(q)
+                if not ti.get("unit"):
+                    # Do like ICA, and assume "st" as default unit?
+                    # TODO: Verify this is what we want..
+                    ti["unit"] = "st"
                 row.update(ti)
                 _LOGGER.warning("Parsing row as str: %s", row)
                 if "summary" in row:
@@ -452,7 +458,12 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                 # Fetch by 'offlineId' if available
                 if offline_id := row.get("offlineId"):
                     persisted_row = next(
-                        (r for r in persisted_rows if r.get("offlineId") == offline_id),
+                        (
+                            r
+                            for r in persisted_rows
+                            if r.get("offlineId", "").casefold()
+                            == offline_id.casefold()
+                        ),
                         None,
                     )
                     if persisted_row:
@@ -464,7 +475,10 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                         (
                             r
                             for r in persisted_rows
-                            if r.get("productName") == product_name
+                            if r.get("productName", "").casefold()
+                            == product_name.casefold()
+                            # TODO: Handle pluralized product names (e.g. "Tomato" vs "Tomatoes"), or rather in Swedish: "Tomat" vs "Tomater".
+                            # Could be done by stripping trailing 's' when comparing, but might cause false positives
                         ),
                         None,
                     )
@@ -474,15 +488,10 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                         )
 
                 if persisted_row and conflict_mode == ConflictMode.MERGE:
-                    # TODO: Handle merging
-
-                    # TODO: Implement the merging of specific fields ['quantity', 'unit', 'recipes', 'recipe_id']
-                    # TODO: Update 'row' with any non-conflicting changes from 'persisted_row' to avoid overwriting them in the sync
-                    # TODO: Handle unit conversions...
-                    # row["quantity"] = row.get("quantity") + persisted_row.get(
-                    #     "quantity", 0
-                    # )
-                    pass
+                    row = merge_shopping_list_entries(base=persisted_row, other=row)
+                    row["offlineId"] = persisted_row[
+                        "offlineId"
+                    ]  # Assign 'offlineId' on the row that is to be updated
 
             row_create = persisted_row is None
             if row_create:
