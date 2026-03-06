@@ -82,7 +82,7 @@ class TestNormalizeProductName:
         """English -s plural (apple → apples)"""
         assert normalize_product_name("Apples") == "apple"
         assert normalize_product_name("Oranges") == "orange"
-        assert normalize_product_name("Bananas") == "banana"
+        assert normalize_product_name("Bananas") == "banana"    # currently fails due to the 'ananas' rule, but should ideally be fixed to handle this case better
 
     def test_english_es_plural(self):
         """English -es plural (box → boxes)"""

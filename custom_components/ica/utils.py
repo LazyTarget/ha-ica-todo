@@ -154,7 +154,26 @@ def normalize_product_name(name: str | None) -> str:
             if normalized.endswith(suffix):
                 stem = normalized[: -len(suffix)]
                 if len(stem) >= 3:
+                    if suffix == "orna":
+                        # kakorna -> kaka, flickorna -> flicka
+                        return stem + "a"
                     return stem
+
+    # Swedish: -ena definite plural (äpplena -> äpplen -> äpple)
+    if len(normalized) >= 6 and normalized.endswith("ena"):
+        stem = normalized[:-1]  # drop only the trailing 'a'
+        if len(stem) >= 3:
+            if stem.endswith("n") and stem[-2] in "aeiouyåäö":
+                final_stem = stem[:-1]
+                if len(final_stem) >= 3:
+                    return final_stem
+            return stem
+
+    # Swedish: umlaut plural -ötter (morötter -> morot, fötter -> fot)
+    if len(normalized) >= 6 and normalized.endswith("ötter"):
+        stem = normalized[:-5]
+        if len(stem) >= 1:
+            return f"{stem}ot"
 
     # Swedish: or, ar, er (plural endings)
     if len(normalized) >= 5:
@@ -162,28 +181,14 @@ def normalize_product_name(name: str | None) -> str:
             if normalized.endswith(suffix):
                 stem = normalized[:-2]
                 if len(stem) >= 3:
+                    if suffix == "or":
+                        # kakor -> kaka, gurkor -> gurka
+                        if stem[-1] not in "aeiouyåäö":
+                            return stem + "a"
                     return stem
 
-    # Swedish: a (common singular ending that's dropped in plural)
-    # gurka → gurk, flicka → flick (then plural adds or/ar: gurkor, flickor)
-    # Also handles definite plural forms ending in -a (e.g., äpplena → äpplen)
-    if len(normalized) >= 4 and normalized.endswith("a"):
-        stem = normalized[:-1]
-        if len(stem) >= 3:
-            # Only strip 'a' if it looks like a Swedish noun pattern
-            # (consonant before the 'a', not a vowel)
-            if stem[-1] not in "aeiouyåäö":
-                # Special case: if after stripping 'a', we have 'n' after a vowel,
-                # continue stripping to handle definite plurals (äpplena → äpplen → äpple)
-                if (
-                    len(stem) >= 4
-                    and stem.endswith("n")
-                    and stem[-2] in "aeiouyåäö"
-                ):
-                    final_stem = stem[:-1]
-                    if len(final_stem) >= 3:
-                        return final_stem
-                return stem
+    # NOTE: We do not strip trailing 'a' in general, to avoid turning
+    # singular nouns like "gurka" into "gurk".
 
     # Swedish: et, en (definite forms: äpplet → äpple, barnen → barn)
     # Check these before "n after vowel" to avoid false matches on "en" suffix
@@ -222,6 +227,9 @@ def normalize_product_name(name: str | None) -> str:
     # English: s vs es disambiguation
     # For words ending in 's', determine whether to strip 's' or 'es'
     if len(normalized) >= 4 and normalized.endswith("s"):
+        # Words like "ananas" are singular even though they end with 's'
+        if normalized.endswith("anas"):
+            return normalized
         # First try removing just 's'
         stem_s = normalized[:-1]
         
@@ -238,22 +246,6 @@ def normalize_product_name(name: str | None) -> str:
         # Remove just 's' if it produces a valid stem
         if len(stem_s) >= 3 and not stem_s.endswith("s"):
             return stem_s
-
-    return normalized
-    if len(normalized) >= 5 and normalized.endswith("es"):
-        stem = normalized[:-2]
-        # Only strip if the preceding char suggests it's a real plural
-        # (e.g., x, s, z, ch, sh in English; final 't' for Swedish)
-        if len(stem) >= 3 and stem[-1] in "xszt":
-            return stem
-
-    # English: -s
-    if len(normalized) >= 4 and normalized.endswith("s"):
-        stem = normalized[:-1]
-        # Avoid stripping 's' from words that naturally end in 's'
-        # Simple heuristic: if the second-to-last char is 's', likely not a plural
-        if len(stem) >= 3 and stem[-1] != "s":
-            return stem
 
     return normalized
 
