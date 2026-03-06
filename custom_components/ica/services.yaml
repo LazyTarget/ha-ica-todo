@@ -67,13 +67,13 @@ upsert_shopping_list:
             - todo.ica_favorite_articles
           multiple: false
     rows:
-       name: "Rows"
-       description: "The rows to add/update in the shopping list (either the raw text or JSON object)"
-       example: 'Lasagneplattor\n\r{"productName": "Banan", "productEan": "4011800420710", "offer_id": "2000681790", "quantity": 2, "unit": "st", "recipies": [{"id": "722982", "quantity": 1, "unit": "st"}]}'
-       required: true
-       selector:
-         text:
-           multiple: true
+      name: "Rows"
+      description: "The rows to add/update in the shopping list (either the raw text or JSON object)"
+      example: 'Lasagneplattor\n\r{"productName": "Banan", "productEan": "4011800420710", "offer_id": "2000681790", "quantity": 2, "unit": "st", "recipies": [{"id": "722982", "quantity": 1, "unit": "st"}]}'
+      required: true
+      selector:
+        text:
+          multiple: true
     conflict_mode:
       name: "Conflict mode"
       description: "What do to if the item already exists"
