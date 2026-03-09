@@ -521,9 +521,10 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                 # Update row
                 sync["changedRows"] = sync.get("changedRows") or []
                 sync["changedRows"].append(row)
-            row["latestChange"] = (
-                f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z"
-            )
+
+        if not sync.get("createdRows") and not sync.get("changedRows") and not sync.get("deletedRows"):
+            _LOGGER.info("No changes detected, skipping sync.")
+            return
 
         _LOGGER.info("Built sync: %s", sync)
         return sync
