@@ -417,6 +417,9 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
             raise ValueError("Could not find shopping_list")
 
         persisted_rows = persisted_list.get("rows") or []
+        persisted_rows = sorted(
+            persisted_rows, key=lambda r: r.get("latestChange", ""), reverse=True
+        )  # Sort by 'latestChange' to find the most recent match in case of multiple matches
         sync = IcaShoppingListSync(
             offlineId=self._project_id,
             changedShoppingListProperties={},
