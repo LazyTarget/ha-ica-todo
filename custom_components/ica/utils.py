@@ -113,6 +113,7 @@ def try_parse_int(value: Any) -> tuple[bool, int]:
 # Product name normalization for plural matching
 # ---------------------------------------------------------------------------
 
+
 def normalize_product_name(name: str | None) -> str:
     """Normalize a product name for fuzzy matching, handling Swedish and English plurals.
 
@@ -232,7 +233,7 @@ def normalize_product_name(name: str | None) -> str:
             return normalized
         # First try removing just 's'
         stem_s = normalized[:-1]
-        
+
         # If ends in 'es', might need to remove 'es' instead of just 's'
         if len(normalized) >= 5 and normalized.endswith("es"):
             stem_es = normalized[:-2]
@@ -242,7 +243,7 @@ def normalize_product_name(name: str | None) -> str:
                 if stem_es[-1] in "xzso":
                     return stem_es
                 # For other 'es' endings, prefer removing just 's' (apples → apple)
-        
+
         # Remove just 's' if it produces a valid stem
         if len(stem_s) >= 3 and not stem_s.endswith("s"):
             return stem_s
@@ -341,9 +342,7 @@ def are_units_compatible(unit_a: str | None, unit_b: str | None) -> bool:
     return group_a is not None and group_a == group_b
 
 
-def convert_quantity(
-    quantity: float, from_unit: str, to_unit: str
-) -> float | None:
+def convert_quantity(quantity: float, from_unit: str, to_unit: str) -> float | None:
     """Convert *quantity* from *from_unit* to *to_unit*.
 
     Returns ``None`` when the units are incompatible.
@@ -418,7 +417,7 @@ def _merge_recipe_refs(
             existing["quantity"] = added[0]
             existing["unit"] = added[1]
         # else: incompatible units for same recipe – keep existing as-is
-            # TODO: Add as separate entry instead?
+        # TODO: Add as separate entry instead?
 
     return list(merged.values())
 
@@ -450,6 +449,11 @@ def merge_shopping_list_entries(base: dict, other: dict) -> dict:
     base_qty: float | None = base.get("quantity")
     other_qty: float | None = other.get("quantity")
 
+    if base_qty is None:
+        base_qty = 1  # Default to 1 when quantity is missing, to allow summing with other quantities. This assumes that a missing quantity implies "1 piece".
+    if other_qty is None:
+        other_qty = 1  # Same defaulting for the other entry.
+
     # --- Merge quantity & unit ---
     if base_qty is not None and other_qty is not None:
         base_unit = _effective_unit(base.get("unit"))
@@ -462,7 +466,6 @@ def merge_shopping_list_entries(base: dict, other: dict) -> dict:
         else:
             # Incompatible units – keep base values, but materialise the default
             result["unit"] = base_unit
-
     elif base_qty is None and other_qty is not None:
         # Only *other* has a quantity – adopt it wholesale
         result["quantity"] = other_qty
@@ -471,9 +474,7 @@ def merge_shopping_list_entries(base: dict, other: dict) -> dict:
     # else: base already has the best value (or both are None)
 
     # --- Merge recipe references ---
-    merged_recipes = _merge_recipe_refs(
-        base.get("recipes"), other.get("recipes")
-    )
+    merged_recipes = _merge_recipe_refs(base.get("recipes"), other.get("recipes"))
     if merged_recipes is not None:
         result["recipes"] = merged_recipes
 
