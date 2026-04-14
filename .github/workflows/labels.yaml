@@ -9,4 +9,4 @@ on:
 
 jobs:
   workflows:
-    uses: lazytarget-homeassistant-apps/workflows/.github/workflows/labels.yaml@a49df5784a10fbff95c14918244b619a47a7b6da
+    uses: lazytarget-homeassistant-apps/workflows/.github/workflows/labels.yaml@65bd42230a18643538648b58fbdcbf386a870bb4
