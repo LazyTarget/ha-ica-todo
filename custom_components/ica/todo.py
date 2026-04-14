@@ -417,6 +417,9 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
             raise ValueError("Could not find shopping_list")
 
         persisted_rows = persisted_list.get("rows") or []
+        persisted_rows = sorted(
+            persisted_rows, key=lambda r: r.get("latestChange", ""), reverse=True
+        )  # Sort by 'latestChange' to find the most recent match in case of multiple matches
         sync = IcaShoppingListSync(
             offlineId=self._project_id,
             changedShoppingListProperties={},
@@ -431,7 +434,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                 row = json.loads(row_input, strict=False)
                 _LOGGER.warning("Parsing row as json: %s", row)
             except ValueError as e:
-                _LOGGER.error("Error parsing row as json: %s. Error: %s", row_input, e)
+                _LOGGER.debug("Error parsing row as json: %s. Error: %s. Proceeding with parsing as string.", row_input, e)
                 # Not JSON
                 ti = self.coordinator.parse_summary(row_input)
                 if (q := ti.get("quantity")) and isinstance(q, str):
@@ -476,15 +479,13 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                         (
                             r
                             for r in persisted_rows
-                            if product_names_match(
-                                r.get("productName"), product_name
-                            )
+                            if product_names_match(r.get("productName"), product_name)
                         ),
                         None,
                     )
                     if persisted_row:
                         _LOGGER.info(
-                            "Merging based on productName match: %s", product_name
+                            "Merging based on productName match: %s", persisted_row
                         )
 
                 if persisted_row and conflict_mode == ConflictMode.MERGE:
@@ -500,6 +501,7 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                     row["offlineId"] = str(uuid.uuid4())
 
                 # New row
+                row["latestChange"] = f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z"
                 sync["createdRows"] = sync.get("createdRows") or []
                 sync["createdRows"].append(row)
             else:
@@ -511,6 +513,8 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                     )
                     continue
 
+                # TODO: Check for if diffs, otherwise omit row change...
+
                 if not row.get("offlineId"):
                     row["offlineId"] = str(uuid.uuid4())
                     _LOGGER.warning(
@@ -519,11 +523,17 @@ class IcaShoppingListEntity(CoordinatorEntity[IcaCoordinator], TodoListEntity):
                     )
 
                 # Update row
+                row["latestChange"] = f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z"
                 sync["changedRows"] = sync.get("changedRows") or []
                 sync["changedRows"].append(row)
-            row["latestChange"] = (
-                f"{datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()}Z"
-            )
+
+        if (
+            not sync.get("createdRows")
+            and not sync.get("changedRows")
+            and not sync.get("deletedRows")
+        ):
+            _LOGGER.info("No changes detected, skipping sync.")
+            return
 
         _LOGGER.info("Built sync: %s", sync)
         return sync
