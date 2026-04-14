@@ -1,58 +1,114 @@
 ---
 name-template: 'v$RESOLVED_VERSION'
 tag-template: 'v$RESOLVED_VERSION'
-change-template: '- #$NUMBER $TITLE'
+change-template: "- $TITLE @$AUTHOR ([#$NUMBER]($URL))"
 sort-direction: ascending
 exclude-contributors:
   - 'github-actions[bot]'
   - 'github-actions'
-  - 'renovate[bot]'
-  - 'renovate'
   - 'pre-commit-ci'
   - 'pre-commit-ci[bot]'
   - 'crowdin-bot'
 exclude-labels:
   - 'skip-changelog'
-  - 'dependencies'
+
+categories:
+  - title: "🚨 Breaking changes"
+    labels:
+      - "breaking-change"
+  - title: "✨ New features"
+    labels:
+      - "new-feature"
+  - title: "🐛 Bug fixes"
+    labels:
+      - "bug"
+      - "bugfix"
+  - title: "🚀 Enhancements"
+    labels:
+      - "enhancement"
+      - "refactor"
+      - "performance"
+  - title: "🧰 Maintenance"
+    labels:
+      - "maintenance"
+      - "ci"
+      - "ci/cd"
+  - title: "📚 Documentation"
+    labels:
+      - "documentation"
+  - title: "🌎 Translations"
+    labels:
+      - "translations"
+  - title: "⬆️ Dependency updates"
+    labels:
+      - "dependencies"
+
 version-resolver:
   major:
     labels:
       - 'major'
+      - "breaking-change"
   minor:
     labels:
       - 'minor'
+      - "new-feature"
   patch:
     labels:
+      - "bug"
+      - "bugfix"
+      - "chore"
+      - "ci"
+      - "dependencies"
+      - "documentation"
+      - "enhancement"
+      - "performance"
+      - "refactor"
       - 'patch'
   default: patch
+
 autolabeler:
-  - label: 'ci/cd'
+  - label: 'ci'
     files:
       - '/.github/**/*'
+    title:
+      - '/^ci:/i'
   - label: 'blueprint'
     files:
       - '/custom_components/*/blueprints/**/*'
   - label: 'documentation'
     files:
       - '*.md'
+      - '/custom_components/**/*.md'
       - '/docs/*'
+      - '/tests/*.md'
     branch:
-      - '/docs{0,1}\/.+/'
-  - label: 'bug'
+      - '/^(docs?)\/.+/'
+    title:
+      - '/^(docs?):/i'
+  - label: 'bugfix'
     branch:
       - '/fix\/.+/'
+      - '/bug\/.+/'
+      - '/bugfix\/.+/'
     title:
       - '/fix/i'
+      - '/^fix:/i'
+      - '/^bug:/i'
+      - '/^bugfix:/i'
   - label: 'enhancement'
     branch:
       - '/feature\/.+/'
+      - '/feat\/.+/'
+    title:
+      - '/^feat:/i'
     body:
       - '/JIRA-[0-9]{1,4}/'
-commitish: refs/heads/main
+  - label: 'refactor'
+    branch:
+      - '/^refactor\/.+/'
+    title:
+      - '/^refactor:/i'
 template: |
-  ## 🚀 Changes
+  ## What's changed?
 
   $CHANGES
-
-  ## ❤️ Contributors
-  $CONTRIBUTORS
