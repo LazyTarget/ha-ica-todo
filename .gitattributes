@@ -1,0 +1,20 @@
+# Normalize text files in the repository to LF.
+# This avoids cross-platform churn when editing on Windows and macOS.
+* text=auto eol=lf
+
+# Keep common source and config files explicitly on LF.
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.txt text eol=lf
+
+# Treat common binary assets as binary so Git never rewrites them.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
