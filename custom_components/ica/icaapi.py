@@ -99,6 +99,10 @@ class IcaAPI:
             raise
         return result
 
+    def search_articles(self, query: str) -> list:
+        url = get_rest_url(API.URLs.ARTICLE_SEARCH_ENDPOINT)
+        return get(self._session, url, self._auth_key, params={"query": query})
+
     def get_articles(self) -> list[IcaArticle]:
         url = get_rest_url(API.URLs.ARTICLES_ENDPOINT)
         data = get(self._session, url, self._auth_key)

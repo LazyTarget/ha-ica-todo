@@ -53,6 +53,9 @@ class IcaAPIAsync:
     async def lookup_barcode(self, identifier) -> ProductLookup | None:
         return await run_async(lambda: self._api.lookup_barcode(identifier))
 
+    async def search_articles(self, query: str) -> list:
+        return await run_async(lambda: self._api.search_articles(query))
+
     async def get_articles(self) -> list[IcaArticle]:
         return await run_async(lambda: self._api.get_articles())
 
